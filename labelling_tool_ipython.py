@@ -1,3 +1,9 @@
+#
+# Written by Geoffrey French, 08/2014 to 04/2015.
+#
+# (C) copyright University of East Anglia, Norwich, 2014-2015.
+#
+
 import base64
 
 from IPython.html import widgets

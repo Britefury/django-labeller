@@ -1,5 +1,7 @@
 /**
- * Created by gfrench on 14/08/2014.
+ * Written by Geoffrey French, 08/2014 to 04/2015.
+ *
+ * (C) copyright University of East Anglia, Norwich, 2014-2015.
  */
 
 function LabellingTool() {

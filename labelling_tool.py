@@ -4,11 +4,11 @@ import numpy as np
 
 import random
 
-from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw
 
 from skimage import img_as_float
 from skimage import transform
+from skimage.io import imread, imsave
 
 
 
@@ -306,7 +306,7 @@ class InMemoryLabelledImage (AbsractLabelledImage):
 
     def data_and_mime_type_and_size(self):
         buf = io.BytesIO()
-        plt.imsave(buf, self.__pixels, format='png')
+        imsave(buf, self.__pixels, format='png')
         return buf.getvalue(), 'image/png', int(self.__pixels.shape[1]), int(self.__pixels.shape[0])
 
 
@@ -336,7 +336,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
     @property
     def pixels(self):
         if self.__pixels is None:
-            self.__pixels = img_as_float(plt.imread(self.__image_path))
+            self.__pixels = img_as_float(imread(self.__image_path))
         return self.__pixels
 
     def data_and_mime_type_and_size(self):

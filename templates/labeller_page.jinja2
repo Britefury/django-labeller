@@ -1,0 +1,160 @@
+<html>
+    <head>
+        <title>UEA Computer Vision - Labelling Tool</title>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+
+        <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+
+        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script src="/static/json2.js"></script>
+        <script src="/static/labelling_tool.js"></script>
+    </head>
+
+    <body>
+
+    <h1>UEA Computer Vision - Labelling Tool example Flask App</h1>
+
+    <div id="labelling_tool"></div>
+
+
+    <h3>Instructions for use</h3>
+
+    <p>To navigate between images:</p>
+        <ul>
+            <li>Using the left and right arrows to navigate the images one by one</li>
+            <li>Enter a number in the box at the top to navigate to a specific image</li>
+        </ul>
+
+    <p>To label regions of the image:</p>
+        <ul>
+            <li><strong>Drawing regions onto the image:</strong>
+                <ul>
+                    <li>Click the <em>Draw poly</em> button</li>
+                    <li>Within the image pane, left-click to draw polygonal corners of your region</li>
+                    <li>When you have finished the region, right-click to stop</li>
+                    <li>You are still in <em>draw poly</em> mode, so you can start left-clicking again to draw the next region</li>
+                    <li>To exit <em>draw poly</em> mode, right-click a second time.</li>
+                    <li>If you make a mistake, delete the region and re-draw it; see below</li>
+                </ul>
+            </li>
+
+            <li><strong>Selecting regions:</strong>
+                <ul>
+                    <li>Selected regions have a red outline, yellow otherwise</li>
+                    <li>If only <em>one</em> region is selected, clicking the <em>Draw poly</em> button will allow you to modify it; you will go back to <em>draw poly</em> mode</li>
+                    <li>To select a different region, click the <em>Select</em> button and choose a different region by clicking on it. Multiple regions can be selected by holding <em>SHIFT</em> while clicking.</li>
+                </ul>
+            </li>
+
+            <li><strong>Deleting regions:</strong>
+                <ul>
+                    <li>Select regions using the select tool (see above)</li>
+                    <li>Click the wastebin button to delete them; you will be asked for confirmation</li>
+                </ul>
+            </li>
+
+            <li><strong>Changing the label of a region:</strong>
+                <ul>
+                    <li>Select regions using the select tool (see above)</li>
+                    <li>Use the drop-down (normally reads <em>UNCLASSIFIED</em>) within the <em>Labels</em> section to change the label</li>
+                    <li><strong>Please note:</strong> for regions for which you <em>cannot</em> identify the content, use the <em>Excluded</em> label, this indicates to the system that it should not consider these parts of the image</li>
+                </ul>
+            </li>
+
+            <li><strong>If the coloured regions are obscuring parts of the image that you need to see:</strong>
+                <ul>
+                    <li>Within the <em>Labels</em> section, click the <em>Hide labels</em> checkbox to hide the labels</li>
+                    <li>Uncheck it to show them afterwards</li>
+                </ul>
+            </li>
+
+            <li><strong>When you are done:</strong>
+                <ul>
+                    <li>When you are satisfied that you have marked out all of the regions of interest and that they are correctly labelled, click the <em>Finished</em> checkbox within the <em>Current image</em> section.
+                        This will mark the image as finished within the system.</li>
+                </ul>
+            </li>
+        </ul>
+
+
+    <script>
+        // get image descriptor callback function
+        var get_image_descriptor = function(image_id) {
+            $.ajax({
+                type: 'GET',
+                url: '/labelling/get_image_descriptor/' + image_id,
+                success: function(msg) {
+                    var in_image = msg;
+                    // Build an image descriptor and pass to the labelling tool
+                    var image = {
+                        width: in_image.width,
+                        height: in_image.height,
+                        href: in_image.href,
+                        label_header: in_image.label_header
+                    };
+                    tool.setImage(image);
+                },
+                dataType: 'json'
+            });
+        };
+
+        // set labels callback function
+        var set_labels = function(label_header) {
+            var labels_json_str = JSON.stringify(label_header);
+
+            // Create the POST data
+            var post_data = {
+                labels: labels_json_str
+            };
+
+            $.ajax({
+                type: 'POST',
+                url: '/labelling/set_labels',
+                data: post_data,
+                success: function(msg) {
+                },
+                dataType: 'json'
+            });
+        };
+
+        // Create the labelling tool
+        var tool = LabellingTool();
+        // Initialise: place it in the #labelling_tool div
+        // Give it: label classes, dimensions, image IDs, initial image ID and the callbacks above
+        tool.initialise($("#labelling_tool")[0],
+                {{ label_classes }},
+                1280,
+                720,
+                {{ image_ids }},
+                {{ initial_image_id }},
+                get_image_descriptor,
+                set_labels);
+
+
+
+
+        // CSRF Token setup for Django; uncomment if you use Django
+        /*
+        var csrf = $.cookie('csrftoken');
+        if (csrf != null) {
+            // Adapted from Django DOCS
+            var csrfSafeMethod = function(method) {
+                // these HTTP methods do not require CSRF protection
+                return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+            };
+
+            $.ajaxSetup({
+                crossDomain: false,
+                beforeSend: function(xhr, settings) {
+                    if (!csrfSafeMethod(settings.type)) {
+                        xhr.setRequestHeader('X-CSRFToken', csrf);
+                    }
+                }
+            });
+        }*/
+    </script>
+
+    </body>
+</html>

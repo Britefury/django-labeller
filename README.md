@@ -2,10 +2,10 @@
 
 #### A light-weight image labelling tool for Python designed for creating segmentation datasets.
 
-
-
 Operates as a browser-based application, either embedded as a widget within [IPython Notebook](http://ipython.org)
 or embedded within a web page as part of a web application.
+
+Currently supports simple polygonal labels.
 
 
 ### IPython Notebook widget example

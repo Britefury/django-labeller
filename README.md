@@ -24,7 +24,8 @@ run `python flask_app.py` and open `127.0.0.1:5000` within a browser.
 Incorporates the public domain [json2.js](https://github.com/douglascrockford/JSON-js) library.
 Uses [d3.js](http://d3js.org/), [jQuery](https://jquery.com/) and [jQuery UI](https://jqueryui.com/).
 
-This software was developed by Geoffrey French at the [School of Computing Sciences](http://www.uea.ac.uk/computing)
+This software was developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz at the [School of Computing Sciences](http://www.uea.ac.uk/computing)
 at the [University of East Anglia](http://www.uea.ac.uk) as part of a project funded by
 [Marine Scotland](http://www.gov.scot/Topics/marine).
 

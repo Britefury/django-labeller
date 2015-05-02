@@ -20,7 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-# Developed by Geoffrey French.
+# Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+# Dr. M. Mackiewicz.
 
 
 import mimetypes, json, os, glob, copy, io, math

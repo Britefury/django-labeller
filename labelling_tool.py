@@ -34,6 +34,7 @@ from PIL import Image, ImageDraw
 from skimage import img_as_float
 from skimage import transform
 from skimage.io import imread, imsave
+from skimage.color import gray2rgb
 
 
 
@@ -258,12 +259,12 @@ class AbsractLabelledImage (object):
         return label_image, np.array(channel_label_count)
 
 
-    def extract_label_images(self, label_classes=None):
+    def extract_label_images(self, label_class_set=None):
         """
         Extract an image of each labelled entity.
         The resulting image is the original image masked with an alpha channel that results from rendering the label
 
-        :param label_classes: a sequence of classes whose labels should be rendered, or None for all labels
+        :param label_class_set: a sequence of classes whose labels should be rendered, or None for all labels
         :return: a list of (H,W,C) image arrays
         """
         img_col = self.pixels
@@ -273,7 +274,7 @@ class AbsractLabelledImage (object):
 
         for label in self.labels:
             label_type = label['label_type']
-            if label_classes is None  or  label['label_class'] in label_classes:
+            if label_class_set is None  or  label['label_class'] in label_class_set:
                 if label_type == 'polygon':
                     # Polygonal label
                     vertices = label['vertices']
@@ -305,10 +306,14 @@ class AbsractLabelledImage (object):
                             mask = np.array(img)
 
                             if (mask > 0).any():
-                                rgb = img_col[ly:uy, lx:ux]
-                                rgba = np.append(rgb, mask[:,:,None], axis=2)
+                                img_box = img_col[ly:uy, lx:ux]
+                                if len(img_box.shape) == 2:
+                                    # Convert greyscale image to RGB:
+                                    img_box = gray2rgb(img_box)
+                                # Append the mask as an alpha channel
+                                object_img = np.append(img_box, mask[:,:,None], axis=2)
 
-                                label_images.append(rgba)
+                                label_images.append(object_img)
                 else:
                     raise TypeError, 'Unknown label type {0}'.format(label_type)
 

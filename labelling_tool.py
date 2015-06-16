@@ -107,6 +107,9 @@ class AbsractLabelledImage (object):
                 polygon = xform_fn(polygon)
                 transformed_verts = [{'x': polygon[i,0], 'y': polygon[i,1]}   for i in xrange(len(polygon))]
                 label['vertices'] = transformed_verts
+            elif label_type == 'composite':
+                # Nothing to do
+                pass
             else:
                 raise TypeError, 'Unknown label type {0}'.format(label_type)
         return labels
@@ -183,6 +186,8 @@ class AbsractLabelledImage (object):
                         else:
                             label_image[mask >= 0.5] = label_cls_n + 1
 
+                elif label_type == 'composite':
+                    pass
                 else:
                     raise TypeError, 'Unknown label type {0}'.format(label_type)
 
@@ -254,6 +259,8 @@ class AbsractLabelledImage (object):
                         channel_label_count[label_channel] += 1
 
                         label_image[mask >= 0.5, label_channel] = value + 1
+                elif label_type == 'composite':
+                    pass
                 else:
                     raise TypeError, 'Unknown label type {0}'.format(label_type)
 
@@ -315,6 +322,8 @@ class AbsractLabelledImage (object):
                                 object_img = np.append(img_box, mask[:,:,None], axis=2)
 
                                 label_images.append(object_img)
+                elif label_type == 'composite':
+                    pass
                 else:
                     raise TypeError, 'Unknown label type {0}'.format(label_type)
 
@@ -449,6 +458,62 @@ class PersistentLabelledImage (AbsractLabelledImage):
             return [PersistentLabelledImage(img_path, labels_dir=labels_dir)   for img_path in image_paths   if os.path.exists(cls.__compute_labels_path(img_path))]
         else:
             return [PersistentLabelledImage(img_path, labels_dir=labels_dir)   for img_path in image_paths]
+
+
+
+class LabelledImageFile (AbsractLabelledImage):
+    def __init__(self, path, labels=None, on_set_labels=None):
+        super(LabelledImageFile, self).__init__()
+        if labels is None:
+            labels = []
+        self.__labels = labels
+        self.__image_path = path
+        self.__pixels = None
+        self.__on_set_labels = on_set_labels
+
+
+
+    @property
+    def pixels(self):
+        if self.__pixels is None:
+            self.__pixels = img_as_float(imread(self.__image_path))
+        return self.__pixels
+
+    def data_and_mime_type_and_size(self):
+        if os.path.exists(self.__image_path):
+            with open(self.__image_path, 'rb') as img:
+                shape = self.image_shape
+                return img.read(), mimetypes.guess_type(self.__image_path)[0], int(shape[1]), int(shape[0])
+
+
+    @property
+    def image_path(self):
+        return self.__image_path
+
+    @property
+    def image_filename(self):
+        return os.path.basename(self.__image_path)
+
+    @property
+    def image_name(self):
+        return os.path.splitext(self.image_filename)[0]
+
+
+
+    @property
+    def labels(self):
+        return self.__labels
+
+    @labels.setter
+    def labels(self, l):
+        self.__labels = l
+        if self.__on_set_labels is not None:
+            self.__on_set_labels(l)
+
+
+    def has_labels(self):
+        return True
+
 
 
 

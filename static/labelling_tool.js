@@ -26,7 +26,116 @@ Dr. M. Mackiewicz.
  */
 function LabellingTool() {
     /*
-    Create label data
+    Colour utility functions
+     */
+    var lighten_colour = function(rgb, amount) {
+        var x = 1.0 - amount;
+        return [Math.round(rgb[0]*x + 255*amount),
+            Math.round(rgb[1]*x + 255*amount),
+            Math.round(rgb[2]*x + 255*amount)];
+    };
+
+    var rgb_to_rgba_string = function(rgb, alpha) {
+        return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')';
+    };
+
+    var compute_centroid_of_points = function(vertices) {
+        var sum = [0.0, 0.0];
+        var N = vertices.length;
+        if (N === 0) {
+            return {
+                x: 0.0,
+                y: 0.0
+            };
+        }
+        else {
+            for (var i = 0; i < N; i++) {
+                var vtx = vertices[i];
+                sum[0] += vtx.x;
+                sum[1] += vtx.y;
+            }
+            var scale = 1.0 / N;
+            return {
+                x: sum[0] * scale,
+                y: sum[1] * scale
+            };
+        }
+    };
+
+
+
+    /*
+    Object ID table
+     */
+    var ObjectIDTable = function() {
+        var self = {
+            _id_counter: 1,
+            _id_to_object: {}
+        };
+
+        self.get = function(id) {
+            return self._id_to_object[id];
+        };
+
+        self.register = function(obj) {
+            var id;
+            if ('object_id' in obj  &&  obj.object_id !== null) {
+                id = obj.object_id;
+                self._id_counter = Math.max(self._id_counter, id+1);
+                self._id_to_object[id] = obj;
+            }
+            else {
+                id = self._id_counter;
+                self._id_counter += 1;
+                self._id_to_object[id] = obj;
+            }
+        };
+
+        self.unregister = function(obj) {
+            self._id_to_object[obj.object_id] = null;
+            obj.object_id = null;
+        };
+
+
+        self.register_objects = function(object_array) {
+            var obj, id, i;
+
+            for (i = 0; i < object_array.length; i++) {
+                obj = object_array[i];
+                if ('object_id' in obj  &&  obj.object_id !== null) {
+                    id = obj.object_id;
+                    self._id_counter = Math.max(self._id_counter, id+1);
+                    self._id_to_object[id] = obj;
+                }
+            }
+
+            for (i = 0; i < object_array.length; i++) {
+                obj = object_array[i];
+
+                if ('object_id' in obj  &&  obj.object_id !== null) {
+
+                }
+                else {
+                    id = self._id_counter;
+                    self._id_counter += 1;
+                    self._id_to_object[id] = obj;
+                    obj.object_id = id;
+                }
+            }
+        };
+
+        return self;
+    };
+
+
+    /*
+    Label header model
+
+    This is the model that gets send back and forth between the frontend and the backend.
+    It combines:
+    - an array of labels
+    - an image ID that identifies the image to which the labels belong
+    - a complete flag that indicates if the image is done
      */
 
     var LabelHeaderModel = function(image_id, complete, labels) {
@@ -42,27 +151,41 @@ function LabellingTool() {
     };
 
 
+
     /*
-    Create a polygonal label model
+    Abstract label model
      */
-    var PolygonalLabelModel = function() {
-        var self = {label_type: 'polygon',
+    var AbstractLabelModel = function() {
+        var self = {
+            label_type: null,
             label_class: null,
-            vertices: []};
+        };
         return self;
     };
 
 
-    var lighten_colour = function(rgb, amount) {
-        var x = 1.0 - amount;
-        return [Math.round(rgb[0]*x + 255*amount),
-            Math.round(rgb[1]*x + 255*amount),
-            Math.round(rgb[2]*x + 255*amount)];
+    /*
+    Create a polygonal label model
+     */
+    var PolygonalLabelModel = function() {
+        var self = AbstractLabelModel();
+        self.label_type = 'polygon';
+        self.vertices = [];
+        return self;
     };
 
-    var rgb_to_rgba_string = function(rgb, alpha) {
-        return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')';
+
+    /*
+    Composite label model
+     */
+    var CompositeLabelModel = function() {
+        var self = AbstractLabelModel();
+        self.label_type = 'composite';
+        self.components = [];
+
+        return self;
     };
+
 
 
 
@@ -117,6 +240,13 @@ function LabellingTool() {
         self._update_style = function() {
         };
 
+        self.compute_centroid = function() {
+            return null;
+        };
+
+        self.notify_model_destroyed = function(model_id) {
+        };
+
         return self;
     };
 
@@ -137,10 +267,10 @@ function LabellingTool() {
             self.shape_line = d3.svg.line()
                 .x(function (d) { return d.x; })
                 .y(function (d) { return d.y; })
-                .interpolate("linear");
+                .interpolate("linear-closed");
 
             self.poly = self._view.$container.append("path");
-            self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices) + "Z");
+            self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices));
 
             self.poly.on("mouseover", function() {
                 for (var i = 0; i < self.ev_mouse_in.length; i++) {
@@ -164,7 +294,7 @@ function LabellingTool() {
         };
 
         self.update = function() {
-            self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices) + "Z");
+            self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices));
         };
 
         self.commit = function() {
@@ -192,6 +322,185 @@ function LabellingTool() {
             }
         };
 
+        self.compute_centroid = function() {
+            return compute_centroid_of_points(self.model.vertices);
+        };
+
+
+        self.poly = null;
+
+        return self;
+    };
+
+
+    /*
+    Composite label entity
+     */
+    var CompositeLabelEntity = function(view, composite_label_model) {
+        var self = AbstractLabelEntity(view, composite_label_model);
+
+        self.ev_mouse_in = [];
+        self.ev_mouse_out = [];
+
+        self._hover = false;
+        self._selected = false;
+
+        self.attach = function() {
+            self.circle = self._view.$container.append("circle")
+                .attr('r', 8.0);
+
+            self.central_circle = self._view.$container.append("circle")
+                .attr('r', 4.0);
+
+            self.shape_line = d3.svg.line()
+                .x(function (d) { return d.x; })
+                .y(function (d) { return d.y; })
+                .interpolate("linear-closed");
+
+            self.connections_group = null;
+
+            self.update();
+
+            self.circle.on("mouseover", function() {
+                self._on_mouse_over_event();
+            }).on("mouseout", function() {
+                self._on_mouse_out_event();
+            });
+
+            self.central_circle.on("mouseover", function() {
+                self._on_mouse_over_event();
+            }).on("mouseout", function() {
+                self._on_mouse_out_event();
+            });
+
+
+            self._update_style();
+        };
+
+
+        self._on_mouse_over_event = function() {
+            for (var i = 0; i < self.ev_mouse_in.length; i++) {
+                self.ev_mouse_in[i](self);
+            }
+            self._view.on_entity_mouse_in(self);
+        };
+
+        self._on_mouse_out_event = function() {
+            for (var i = 0; i < self.ev_mouse_in.length; i++) {
+                self.ev_mouse_out[i](self);
+            }
+            self._view.on_entity_mouse_out(self);
+        };
+
+
+        self.detach = function() {
+            self.circle.remove();
+            self.central_circle.remove();
+            self.connections_group.remove();
+            self.connections_group = null;
+        };
+
+        self.update = function() {
+            var component_centroids = self._compute_component_centroids();
+            var centroid = compute_centroid_of_points(component_centroids);
+
+            self.circle
+                .attr('cx', centroid.x)
+                .attr('cy', centroid.y);
+
+            self.central_circle
+                .attr('cx', centroid.x)
+                .attr('cy', centroid.y);
+
+            if (self.connections_group !== null) {
+                self.connections_group.remove();
+                self.connections_group = null;
+            }
+
+            self.connections_group = self._view.$container.append("g");
+            for (var i = 0; i < component_centroids.length; i++) {
+                self.connections_group.append("path")
+                    .attr("d", self.shape_line([centroid, component_centroids[i]]))
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3, 3")
+                    .attr("style", "stroke:rgba(255,0,255,0.6);");
+                self.connections_group.append("circle")
+                    .attr("cx", component_centroids[i].x)
+                    .attr("cy", component_centroids[i].y)
+                    .attr("r", 3)
+                    .attr("stroke-width", 1)
+                    .attr("style", "stroke:rgba(255,0,255,0.6);fill: rgba(255,0,255,0.25);");
+            }
+        };
+
+        self.commit = function() {
+            self._view.commit_model(self.model);
+        };
+
+
+        self._update_style = function() {
+            var stroke_colour = self._selected ? [255,0,0] : [255,255,0];
+
+            if (self._view.hide_labels) {
+                stroke_colour = rgb_to_rgba_string(stroke_colour, 0.2);
+                self.circle.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
+
+                self.connections_group.selectAll("path")
+                    .attr("style", "stroke:rgba(255,0,255,0.2);");
+                self.connections_group.selectAll("circle")
+                    .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");            }
+            else {
+                var circle_fill_colour = [255, 128, 255];
+                var central_circle_fill_colour = self._view.colour_for_label_class(self.model.label_class);
+                var connection_fill_colour = [255, 0, 255];
+                var connection_stroke_colour = [255, 0, 255];
+                if (self._hover) {
+                    circle_fill_colour = lighten_colour(circle_fill_colour, 0.4);
+                    central_circle_fill_colour = lighten_colour(central_circle_fill_colour, 0.4);
+                    connection_fill_colour = lighten_colour(connection_fill_colour, 0.4);
+                    connection_stroke_colour = lighten_colour(connection_stroke_colour, 0.4);
+                }
+                circle_fill_colour = rgb_to_rgba_string(circle_fill_colour, 0.35);
+                central_circle_fill_colour = rgb_to_rgba_string(central_circle_fill_colour, 0.35);
+                connection_fill_colour = rgb_to_rgba_string(connection_fill_colour, 0.25);
+                connection_stroke_colour = rgb_to_rgba_string(connection_stroke_colour, 0.6);
+
+                stroke_colour = rgb_to_rgba_string(stroke_colour, 0.5);
+
+                self.circle.attr("style", "fill:" + circle_fill_colour + ";stroke:" + connection_stroke_colour + ";stroke-width:1");
+                self.central_circle.attr("style", "fill:" + central_circle_fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
+
+                self.connections_group.selectAll("path")
+                    .attr("style", "stroke:rgba(255,0,255,0.6);");
+                self.connections_group.selectAll("circle")
+                    .attr("style", "stroke:"+connection_stroke_colour+";fill:"+connection_fill_colour+";");
+            }
+        };
+
+        self._compute_component_centroids = function() {
+            var component_centroids = [];
+            for (var i = 0; i < self.model.components.length; i++) {
+                var model_id = self.model.components[i];
+                var entity = self._view.get_entity_for_model_id(model_id);
+                var centroid = entity.compute_centroid();
+                component_centroids.push(centroid);
+            }
+            return component_centroids;
+        };
+
+        self.compute_centroid = function() {
+            return compute_centroid_of_points(self._compute_component_centroids());
+        };
+
+        self.notify_model_destroyed = function(model_id) {
+            var index = self.model.components.indexOf(model_id);
+
+            if (index !== -1) {
+                // Remove the model ID from the components array
+                self.model.components = self.model.components.slice(0, index).concat(self.model.components.slice(index+1));
+                self.update();
+            }
+        };
 
         self.poly = null;
 
@@ -204,7 +513,8 @@ function LabellingTool() {
     Map label type to entity constructor
      */
     var label_type_to_entity_constructor = {
-        'polygon': PolygonalLabelEntity
+        'polygon': PolygonalLabelEntity,
+        'composite': CompositeLabelEntity
     };
 
 
@@ -472,18 +782,29 @@ function LabellingTool() {
         // Hide labels
         LabellingToolSelf.hide_labels = false;
 
-        // Get the dimensions of the tool and the image and the image data
+        // Label model object table
+        LabellingToolSelf._label_model_obj_table = ObjectIDTable();
+        // Label model object ID to entity
+        LabellingToolSelf._label_model_id_to_entity = {};
+
+        // Labelling tool dimensions
         LabellingToolSelf._tool_width = tool_width;
         LabellingToolSelf._tool_height = tool_height;
 
+        // List of Image IDs
         LabellingToolSelf._image_ids = image_ids;
 
+        // Number of images in dataset
         LabellingToolSelf._num_images = image_ids.length;
 
+        // Image dimensions
         LabellingToolSelf._image_width = 0;
         LabellingToolSelf._image_height = 0;
 
+        // Data request callback; labelling tool will call this when it needs a new image to show
         LabellingToolSelf._requestImageCallback = requestImageCallback;
+        // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
+        // to user action
         LabellingToolSelf._sendLabelHeaderFn = sendLabelHeaderFn;
 
 
@@ -606,6 +927,25 @@ function LabellingTool() {
         LabellingToolSelf._draw_polygon_button.button().click(function(event) {
             var current = LabellingToolSelf.get_selected_entity();
             LabellingToolSelf.set_current_tool(DrawPolygonTool(LabellingToolSelf, current));
+            event.preventDefault();
+        });
+
+        LabellingToolSelf._composite_button = $('<button>Composite</button>').appendTo(LabellingToolSelf._toolbar);
+        LabellingToolSelf._composite_button.button().click(function(event) {
+            var N = LabellingToolSelf.$selected_entities.length;
+
+            if (N > 0) {
+                var model = CompositeLabelModel();
+                var entity = CompositeLabelEntity(LabellingToolSelf, model);
+
+                for (var i = 0; i < LabellingToolSelf.$selected_entities.length; i++) {
+                    model.components.push(LabellingToolSelf.$selected_entities[i].model.object_id);
+                }
+
+                LabellingToolSelf.add_entity(entity, true);
+                LabellingToolSelf.select_entity(entity, false);
+            }
+
             event.preventDefault();
         });
 
@@ -842,8 +1182,12 @@ function LabellingTool() {
         // Update the labels
         LabellingToolSelf._label_header = image_data.label_header;
         var labels = LabellingToolSelf._label_header.labels;
+
+        // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
+        LabellingToolSelf._label_model_obj_table = ObjectIDTable();
+        LabellingToolSelf._label_model_obj_table.register_objects(labels);
+
         for (var i = 0; i < labels.length; i++) {
-            // Create a new entity for the label and register it
             var label = labels[i];
             var entity = new_entity_for_model(LabellingToolSelf, label);
             LabellingToolSelf.register_entity(entity);
@@ -855,6 +1199,8 @@ function LabellingTool() {
 
 
         LabellingToolSelf.set_current_tool(SelectEntityTool(LabellingToolSelf));
+
+        console.log(LabellingToolSelf);
     };
 
 
@@ -1008,7 +1354,9 @@ function LabellingTool() {
     Register entity
      */
     LabellingToolSelf.register_entity = function(entity) {
+        LabellingToolSelf._label_model_obj_table.register(entity.model);
         LabellingToolSelf.entities.push(entity);
+        LabellingToolSelf._label_model_id_to_entity[entity.model.object_id] = entity;
         entity.attach();
     };
 
@@ -1017,6 +1365,18 @@ function LabellingTool() {
      */
     LabellingToolSelf.unregister_entity_by_index = function(index) {
         var entity = LabellingToolSelf.entities[index];
+
+        // Notify all models of the destruction of this model
+        for (var i = 0; i < LabellingToolSelf.entities.length; i++) {
+            if (i !== index) {
+                LabellingToolSelf.entities[i].notify_model_destroyed(entity.model);
+            }
+        }
+
+        // Unregister in the ID to object table
+        LabellingToolSelf._label_model_obj_table.unregister(entity.model);
+        delete LabellingToolSelf._label_model_id_to_entity[entity.model.object_id];
+
 
         // Remove from selection if present
         var index_in_selection = LabellingToolSelf.$selected_entities.indexOf(entity);
@@ -1028,6 +1388,21 @@ function LabellingTool() {
         entity.detach();
         // Remove
         LabellingToolSelf.entities.splice(index, 1);
+    };
+
+
+    /*
+    Get entity for model ID
+     */
+    LabellingToolSelf.get_entity_for_model_id = function(model_id) {
+        return LabellingToolSelf._label_model_id_to_entity[model_id];
+    };
+
+    /*
+    Get entity for model
+     */
+    LabellingToolSelf.get_entity_for_model = function(model) {
+        return LabellingToolSelf._label_model_id_to_entity[model.object_id];
     };
 
 
@@ -1044,7 +1419,7 @@ function LabellingTool() {
         LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
 
         if (commit) {
-                LabellingToolSelf.push_label_data();
+            LabellingToolSelf.push_label_data();
         }
     };
 
@@ -1053,16 +1428,23 @@ function LabellingTool() {
     unregister the entity and remove its label from the tool data model
      */
     LabellingToolSelf.remove_entity = function(entity, commit) {
+        // Find the entity's index in the array
         var index = LabellingToolSelf.entities.indexOf(entity);
 
         if (index !== -1) {
+            // Unregister the entity
             LabellingToolSelf.unregister_entity_by_index(index);
 
+            // Get the label model
             var labels = LabellingToolSelf._label_header.labels;
+
+            // Remove the model from the label model array
             labels = labels.slice(0, index).concat(labels.slice(index+1));
-        LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
+            // Replace the labels in the label header
+            LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
 
             if (commit) {
+                // Commit changes
                 LabellingToolSelf.push_label_data();
             }
         }

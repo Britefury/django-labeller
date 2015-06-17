@@ -517,6 +517,22 @@ class LabelledImageFile (AbsractLabelledImage):
 
 
 
+def contours_to_labels(list_of_contours, label_classes=None):
+    labels = []
+    if not isinstance(label_classes, list):
+        label_classes = [label_classes] * len(list_of_contours)
+    for contour, lcls in zip(list_of_contours, label_classes):
+        vertices = [{'x': contour[i][1], 'y': contour[i][0]}   for i in xrange(contour.shape[0])]
+        label = {
+            'label_type': 'polygon',
+            'label_class': lcls,
+            'vertices': vertices
+        }
+        labels.append(label)
+    return labels
+
+
+
 def shuffle_images_without_labels(labelled_images):
     with_labels = [img   for img in labelled_images   if img.has_labels()]
     without_labels = [img   for img in labelled_images   if not img.has_labels()]

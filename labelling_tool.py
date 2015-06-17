@@ -96,6 +96,15 @@ class AbsractLabelledImage (object):
         raise NotImplementedError
 
 
+    @property
+    def complete(self):
+        raise NotImplementedError
+
+    @complete.setter
+    def complete(self, c):
+        raise NotImplementedError
+
+
     def transformed_labels(self, xform_fn):
         labels = copy.deepcopy(self.labels)
         for label in labels:
@@ -332,12 +341,13 @@ class AbsractLabelledImage (object):
 
 
 class InMemoryLabelledImage (AbsractLabelledImage):
-    def __init__(self, pixels, labels=None):
+    def __init__(self, pixels, labels=None, complete=False):
         super(InMemoryLabelledImage, self).__init__()
         if labels is None:
             labels = []
         self.__pixels = pixels
         self.__labels = labels
+        self.__complete = complete
 
 
     @property
@@ -363,6 +373,17 @@ class InMemoryLabelledImage (AbsractLabelledImage):
         return True
 
 
+    @property
+    def complete(self):
+        return self.__complete
+
+    @complete.setter
+    def complete(self, c):
+        self.__complete = c
+
+
+
+
 
 class PersistentLabelledImage (AbsractLabelledImage):
     def __init__(self, path, labels_dir=None):
@@ -370,6 +391,9 @@ class PersistentLabelledImage (AbsractLabelledImage):
         self.__labels_path = self.__compute_labels_path(path, labels_dir=labels_dir)
         self.__image_path = path
         self.__pixels = None
+
+        self.__labels = None
+        self.__complete = None
 
 
 
@@ -402,43 +426,68 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
     @property
     def labels(self):
-        if os.path.exists(self.__labels_path):
-            with open(self.__labels_path, 'r') as f:
-                try:
-                    wrapped = json.load(f)
-                except ValueError:
-                    return []
-                return self.__unwrap_labels(self.image_path, wrapped)
-        else:
-            return []
+        labels, complete = self.__get_label_data()
+        return labels
 
     @labels.setter
     def labels(self, l):
-        if len(l) == 0:
-            if os.path.exists(self.__labels_path):
-                os.remove(self.__labels_path)
-        else:
-            wrapped = self.__wrap_labels(self.image_path, l)
-            with open(self.__labels_path, 'w') as f:
-                json.dump(wrapped, f, indent=3)
+        self.__set_label_data(l, self.complete)
+
+
+    @property
+    def complete(self):
+        labels, complete = self.__get_label_data()
+        return complete
+
+    @complete.setter
+    def complete(self, c):
+        self.__set_label_data(self.labels, c)
 
 
     def has_labels(self):
         return os.path.exists(self.__labels_path)
 
 
+    def __get_label_data(self):
+        if self.__labels is None  or  self.__complete is None:
+            self.__labels = self.__complete = None
+            if os.path.exists(self.__labels_path):
+                with open(self.__labels_path, 'r') as f:
+                    try:
+                        wrapped = json.load(f)
+                    except ValueError:
+                        pass
+                    else:
+                        self.__labels, self.__complete = self.__unwrap_labels(self.image_path, wrapped)
+        return self.__labels, self.__complete
+
+    def __set_label_data(self, labels, complete):
+        self.__labels = labels
+        self.__complete = complete
+        if labels is None  or  (len(labels) == 0 and not complete):
+            # No data; delete the file
+            if os.path.exists(self.__labels_path):
+                os.remove(self.__labels_path)
+        else:
+            wrapped = self.__wrap_labels(self.image_path, labels, complete)
+            with open(self.__labels_path, 'w') as f:
+                json.dump(wrapped, f, indent=3)
+
+
+
     @staticmethod
-    def __wrap_labels(image_path, labels):
+    def __wrap_labels(image_path, labels, complete):
         image_filename = os.path.split(image_path)[1]
         return {'image_filename': image_filename,
-                'labels': labels}
+                'labels': labels,
+                'complete': complete}
 
     @staticmethod
     def __unwrap_labels(image_path, wrapped_labels):
         if isinstance(wrapped_labels, dict):
-            return wrapped_labels['labels']
+            return wrapped_labels['labels'], wrapped_labels.get('complete', False)
         elif isinstance(wrapped_labels, list):
-            return wrapped_labels
+            return wrapped_labels, False
         else:
             raise TypeError, 'Labels loaded from file must either be a dict or a list, not a {0}'.format(type(wrapped_labels))
 
@@ -462,11 +511,12 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
 
 class LabelledImageFile (AbsractLabelledImage):
-    def __init__(self, path, labels=None, on_set_labels=None):
+    def __init__(self, path, labels=None, complete=False, on_set_labels=None):
         super(LabelledImageFile, self).__init__()
         if labels is None:
             labels = []
         self.__labels = labels
+        self.__complete = complete
         self.__image_path = path
         self.__pixels = None
         self.__on_set_labels = on_set_labels
@@ -513,6 +563,15 @@ class LabelledImageFile (AbsractLabelledImage):
 
     def has_labels(self):
         return True
+
+
+    @property
+    def complete(self):
+        return self.__complete
+
+    @complete.setter
+    def complete(self, c):
+        self.__complete = c
 
 
 

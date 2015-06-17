@@ -101,7 +101,7 @@ class ImageLabellingTool (widgets.DOMWidget):
 
             data_b64 = base64.b64encode(data)
 
-            image_msg['label_header'] = {'image_id': image_id, 'labels': image.labels, 'complete': False}
+            image_msg['label_header'] = {'image_id': image_id, 'labels': image.labels, 'complete': image.complete}
             self.label_data = image.labels
             image_msg['width'] = width
             image_msg['height'] = height
@@ -117,6 +117,7 @@ class ImageLabellingTool (widgets.DOMWidget):
                 complete = value['complete']
                 labels = value['labels']
                 self.__images[image_id].labels = labels
+                self.__images[image_id].complete = complete
                 print('Received changes for image {0}; {1} labels'.format(image_id, len(labels)))
 
 

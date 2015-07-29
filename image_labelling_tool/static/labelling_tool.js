@@ -1182,6 +1182,9 @@ function LabellingTool() {
         // Update the labels
         LabellingToolSelf._label_header = image_data.label_header;
         var labels = LabellingToolSelf._label_header.labels;
+        if (labels === null) {
+            labels = [];
+        }
 
         // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
         LabellingToolSelf._label_model_obj_table = ObjectIDTable();

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponse
-from django_labelling.decorators import image_descriptor_accessor_view, label_update_view
+from image_labelling_tool.decorators import image_descriptor_accessor_view, label_update_view
 
 import labelling_tool
 
@@ -42,8 +42,6 @@ def get_image_desctriptor(image_id_str):
     image = images_table[image_id_str]
 
     labels = image.labels
-    if labels is None:
-        labels = []
     complete = False
 
     data, mimetype, width, height = image.data_and_mime_type_and_size()

@@ -47,7 +47,7 @@ image_ids = [str(i)   for i in xrange(len(labelled_images))]
 images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='image_labelling_tool/static')
 
 
 @app.route('/')

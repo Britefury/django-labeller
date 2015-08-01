@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.template import RequestContext, loader
 from django.http import HttpResponse
-from image_labelling_tool.decorators import image_descriptor_accessor_view, label_update_view
+from image_labelling_tool.labelling_tool_views import image_descriptor_accessor_view, label_update_view
 
 import labelling_tool
 
@@ -38,7 +38,7 @@ def home(request):
 
 
 @image_descriptor_accessor_view
-def get_image_desctriptor(image_id_str):
+def get_image_desctriptor(request, image_id_str):
     image = images_table[image_id_str]
 
     labels = image.labels
@@ -56,7 +56,7 @@ def get_image_desctriptor(image_id_str):
 
 
 @label_update_view
-def set_labels(image_id_str, labels, complete):
+def set_labels(request, image_id_str, labels, complete):
     image = images_table[image_id_str]
     image.labels = labels
 

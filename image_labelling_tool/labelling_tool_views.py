@@ -38,7 +38,7 @@ def image_descriptor_accessor_view(fn):
     def get_image_descriptor_view(request):
         image_id_str = request.GET.get('image_id')
 
-        image_metadata = fn(image_id_str)
+        image_metadata = fn(request, image_id_str)
 
         descriptor = {
             'width': image_metadata['width'],
@@ -93,7 +93,7 @@ def label_update_view(fn):
         complete = labels['complete']
         label_data = labels['labels']
 
-        fn(image_id, label_data, complete)
+        fn(request, image_id, label_data, complete)
 
         return HttpResponse('null', content_type="application/json")
 

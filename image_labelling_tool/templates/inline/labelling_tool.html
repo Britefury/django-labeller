@@ -42,8 +42,8 @@
         var tool = LabellingTool();
         tool.initialise($("#{{ tool_id }}")[0],
                 {{ label_classes | safe }},
-                1280,
-                720,
+                {{ width }},
+                {{ height }},
                 {{ image_ids | safe }},
                 {{ initial_image_id | safe }},
                 request_image,

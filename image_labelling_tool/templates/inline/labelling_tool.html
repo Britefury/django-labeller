@@ -51,7 +51,7 @@
 
 
         // CSRF Token setup
-        var csrf = $.cookie('csrftoken');
+        var csrf = Cookies.get('csrftoken');
         if (csrf != null) {
             // Adapted from Django DOCS
             var csrfSafeMethod = function(method) {

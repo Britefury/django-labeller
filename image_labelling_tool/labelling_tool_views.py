@@ -35,10 +35,10 @@ def image_descriptor_accessor_view(fn):
             'complete': labels.complete
         }
     """
-    def get_image_descriptor_view(request):
+    def get_image_descriptor_view(request, **kwargs):
         image_id_str = request.GET.get('image_id')
 
-        image_metadata = fn(request, image_id_str)
+        image_metadata = fn(request, image_id_str, **kwargs)
 
         descriptor = {
             'width': image_metadata['width'],
@@ -87,13 +87,13 @@ def label_update_view(fn):
             'complete': labels.complete
         }
     """
-    def set_labels_view(request):
+    def set_labels_view(request, **kwargs):
         labels = json.loads(request.POST['labels'])
         image_id = labels['image_id']
         complete = labels['complete']
         label_data = labels['labels']
 
-        fn(request, image_id, label_data, complete)
+        fn(request, image_id, label_data, complete, **kwargs)
 
         return HttpResponse('null', content_type="application/json")
 

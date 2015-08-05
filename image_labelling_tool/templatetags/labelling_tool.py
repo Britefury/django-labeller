@@ -6,7 +6,7 @@ register = template.Library()
 
 
 @register.inclusion_tag('inline/labelling_tool.html')
-def labelling_tool(width, height, label_classes, image_ids, initial_image_id, get_image_descriptor_url, update_labels_url):
+def labelling_tool(width, height, label_classes, image_ids, initial_image_id, get_image_descriptor_url, update_labels_url, config):
     tool_id = uuid.uuid4()
     return {'tool_id': str(tool_id),
             'width': width,
@@ -16,4 +16,5 @@ def labelling_tool(width, height, label_classes, image_ids, initial_image_id, ge
             'initial_image_id': str(initial_image_id),
             'get_image_descriptor_url': get_image_descriptor_url,
             'update_labels_url': update_labels_url,
+            'config': json.dumps(config),
             }

@@ -24,6 +24,18 @@ image_ids = [str(i)   for i in xrange(len(labelled_images))]
 images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
 
 
+# Configuration
+config = {
+    'tools': {
+        'imageSelector': True,
+        'labelClassSelector': True,
+        'drawPolyLabel': True,
+        'compositeLabel': True,
+        'deleteLabel': True,
+    }
+}
+
+
 
 
 def home(request):
@@ -32,6 +44,7 @@ def home(request):
         'label_classes': [c.to_json()   for c in label_classes],
         'image_ids': image_ids,
         'initial_image_id': image_ids[0],
+        'labelling_tool_config': config,
     })
     return HttpResponse(template.render(context))
 

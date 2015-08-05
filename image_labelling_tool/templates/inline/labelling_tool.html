@@ -47,7 +47,9 @@
                 {{ image_ids | safe }},
                 {{ initial_image_id | safe }},
                 request_image,
-                send_label_header);
+                send_label_header,
+                {{ config | safe }}
+        );
 
 
         // CSRF Token setup

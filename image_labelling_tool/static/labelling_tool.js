@@ -768,7 +768,28 @@ function LabellingTool() {
     var LabellingToolSelf = {};
 
 
-    LabellingToolSelf.initialise = function(element, label_classes, tool_width, tool_height, image_ids, initial_image_id, requestImageCallback, sendLabelHeaderFn) {
+    var ensure_flag_exists = function(x, flag_name, default_value) {
+        var v = x[flag_name];
+        if (v === undefined) {
+            x[flag_name] = default_value;
+        }
+        return x[flag_name];
+    };
+
+
+    LabellingToolSelf.initialise = function(element, label_classes, tool_width, tool_height,
+                                            image_ids, initial_image_id, requestImageCallback, sendLabelHeaderFn, config) {
+        config = config || {};
+        LabellingToolSelf._config = config;
+
+        config.tools = config.tools || {};
+        ensure_flag_exists(config.tools, 'imageSelector', true);
+        ensure_flag_exists(config.tools, 'labelClassSelector', true);
+        ensure_flag_exists(config.tools, 'drawPolyLabel', true);
+        ensure_flag_exists(config.tools, 'compositeLabel', true);
+        ensure_flag_exists(config.tools, 'deleteLabel', true);
+
+
         // Model
         LabellingToolSelf._label_header = {};
         // Entity list
@@ -832,42 +853,51 @@ function LabellingTool() {
          */
 
         //
-        // IMAGE CHOOSER
+        // IMAGE SELECTOR
         //
 
-        var _change_image = function(image_id) {
-            LabellingToolSelf._requestImageCallback(image_id);
-        };
-
-        var _increment_image_index = function(offset) {
-            var image_id = LabellingToolSelf._get_current_image_id();
-            var index = LabellingToolSelf._image_id_to_index(image_id) + offset;
-            _change_image(LabellingToolSelf._image_index_to_id(index));
-        };
-
         $('<p style="background: #b0b0b0;">Current image</p>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._image_index_input.on('change', function() {
-            var index_str = LabellingToolSelf._image_index_input.val();
-            var index = parseInt(index_str) - 1;
-            var image_id = LabellingToolSelf._image_index_to_id(index);
-            _change_image(image_id);
-        });
-        $('<span>' + '/' + LabellingToolSelf._num_images + '</span>').appendTo(LabellingToolSelf._toolbar);
+
+        if (config.tools.imageSelector) {
+            var _change_image = function (image_id) {
+                LabellingToolSelf._requestImageCallback(image_id);
+            };
+
+            var _increment_image_index = function (offset) {
+                var image_id = LabellingToolSelf._get_current_image_id();
+                var index = LabellingToolSelf._image_id_to_index(image_id) + offset;
+                _change_image(LabellingToolSelf._image_index_to_id(index));
+            };
+
+            LabellingToolSelf._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._image_index_input.on('change', function () {
+                var index_str = LabellingToolSelf._image_index_input.val();
+                var index = parseInt(index_str) - 1;
+                var image_id = LabellingToolSelf._image_index_to_id(index);
+                _change_image(image_id);
+            });
+            $('<span>' + '/' + LabellingToolSelf._num_images + '</span>').appendTo(LabellingToolSelf._toolbar);
 
 
-        $('<br/>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._prev_image_button = $('<button>Prev image</button>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._prev_image_button.button({text: false, icons: {primary: "ui-icon-seek-prev"}}).click(function(event) {
-            _increment_image_index(-1);
-            event.preventDefault();
-        });
+            $('<br/>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._prev_image_button = $('<button>Prev image</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._prev_image_button.button({
+                text: false,
+                icons: {primary: "ui-icon-seek-prev"}
+            }).click(function (event) {
+                _increment_image_index(-1);
+                event.preventDefault();
+            });
 
-        LabellingToolSelf._next_image_button = $('<button>Next image</button>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._next_image_button.button({text: false, icons: {primary: "ui-icon-seek-next"}}).click(function(event) {
-            _increment_image_index(1);
-            event.preventDefault();
-        });
+            LabellingToolSelf._next_image_button = $('<button>Next image</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._next_image_button.button({
+                text: false,
+                icons: {primary: "ui-icon-seek-next"}
+            }).click(function (event) {
+                _increment_image_index(1);
+                event.preventDefault();
+            });
+        }
 
         $('<br/>').appendTo(LabellingToolSelf._toolbar);
         LabellingToolSelf._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(LabellingToolSelf._toolbar);
@@ -881,25 +911,28 @@ function LabellingTool() {
 
 
         //
-        // LABEL CLASS CHOOSER AND LABEL REMOVE
+        // LABEL CLASS SELECTOR AND HIDE LABELS
         //
 
         $('<p style="background: #b0b0b0;">Labels</p>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._label_class_selector_menu = $('<select name="label_class_selector"/>').appendTo(LabellingToolSelf._toolbar);
-        for (var i = 0; i < LabellingToolSelf.$label_classes.length; i++) {
-            var cls = LabellingToolSelf.$label_classes[i];
-            $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(LabellingToolSelf._label_class_selector_menu);
+
+        if (config.tools.labelClassSelector) {
+            LabellingToolSelf._label_class_selector_menu = $('<select name="label_class_selector"/>').appendTo(LabellingToolSelf._toolbar);
+            for (var i = 0; i < LabellingToolSelf.$label_classes.length; i++) {
+                var cls = LabellingToolSelf.$label_classes[i];
+                $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(LabellingToolSelf._label_class_selector_menu);
+            }
+            $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(LabellingToolSelf._label_class_selector_menu);
+            LabellingToolSelf._label_class_selector_menu.change(function (event, ui) {
+                var label_class_name = event.target.value;
+                if (label_class_name == '__unclassified') {
+                    label_class_name = null;
+                }
+                for (var i = 0; i < LabellingToolSelf.$selected_entities.length; i++) {
+                    LabellingToolSelf.$selected_entities[i].set_label_class(label_class_name);
+                }
+            });
         }
-        $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(LabellingToolSelf._label_class_selector_menu);
-        LabellingToolSelf._label_class_selector_menu.change(function(event, ui) {
-            var label_class_name = event.target.value;
-            if (label_class_name == '__unclassified') {
-                label_class_name = null;
-            }
-            for (var i = 0; i < LabellingToolSelf.$selected_entities.length; i++) {
-                LabellingToolSelf.$selected_entities[i].set_label_class(label_class_name);
-            }
-        });
 
         $('<br/>').appendTo(LabellingToolSelf._toolbar);
         LabellingToolSelf._hide_labels_checkbox = $('<input type="checkbox">Hide labels</input>').appendTo(LabellingToolSelf._toolbar);
@@ -916,6 +949,10 @@ function LabellingTool() {
 
 
 
+        //
+        // SELECT, DRAW POLY, COMPOSITE, DELETE
+        //
+
         $('<p style="background: #b0b0b0;">Tools</p>').appendTo(LabellingToolSelf._toolbar);
         LabellingToolSelf._select_button = $('<button>Select</button>').appendTo(LabellingToolSelf._toolbar);
         LabellingToolSelf._select_button.button().click(function(event) {
@@ -923,75 +960,84 @@ function LabellingTool() {
             event.preventDefault();
         });
 
-        LabellingToolSelf._draw_polygon_button = $('<button>Draw poly</button>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._draw_polygon_button.button().click(function(event) {
-            var current = LabellingToolSelf.get_selected_entity();
-            LabellingToolSelf.set_current_tool(DrawPolygonTool(LabellingToolSelf, current));
-            event.preventDefault();
-        });
+        if (config.tools.drawPolyLabel) {
+            LabellingToolSelf._draw_polygon_button = $('<button>Draw poly</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._draw_polygon_button.button().click(function (event) {
+                var current = LabellingToolSelf.get_selected_entity();
+                LabellingToolSelf.set_current_tool(DrawPolygonTool(LabellingToolSelf, current));
+                event.preventDefault();
+            });
+        }
 
-        LabellingToolSelf._composite_button = $('<button>Composite</button>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._composite_button.button().click(function(event) {
-            var N = LabellingToolSelf.$selected_entities.length;
+        if (config.tools.compositeLabel) {
+            LabellingToolSelf._composite_button = $('<button>Composite</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._composite_button.button().click(function (event) {
+                var N = LabellingToolSelf.$selected_entities.length;
 
-            if (N > 0) {
-                var model = CompositeLabelModel();
-                var entity = CompositeLabelEntity(LabellingToolSelf, model);
+                if (N > 0) {
+                    var model = CompositeLabelModel();
+                    var entity = CompositeLabelEntity(LabellingToolSelf, model);
 
-                for (var i = 0; i < LabellingToolSelf.$selected_entities.length; i++) {
-                    model.components.push(LabellingToolSelf.$selected_entities[i].model.object_id);
-                }
-
-                LabellingToolSelf.add_entity(entity, true);
-                LabellingToolSelf.select_entity(entity, false);
-            }
-
-            event.preventDefault();
-        });
-
-        LabellingToolSelf._delete_label_button = $('<button>Delete</button>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._delete_label_button.button({text: false, icons: {primary: "ui-icon-trash"}}).click(function(event) {
-            if (!LabellingToolSelf._confirm_delete_visible) {
-                var cancel_button = $('<button>Cancel</button>').appendTo(LabellingToolSelf._confirm_delete);
-                var confirm_button = $('<button>Confirm delete</button>').appendTo(LabellingToolSelf._confirm_delete);
-
-                var remove_confirm_ui = function() {
-                    cancel_button.remove();
-                    confirm_button.remove();
-                    LabellingToolSelf._confirm_delete_visible = false;
-                };
-
-                cancel_button.button().click(function(event) {
-                    remove_confirm_ui();
-                    event.preventDefault();
-                });
-
-                confirm_button.button().click(function(event) {
-                    var entities_to_remove = LabellingToolSelf.$selected_entities.slice();
-
-                    for (var i = 0; i < entities_to_remove.length; i++) {
-                        LabellingToolSelf.remove_entity(entities_to_remove[i], true);
+                    for (var i = 0; i < LabellingToolSelf.$selected_entities.length; i++) {
+                        model.components.push(LabellingToolSelf.$selected_entities[i].model.object_id);
                     }
 
-                    remove_confirm_ui();
-                    event.preventDefault();
-                });
+                    LabellingToolSelf.add_entity(entity, true);
+                    LabellingToolSelf.select_entity(entity, false);
+                }
 
-                LabellingToolSelf._confirm_delete_visible = true;
-            }
+                event.preventDefault();
+            });
+        }
 
-            event.preventDefault();
-        });
+        if (config.tools.deleteLabel) {
+            LabellingToolSelf._delete_label_button = $('<button>Delete</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._delete_label_button.button({
+                text: false,
+                icons: {primary: "ui-icon-trash"}
+            }).click(function (event) {
+                if (!LabellingToolSelf._confirm_delete_visible) {
+                    var cancel_button = $('<button>Cancel</button>').appendTo(LabellingToolSelf._confirm_delete);
+                    var confirm_button = $('<button>Confirm delete</button>').appendTo(LabellingToolSelf._confirm_delete);
 
-        LabellingToolSelf._confirm_delete = $('<span/>').appendTo(LabellingToolSelf._toolbar);
-        LabellingToolSelf._confirm_delete_visible = false;
+                    var remove_confirm_ui = function () {
+                        cancel_button.remove();
+                        confirm_button.remove();
+                        LabellingToolSelf._confirm_delete_visible = false;
+                    };
+
+                    cancel_button.button().click(function (event) {
+                        remove_confirm_ui();
+                        event.preventDefault();
+                    });
+
+                    confirm_button.button().click(function (event) {
+                        var entities_to_remove = LabellingToolSelf.$selected_entities.slice();
+
+                        for (var i = 0; i < entities_to_remove.length; i++) {
+                            LabellingToolSelf.remove_entity(entities_to_remove[i], true);
+                        }
+
+                        remove_confirm_ui();
+                        event.preventDefault();
+                    });
+
+                    LabellingToolSelf._confirm_delete_visible = true;
+                }
+
+                event.preventDefault();
+            });
+
+            LabellingToolSelf._confirm_delete = $('<span/>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._confirm_delete_visible = false;
+        }
 
 
 
 
         /*
          *
-         * TOOL AREA
+         * LABELLING AREA
          *
          */
 
@@ -1132,7 +1178,7 @@ function LabellingTool() {
 
 
         // Create entities for the pre-existing labels
-        _change_image(initial_image_id);
+        LabellingToolSelf._requestImageCallback(initial_image_id)
     };
 
 

@@ -24,7 +24,7 @@
 # Dr. M. Mackiewicz.
 import json
 
-from flask import Flask, render_template, request, make_response
+from flask import Flask, render_template, request, make_response, send_from_directory
 
 import labelling_tool
 
@@ -50,13 +50,25 @@ images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_ima
 app = Flask(__name__, static_folder='image_labelling_tool/static')
 
 
+config = {
+    'tools': {
+        'imageSelector': True,
+        'labelClassSelector': True,
+        'drawPolyLabel': True,
+        'compositeLabel': True,
+        'deleteLabel': True,
+    }
+}
+
+
 @app.route('/')
 def index():
     label_classes_json = [{'name': cls.name, 'human_name': cls.human_name, 'colour': cls.colour}   for cls in label_classes]
     return render_template('labeller_page.jinja2',
                            label_classes=json.dumps(label_classes_json),
                            image_ids=json.dumps(image_ids),
-                           initial_image_id=image_ids[0])
+                           initial_image_id=image_ids[0],
+                           config=json.dumps(config))
 
 
 @app.route('/labelling/get_image_descriptor/<image_id>')
@@ -105,6 +117,12 @@ def get_image(image_id):
     r = make_response(data)
     r.mimetype = mimetype
     return r
+
+
+
+@app.route('/ext_static/<path:filename>')
+def base_static(filename):
+    return send_from_directory(app.root_path + '/ext_static/', filename)
 
 
 if __name__ == '__main__':

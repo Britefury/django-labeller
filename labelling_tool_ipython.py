@@ -28,7 +28,7 @@
 import base64
 
 from IPython.html import widgets
-from IPython.utils.traitlets import Unicode, Integer, List
+from IPython.utils.traitlets import Unicode, Integer, List, Dict
 
 
 
@@ -45,9 +45,12 @@ class ImageLabellingTool (widgets.DOMWidget):
     image_ids_ = List(sync=True)
     current_image_id_ = Unicode(sync=True)
 
+    labelling_tool_config_ = Dict(sync=True)
 
 
-    def __init__(self, labelled_images=None, label_classes=None, tool_width=1040, tool_height=585, **kwargs):
+
+    def __init__(self, labelled_images=None, label_classes=None, tool_width=1040, tool_height=585,
+                 labelling_tool_config=None, **kwargs):
         """
 
         :type labelled_images: AbstractLabelledImage
@@ -72,14 +75,18 @@ class ImageLabellingTool (widgets.DOMWidget):
         if labelled_images is None:
             labelled_images = []
 
+        if labelling_tool_config is None:
+            labelling_tool_config = {}
+
         image_ids = [str(i)   for i in xrange(len(labelled_images))]
         self.__images = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
         self.__changing = False
 
         super(ImageLabellingTool, self).__init__(tool_width_=tool_width, tool_height_=tool_height,
-                                            image_ids_=image_ids,
-                                            current_image_id_=image_ids[0],
-                                            label_classes=label_classes, **kwargs)
+                                                 image_ids_=image_ids,
+                                                 current_image_id_=image_ids[0],
+                                                 label_classes=label_classes,
+                                                 labelling_tool_config_=labelling_tool_config, **kwargs)
 
         self.on_msg(self._on_msg_recv)
 

@@ -131,7 +131,7 @@ class AbsractLabelledImage (object):
 
 
 
-    def render_labels(self, label_classes, pixels_as_vectors=False, fill=True):
+    def render_labels(self, label_classes, pixels_as_vectors=False, fill=True, image_shape=None):
         """
         Render the labels to create a label image
 
@@ -142,6 +142,7 @@ class AbsractLabelledImage (object):
             according to their label. If `True`, return a (height,width,n_labels) array of dtype=float32 with each pixel
             being a feature vector that gives the weight of each label, where n_labels is `len(label_classes)`
         :param fill: if True, labels will be filled, otherwise they will be outlined
+        :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
         :return: (H,W) array with dtype=int if pixels_as_vectors is False, otherwise (H,W,n_labels) with dtype=float32
         """
         if isinstance(label_classes, list) or isinstance(label_classes, tuple):
@@ -165,7 +166,10 @@ class AbsractLabelledImage (object):
             raise TypeError, 'label_classes must be a sequence that can contain LabelClass instances, strings or sub-sequences of the former'
 
 
-        height, width = self.image_shape
+        if image_shape is None:
+            height, width = self.image_shape
+        else:
+            height, width = image_shape
 
         if pixels_as_vectors:
             label_image = np.zeros((height, width, len(label_classes)), dtype='float32')
@@ -203,7 +207,7 @@ class AbsractLabelledImage (object):
         return label_image
 
 
-    def render_individual_labels(self, label_classes, fill=True):
+    def render_individual_labels(self, label_classes, fill=True, image_shape=None):
         """
         Render individual labels to create a label image.
         The resulting image is a multi-channel image, with a channel for each class in `label_classes`.
@@ -215,6 +219,7 @@ class AbsractLabelledImage (object):
             Each class should be a `LabelClass` instance, a string.
             Each entry within label_classes will have a corresponding channel in the output image
         :param fill: if True, labels will be filled, otherwise they will be outlined
+        :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
         :return: tuple of (label_image, label_counts) where:
             label_image is a (H,W,C) array with dtype=int
             label_counts is a 1D array of length C (number of channels) that contains the number of labels drawn for each channel; effectively the maximum value found in each channel
@@ -241,7 +246,10 @@ class AbsractLabelledImage (object):
             raise TypeError, 'label_classes must be a sequence that can contain LabelClass instances, strings or sub-sequences of the former'
 
 
-        height, width = self.image_shape
+        if image_shape is None:
+            height, width = self.image_shape
+        else:
+            height, width = image_shape
 
         label_image = np.zeros((height, width, len(label_classes)), dtype=int)
 

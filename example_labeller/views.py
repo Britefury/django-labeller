@@ -54,7 +54,7 @@ def home(request):
 def get_image_desctriptor(request, image_id_str):
     image = images_table[image_id_str]
 
-    labels = image.labels
+    labels = image.labels_json
     complete = False
 
     data, mimetype, width, height = image.data_and_mime_type_and_size()
@@ -71,7 +71,7 @@ def get_image_desctriptor(request, image_id_str):
 @label_update_view
 def set_labels(request, image_id_str, labels, complete):
     image = images_table[image_id_str]
-    image.labels = labels
+    image.labels_json = labels
 
 
 def get_image(request, image_id):

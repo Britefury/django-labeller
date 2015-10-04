@@ -90,7 +90,7 @@ class ImageLabellingTool (widgets.DOMWidget):
 
         self.on_msg(self._on_msg_recv)
 
-        self.label_data = labelled_images[0].labels
+        self.label_data = labelled_images[0].labels_json
 
 
     def _on_msg_recv(self, _, msg):
@@ -108,8 +108,8 @@ class ImageLabellingTool (widgets.DOMWidget):
 
             data_b64 = base64.b64encode(data)
 
-            image_msg['label_header'] = {'image_id': image_id, 'labels': image.labels, 'complete': image.complete}
-            self.label_data = image.labels
+            image_msg['label_header'] = {'image_id': image_id, 'labels': image.labels_json, 'complete': image.complete}
+            self.label_data = image.labels_json
             image_msg['width'] = width
             image_msg['height'] = height
             image_msg['href'] = 'data:{0};base64,'.format(mimetype) + data_b64
@@ -123,7 +123,7 @@ class ImageLabellingTool (widgets.DOMWidget):
                 image_id = value['image_id']
                 complete = value['complete']
                 labels = value['labels']
-                self.__images[image_id].labels = labels
+                self.__images[image_id].labels_json = labels
                 self.__images[image_id].complete = complete
                 print('Received changes for image {0}; {1} labels'.format(image_id, len(labels)))
 

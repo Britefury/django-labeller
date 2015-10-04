@@ -75,7 +75,7 @@ def index():
 def get_image_descriptor(image_id):
     image = images_table[image_id]
 
-    labels = image.labels
+    labels = image.labels_json
     complete = False
 
     data, mimetype, width, height = image.data_and_mime_type_and_size()
@@ -105,7 +105,7 @@ def set_labels():
     labels = label_header['labels']
 
     image = images_table[image_id]
-    image.labels = labels
+    image.labels_json = labels
 
     return make_response('')
 

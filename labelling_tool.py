@@ -366,7 +366,7 @@ class AbsractLabelledImage (object):
 
     def warped(self, projection, sz_px):
         warped_pixels = transform.warp(self.pixels, projection.inverse)[:int(sz_px[0]),:int(sz_px[1])].astype('float32')
-        warped_labels = self.labels.warped(projection)
+        warped_labels = self.labels.warp(projection)
         return InMemoryLabelledImage(warped_pixels, warped_labels)
 
 

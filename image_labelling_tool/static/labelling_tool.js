@@ -166,6 +166,8 @@ function LabellingTool() {
 
     /*
     Create a polygonal label model
+
+    vertices: list of pairs, each pair is [x, y]
      */
     var PolygonalLabelModel = function() {
         var self = AbstractLabelModel();
@@ -244,6 +246,10 @@ function LabellingTool() {
             return null;
         };
 
+        self.distance_to_point = function(point) {
+            return null;
+        };
+
         self.notify_model_destroyed = function(model_id) {
         };
 
@@ -262,6 +268,7 @@ function LabellingTool() {
 
         self._hover = false;
         self._selected = false;
+        self._polyk_poly = [];
 
         self.attach = function() {
             self.shape_line = d3.svg.line()
@@ -286,15 +293,26 @@ function LabellingTool() {
                 self._view.on_entity_mouse_out(self);
             });
 
+            self._update_polyk_poly();
             self._update_style();
         };
 
         self.detach = function() {
             self.poly.remove();
+            self._polyk_poly = [];
+        };
+
+        self._update_polyk_poly = function() {
+            self._polyk_poly = [];
+            for (var i = 0; i < self.model.vertices.length; i++) {
+                self._polyk_poly.push(self.model.vertices[i].x);
+                self._polyk_poly.push(self.model.vertices[i].y);
+            }
         };
 
         self.update = function() {
             self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices));
+            self._update_polyk_poly();
         };
 
         self.commit = function() {
@@ -324,6 +342,16 @@ function LabellingTool() {
 
         self.compute_centroid = function() {
             return compute_centroid_of_points(self.model.vertices);
+        };
+
+        self.distance_to_point = function(point) {
+            if (PolyK.ContainsPoint(self._polyk_poly, point.x, point.y)) {
+                return 0.0;
+            }
+            else {
+                var e = PolyK.ClosestEdge(self._polyk_poly, point.x, point.y);
+                return e.dist;
+            }
         };
 
 
@@ -555,7 +583,22 @@ function LabellingTool() {
         self.on_cancel = function(pos) {
         };
 
+        self.on_button_down = function(pos, event) {
+        };
+
+        self.on_button_up = function(pos, event) {
+        };
+
         self.on_move = function(pos) {
+        };
+
+        self.on_drag = function(pos) {
+        };
+
+        self.on_wheel = function(pos, wheelDeltaX, wheelDeltaY) {
+        };
+
+        self.on_key_down = function(event) {
         };
 
         self.on_entity_mouse_in = function(entity) {
@@ -574,10 +617,10 @@ function LabellingTool() {
     var SelectEntityTool = function(view) {
         var self = AbstractTool(view);
 
-        self._highlighted_entity_stack = [];
+        self._highlighted_entities = [];
 
         self.on_init = function() {
-            self._highlighted_entity_stack = [];
+            self._highlighted_entities = [];
         };
 
         self.on_shutdown = function() {
@@ -591,18 +634,18 @@ function LabellingTool() {
 
         self.on_entity_mouse_in = function(entity) {
             var prev = self._get_current_entity();
-            self._highlighted_entity_stack.push(entity);
+            self._highlighted_entities.push(entity);
             var cur = self._get_current_entity();
             self._entity_stack_modified(prev, cur);
         };
 
 
         self.on_entity_mouse_out = function(entity) {
-            var index = self._highlighted_entity_stack.indexOf(entity);
+            var index = self._highlighted_entities.indexOf(entity);
 
             if (index !== -1) {
                 var prev = self._get_current_entity();
-                self._highlighted_entity_stack.splice(index, 1);
+                self._highlighted_entities.splice(index, 1);
                 var cur = self._get_current_entity();
                 self._entity_stack_modified(prev, cur);
             }
@@ -611,7 +654,7 @@ function LabellingTool() {
         self.on_left_click = function(pos, event) {
             var entity = self._get_current_entity();
             if (entity !== null) {
-                self._view.select_entity(entity, event.shiftKey);
+                self._view.select_entity(entity, event.shiftKey, true);
             }
             else {
                 if (!event.shiftKey) {
@@ -621,7 +664,7 @@ function LabellingTool() {
         };
 
         self._get_current_entity = function() {
-            return self._highlighted_entity_stack.length !== 0  ?  self._highlighted_entity_stack[self._highlighted_entity_stack.length-1]  :  null;
+            return self._highlighted_entities.length !== 0  ?  self._highlighted_entities[self._highlighted_entities.length-1]  :  null;
         };
 
         self._entity_stack_modified = function(prev, cur) {
@@ -634,6 +677,127 @@ function LabellingTool() {
                     cur.hover(true);
                 }
             }
+        };
+
+        return self;
+    };
+
+
+    /*
+    Brush select entity tool
+     */
+    var BrushSelectEntityTool = function(view) {
+        var self = AbstractTool(view);
+
+        self._highlighted_entities = [];
+        self._brush_radius = 10.0;
+        self._brush_circle = null;
+
+        self.on_init = function() {
+            self._highlighted_entities = [];
+            self._brush_circle = self._view.$container.append("circle");
+            self._brush_circle.attr("r", self._brush_radius);
+            self._brush_circle.attr("visibility", "hidden");
+            self._brush_circle.style("fill", "rgba(128,0,0,0.05)");
+            self._brush_circle.style("stroke-width", "1.0");
+            self._brush_circle.style("stroke", "red");
+        };
+
+        self.on_shutdown = function() {
+            self._brush_circle.remove();
+        };
+
+
+        self._get_entities_in_range = function(point) {
+            var in_range = [];
+            var entities = self._view.get_entities();
+            for (var i = 0; i < entities.length; i++) {
+                var entity = entities[i];
+                var dist = entity.distance_to_point(point);
+                if (dist !== null) {
+                    if (dist <= self._brush_radius) {
+                        in_range.push(entity);
+                    }
+                }
+            }
+            return in_range;
+        };
+
+        self._highlight_entities = function(entities) {
+            // Remove any hover
+            for (var i = 0; i < self._highlighted_entities.length; i++) {
+                self._highlighted_entities[i].hover(false);
+            }
+
+            self._highlighted_entities = entities;
+
+            // Add hover
+            for (var i = 0; i < self._highlighted_entities.length; i++) {
+                self._highlighted_entities[i].hover(true);
+            }
+        };
+
+
+        self.on_button_down = function(pos, event) {
+            var entities = self._get_entities_in_range(pos);
+            for (var i = 0; i < entities.length; i++) {
+                self._view.select_entity(entities[i], event.shiftKey || i > 0, false);
+            }
+            return true;
+        };
+
+        self.on_button_up = function(pos, event) {
+            self._highlight_entities(self._get_entities_in_range(pos));
+            return true;
+        };
+
+        self.on_move = function(pos, event) {
+            self._highlight_entities(self._get_entities_in_range(pos));
+            self._brush_circle.attr("cx", pos.x);
+            self._brush_circle.attr("cy", pos.y);
+            return true;
+        };
+
+        self.on_drag = function(pos, event) {
+            var entities = self._get_entities_in_range(pos);
+            for (var i = 0; i < entities.length; i++) {
+                self._view.select_entity(entities[i], true, false);
+            }
+            self._brush_circle.attr("cx", pos.x);
+            self._brush_circle.attr("cy", pos.y);
+            return true;
+        };
+
+        self.on_wheel = function(pos, wheelDeltaX, wheelDeltaY) {
+            self._brush_radius += wheelDeltaY * 0.1;
+            self._brush_radius = Math.max(self._brush_radius, 1.0);
+            self._brush_circle.attr("r", self._brush_radius);
+            return true;
+        };
+
+        self.on_key_down = function(event) {
+            var changed = false;
+            if (event.keyCode == 219) {
+                self._brush_radius -= 2.0;
+                changed = true;
+            }
+            else if (event.keyCode == 221) {
+                self._brush_radius += 2.0;
+                changed = true;
+            }
+            if (changed) {
+                self._brush_radius = Math.max(self._brush_radius, 1.0);
+                self._brush_circle.attr("r", self._brush_radius);
+                return true;
+            }
+        };
+
+        self.on_switch_in = function(pos) {
+            self._brush_circle.attr("visibility", "visible");
+        };
+
+        self.on_switch_out = function(pos) {
+            self._brush_circle.attr("visibility", "hidden");
         };
 
         return self;
@@ -700,7 +864,7 @@ function LabellingTool() {
             var entity = PolygonalLabelEntity(self._view, model);
             self.entity = entity;
             self._view.add_entity(entity, false);
-            self._view.select_entity(entity, false);
+            self._view.select_entity(entity, false, false);
         };
 
         self.destroy_entity = function() {
@@ -785,6 +949,7 @@ function LabellingTool() {
         config.tools = config.tools || {};
         ensure_flag_exists(config.tools, 'imageSelector', true);
         ensure_flag_exists(config.tools, 'labelClassSelector', true);
+        ensure_flag_exists(config.tools, 'brushSelect', true);
         ensure_flag_exists(config.tools, 'drawPolyLabel', true);
         ensure_flag_exists(config.tools, 'compositeLabel', true);
         ensure_flag_exists(config.tools, 'deleteLabel', true);
@@ -802,6 +967,8 @@ function LabellingTool() {
         LabellingToolSelf.$label_classes = label_classes;
         // Hide labels
         LabellingToolSelf.hide_labels = false;
+        // Button state
+        LabellingToolSelf._button_down = false;
 
         // Label model object table
         LabellingToolSelf._label_model_obj_table = ObjectIDTable();
@@ -960,6 +1127,14 @@ function LabellingTool() {
             event.preventDefault();
         });
 
+        if (config.tools.brushSelect) {
+            LabellingToolSelf._brush_select_button = $('<button>Brush select</button>').appendTo(LabellingToolSelf._toolbar);
+            LabellingToolSelf._brush_select_button.button().click(function (event) {
+                LabellingToolSelf.set_current_tool(BrushSelectEntityTool(LabellingToolSelf));
+                event.preventDefault();
+            });
+        }
+
         if (config.tools.drawPolyLabel) {
             LabellingToolSelf._draw_polygon_button = $('<button>Draw poly</button>').appendTo(LabellingToolSelf._toolbar);
             LabellingToolSelf._draw_polygon_button.button().click(function (event) {
@@ -983,7 +1158,7 @@ function LabellingTool() {
                     }
 
                     LabellingToolSelf.add_entity(entity, true);
-                    LabellingToolSelf.select_entity(entity, false);
+                    LabellingToolSelf.select_entity(entity, false, false);
                 }
 
                 event.preventDefault();
@@ -1104,16 +1279,37 @@ function LabellingTool() {
 
         // Button press
         container.on("mousedown", function() {
-            if (d3.event.button === 2) {
+            var handled = false;
+            if (d3.event.button === 0) {
+                // Left button down
+                LabellingToolSelf._button_down = true;
+                if (LabellingToolSelf.$tool !== null) {
+                    handled = LabellingToolSelf.$tool.on_button_down(LabellingToolSelf.get_mouse_pos(), d3.event);
+                }
+            }
+            else if (d3.event.button === 2) {
                 // Right click; on_cancel current tool
-                var handled = false;
                 if (LabellingToolSelf.$tool !== null) {
                     handled = LabellingToolSelf.$tool.on_cancel(LabellingToolSelf.get_mouse_pos());
                 }
+            }
+            if (handled) {
+                d3.event.stopPropagation();
+            }
+        });
 
-                if (handled) {
-                    d3.event.stopPropagation();
+        // Button press
+        container.on("mouseup", function() {
+            var handled = false;
+            if (d3.event.button === 0) {
+                // Left buton up
+                LabellingToolSelf._button_down = false;
+                if (LabellingToolSelf.$tool !== null) {
+                    handled = LabellingToolSelf.$tool.on_button_up(LabellingToolSelf.get_mouse_pos(), d3.event);
                 }
+            }
+            if (handled) {
+                d3.event.stopPropagation();
             }
         });
 
@@ -1121,27 +1317,46 @@ function LabellingTool() {
         container.on("mousemove", function() {
             var handled = false;
             LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos();
-            if (!LabellingToolSelf._mouse_within) {
-                // Entered tool area; invoke tool.on_switch_in()
+            if (LabellingToolSelf._button_down) {
                 if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_switch_in(LabellingToolSelf._last_mouse_pos);
+                    handled = LabellingToolSelf.$tool.on_drag(LabellingToolSelf._last_mouse_pos);
                 }
-
-                if (handled) {
-                    d3.event.stopPropagation();
-                }
-
-                LabellingToolSelf._mouse_within = true;
             }
             else {
-                // Send mouse on_move event to tool
-                if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_move(LabellingToolSelf._last_mouse_pos);
-                }
+                if (!LabellingToolSelf._mouse_within) {
+                    LabellingToolSelf._init_key_handlers();
 
-                if (handled) {
-                    d3.event.stopPropagation();
+                    // Entered tool area; invoke tool.on_switch_in()
+                    if (LabellingToolSelf.$tool !== null) {
+                        handled = LabellingToolSelf.$tool.on_switch_in(LabellingToolSelf._last_mouse_pos);
+                    }
+
+                    LabellingToolSelf._mouse_within = true;
                 }
+                else {
+                    // Send mouse on_move event to tool
+                    if (LabellingToolSelf.$tool !== null) {
+                        handled = LabellingToolSelf.$tool.on_move(LabellingToolSelf._last_mouse_pos);
+                    }
+                }
+            }
+            if (handled) {
+                d3.event.stopPropagation();
+            }
+        });
+
+        // Mouse wheel
+        container.on("mousewheel", function() {
+            var handled = false;
+            LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos();
+            if (d3.event.ctrlKey || d3.event.shiftKey || d3.event.altKey) {
+                if (LabellingToolSelf.$tool !== null) {
+                    handled = LabellingToolSelf.$tool.on_wheel(LabellingToolSelf._last_mouse_pos,
+                                                               d3.event.wheelDeltaX, d3.event.wheelDeltaY);
+                }
+            }
+            if (handled) {
+                d3.event.stopPropagation();
             }
         });
 
@@ -1162,6 +1377,7 @@ function LabellingTool() {
 
                     LabellingToolSelf._mouse_within = false;
                     LabellingToolSelf._last_mouse_pos = null;
+                    LabellingToolSelf._shutdown_key_handlers();
                 }
             }
         };
@@ -1175,6 +1391,19 @@ function LabellingTool() {
             on_mouse_out(LabellingToolSelf.get_mouse_pos(), LabellingToolSelf._image_width, LabellingToolSelf._image_height);
         });
 
+
+        // Global key handler
+        if (!__labelling_tool_key_handler.connected) {
+            d3.select("body").on("keydown", function () {
+                if (__labelling_tool_key_handler.handler !== null) {
+                    var handled = __labelling_tool_key_handler.handler(d3.event);
+                    if (handled) {
+                        d3.event.stopPropagation();
+                    }
+                }
+            });
+            __labelling_tool_key_handler.connected = true;
+        }
 
 
         // Create entities for the pre-existing labels
@@ -1338,28 +1567,43 @@ function LabellingTool() {
     /*
     Select an entity
      */
-    LabellingToolSelf.select_entity = function(entity, multi_select) {
+    LabellingToolSelf.select_entity = function(entity, multi_select, invert) {
         multi_select = multi_select === undefined  ?  false  :  multi_select;
 
         if (multi_select) {
             var index = LabellingToolSelf.$selected_entities.indexOf(entity);
+            var changed = false;
 
-            if (index === -1) {
-                // Add
-                LabellingToolSelf.$selected_entities.push(entity);
-                entity.select(true);
+            if (invert) {
+                if (index === -1) {
+                    // Add
+                    LabellingToolSelf.$selected_entities.push(entity);
+                    entity.select(true);
+                    changed = true;
+                }
+                else {
+                    // Remove
+                    LabellingToolSelf.$selected_entities.splice(index, 1);
+                    entity.select(false);
+                    changed = true;
+                }
             }
             else {
-                // Remove
-                LabellingToolSelf.$selected_entities.splice(index, 1);
-                entity.select(false);
+                if (index === -1) {
+                    // Add
+                    LabellingToolSelf.$selected_entities.push(entity);
+                    entity.select(true);
+                    changed = true;
+                }
             }
 
-            if (LabellingToolSelf.$selected_entities.length === 1) {
-                LabellingToolSelf._update_label_class_menu(LabellingToolSelf.$selected_entities[0].get_label_class());
-            }
-            else {
-                LabellingToolSelf._update_label_class_menu(null);
+            if (changed) {
+                if (LabellingToolSelf.$selected_entities.length === 1) {
+                    LabellingToolSelf._update_label_class_menu(LabellingToolSelf.$selected_entities[0].get_label_class());
+                }
+                else {
+                    LabellingToolSelf._update_label_class_menu(null);
+                }
             }
         }
         else {
@@ -1395,6 +1639,13 @@ function LabellingTool() {
      */
     LabellingToolSelf.get_selected_entity = function() {
         return LabellingToolSelf.$selected_entities.length == 1  ?  LabellingToolSelf.$selected_entities[0]  :  null;
+    };
+
+    /*
+    Get all entities
+     */
+    LabellingToolSelf.get_entities = function() {
+        return LabellingToolSelf.entities;
     };
 
 
@@ -1529,5 +1780,27 @@ function LabellingTool() {
     };
 
 
+    LabellingToolSelf._init_key_handlers = function() {
+        __labelling_tool_key_handler.handler = LabellingToolSelf._on_key_down;
+    };
+
+    LabellingToolSelf._shutdown_key_handlers = function() {
+        __labelling_tool_key_handler.handler = null;
+    };
+
+    LabellingToolSelf._on_key_down = function(event) {
+        if (LabellingToolSelf.$tool !== null) {
+            LabellingToolSelf.$tool.on_key_down(event);
+        }
+    };
+
+
     return LabellingToolSelf;
 }
+
+
+var __labelling_tool_key_handler = {};
+
+__labelling_tool_key_handler.handler = null;
+__labelling_tool_key_handler.connected = false;
+

@@ -994,6 +994,9 @@ function LabellingTool() {
         // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
         // to user action
         LabellingToolSelf._sendLabelHeaderFn = sendLabelHeaderFn;
+        // Send data interval for storing interval ID for queued label send
+        LabellingToolSelf._pushDataTimeout = null;
+
 
 
         var toolbar_width = 220;
@@ -1071,7 +1074,7 @@ function LabellingTool() {
         LabellingToolSelf._complete_checkbox.change(function(event, ui) {
             var value = event.target.checked;
             LabellingToolSelf._label_header.complete = value;
-            LabellingToolSelf.push_label_data();
+            LabellingToolSelf.queue_push_label_data();
         });
 
 
@@ -1719,7 +1722,7 @@ function LabellingTool() {
         LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
 
         if (commit) {
-            LabellingToolSelf.push_label_data();
+            LabellingToolSelf.queue_push_label_data();
         }
     };
 
@@ -1745,7 +1748,7 @@ function LabellingTool() {
 
             if (commit) {
                 // Commit changes
-                LabellingToolSelf.push_label_data();
+                LabellingToolSelf.queue_push_label_data();
             }
         }
     };
@@ -1760,12 +1763,17 @@ function LabellingTool() {
         var index = labels.indexOf(model);
 
         if (index !== -1) {
-            LabellingToolSelf.push_label_data();
+            LabellingToolSelf.queue_push_label_data();
         }
     };
 
-    LabellingToolSelf.push_label_data = function() {
-        LabellingToolSelf._sendLabelHeaderFn(LabellingToolSelf._label_header);
+    LabellingToolSelf.queue_push_label_data = function() {
+        if (LabellingToolSelf._pushDataTimeout === null) {
+            LabellingToolSelf._pushDataTimeout = setTimeout(function() {
+                LabellingToolSelf._pushDataTimeout = null;
+                LabellingToolSelf._sendLabelHeaderFn(LabellingToolSelf._label_header);
+            }, 0);
+        }
     };
 
     // Function for getting the current mouse position

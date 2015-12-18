@@ -93,7 +93,7 @@ class ImageLabellingTool (widgets.DOMWidget):
         self.label_data = labelled_images[0].labels_json
 
 
-    def _on_msg_recv(self, _, msg):
+    def _on_msg_recv(self, _, msg, *args):
         msg_type = msg.get('msg_type', '')
         if msg_type == 'request_image_descriptor':
             try:

@@ -76,6 +76,13 @@ class ImageLabels (object):
         self.labels_json = labels_json
 
 
+    def __len__(self):
+        return len(self.labels_json)
+
+    def __getitem__(self, item):
+        return self.labels_json[item]
+
+
     def warp(self, xform_fn):
         """
         Warp the labels given a warping function
@@ -465,7 +472,7 @@ class InMemoryLabelledImage (AbsractLabelledImage):
 
 
 class PersistentLabelledImage (AbsractLabelledImage):
-    def __init__(self, path, labels_dir=None):
+    def __init__(self, path, labels_dir=None, readonly=False):
         super(PersistentLabelledImage, self).__init__()
         self.__labels_path = self.__compute_labels_path(path, labels_dir=labels_dir)
         self.__image_path = path
@@ -473,6 +480,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
         self.__labels = None
         self.__complete = None
+        self.__readonly = readonly
 
 
 
@@ -543,14 +551,15 @@ class PersistentLabelledImage (AbsractLabelledImage):
     def __set_label_data(self, labels, complete):
         self.__labels = labels
         self.__complete = complete
-        if labels is None  or  (len(labels) == 0 and not complete):
-            # No data; delete the file
-            if os.path.exists(self.__labels_path):
-                os.remove(self.__labels_path)
-        else:
-            wrapped = self.__wrap_labels(self.image_path, labels, complete)
-            with open(self.__labels_path, 'w') as f:
-                json.dump(wrapped, f, indent=3)
+        if not self.__readonly:
+            if labels is None  or  (len(labels) == 0 and not complete):
+                # No data; delete the file
+                if os.path.exists(self.__labels_path):
+                    os.remove(self.__labels_path)
+            else:
+                wrapped = self.__wrap_labels(self.image_path, labels, complete)
+                with open(self.__labels_path, 'w') as f:
+                    json.dump(wrapped, f, indent=3)
 
 
 
@@ -580,12 +589,12 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
 
     @classmethod
-    def for_directory(cls, dir_path, image_filename_pattern='*.png', with_labels_only=False, labels_dir=None):
+    def for_directory(cls, dir_path, image_filename_pattern='*.png', with_labels_only=False, labels_dir=None, readonly=False):
         image_paths = glob.glob(os.path.join(dir_path, image_filename_pattern))
         if with_labels_only:
-            return [PersistentLabelledImage(img_path, labels_dir=labels_dir)   for img_path in image_paths   if os.path.exists(cls.__compute_labels_path(img_path))]
+            return [PersistentLabelledImage(img_path, labels_dir=labels_dir, readonly=readonly)   for img_path in image_paths   if os.path.exists(cls.__compute_labels_path(img_path))]
         else:
-            return [PersistentLabelledImage(img_path, labels_dir=labels_dir)   for img_path in image_paths]
+            return [PersistentLabelledImage(img_path, labels_dir=labels_dir, readonly=readonly)   for img_path in image_paths]
 
 
 

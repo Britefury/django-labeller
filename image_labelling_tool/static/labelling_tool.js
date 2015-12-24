@@ -43,10 +43,7 @@ function LabellingTool() {
         var sum = [0.0, 0.0];
         var N = vertices.length;
         if (N === 0) {
-            return {
-                x: 0.0,
-                y: 0.0
-            };
+            return Point(0, 0);
         }
         else {
             for (var i = 0; i < N; i++) {
@@ -55,10 +52,65 @@ function LabellingTool() {
                 sum[1] += vtx.y;
             }
             var scale = 1.0 / N;
-            return {
-                x: sum[0] * scale,
-                y: sum[1] * scale
-            };
+            return Point(sum[0] * scale, sum[1] * scale);
+        }
+    };
+
+
+
+
+    /*
+    Axis-aligned box
+     */
+    var AABox = function(lower, upper) {
+        var self = {
+            lower: lower,
+            upper: upper
+        };
+
+        self.contains_point = function(point) {
+            return point.x >= self.lower.x && point.x <= self.upper.x &&
+                   point.y >= self.lower.y && point.y <= self.upper.y;
+        };
+
+        return self;
+    };
+
+    var AABox_from_points = function(array_of_points) {
+        if (array_of_points.length > 0) {
+            var first = array_of_points[0];
+            var lower = {x: first.x, y: first.y};
+            var upper = {x: first.x, y: first.y};
+            for (var i = 1; i < array_of_points.length; i++) {
+                var p = array_of_points[i];
+                lower.x = Math.min(lower.x, p.x);
+                lower.y = Math.min(lower.y, p.y);
+                upper.x = Math.max(upper.x, p.x);
+                upper.y = Math.max(upper.y, p.y);
+            }
+            return AABox(lower, upper);
+        }
+        else {
+            return AABox({x: 0, y: 0}, {x: 0, y: 0});
+        }
+    };
+
+    var AABox_from_aaboxes = function(array_of_boxes) {
+        if (array_of_boxes.length > 0) {
+            var first = array_of_boxes[0];
+            var result = AABox({x: first.lower.x, y: first.lower.y},
+                               {x: first.upper.x, y: first.upper.y});
+            for (var i = 1; i < array_of_boxes.length; i++) {
+                var box = array_of_boxes[i];
+                result.lower.x = Math.min(result.lower.x, box.lower.x);
+                result.lower.y = Math.min(result.lower.y, box.lower.y);
+                result.upper.x = Math.max(result.upper.x, box.upper.x);
+                result.upper.y = Math.max(result.upper.y, box.upper.y);
+            }
+            return result;
+        }
+        else {
+            return AABox({x: 1, y: 1}, {x: -1, y: -1});
         }
     };
 
@@ -146,6 +198,16 @@ function LabellingTool() {
         return self;
     };
 
+    var get_label_header_labels = function(label_header) {
+        var labels = label_header.labels;
+        if (labels === undefined || labels === null) {
+            return [];
+        }
+        else {
+            return labels;
+        }
+    };
+
     var replace_label_header_labels = function(label_header, labels) {
         return LabelHeaderModel(label_header.image_id, label_header.complete, labels);
     };
@@ -189,6 +251,28 @@ function LabellingTool() {
     };
 
 
+    /*
+    Group label model
+     */
+    var GroupLabelModel = function() {
+        var self = AbstractLabelModel();
+        self.label_type = 'group';
+        self.component_models = [];
+
+        return self;
+    };
+
+
+
+
+    var LabelEntityEventListener = function() {
+        return {
+            on_mouse_in: function(entity) {
+            },
+            on_mouse_out: function(entity) {
+            }
+        };
+    };
 
 
 
@@ -200,13 +284,43 @@ function LabellingTool() {
             model: model,
             _view: view,
             _hover: false,
-            _selected: false
+            _selected: false,
+            _event_listeners: [],
+            parent_entity: null
+        };
+
+        self.add_event_listener = function(listener) {
+            self._event_listeners.push(listener);
+        };
+
+        self.remove_event_listener = function(listener) {
+            var i = self._event_listeners.indexOf(listener);
+            if (i !== -1) {
+                self._event_listeners.splice(i, 1);
+            }
+        };
+
+        self.set_parent = function(parent) {
+            var was_root = self.parent_entity === null;
+            self.parent_entity = parent;
+            var is_root = self.parent_entity === null;
+            if (was_root && !is_root) {
+                self._view._unregister_root_entity(self);
+            }
+            else if (!was_root && is_root) {
+                self._view._register_root_entity(self);
+            }
         };
 
         self.attach = function() {
+            self._view._register_entity(self);
         };
 
         self.detach = function() {
+            if (self.parent_entity === null) {
+                self._view._unregister_root_entity(self)
+            }
+            self._view._unregister_entity(self);
         };
 
         self.update = function() {
@@ -246,6 +360,10 @@ function LabellingTool() {
             return null;
         };
 
+        self.compute_bounding_box = function() {
+            return null;
+        };
+
         self.distance_to_point = function(point) {
             return null;
         };
@@ -263,43 +381,41 @@ function LabellingTool() {
     var PolygonalLabelEntity = function(view, polygonal_label_model) {
         var self = AbstractLabelEntity(view, polygonal_label_model);
 
-        self.ev_mouse_in = [];
-        self.ev_mouse_out = [];
-
-        self._hover = false;
-        self._selected = false;
         self._polyk_poly = [];
 
+        var super_attach = self.attach;
         self.attach = function() {
             self.shape_line = d3.svg.line()
                 .x(function (d) { return d.x; })
                 .y(function (d) { return d.y; })
                 .interpolate("linear-closed");
 
-            self.poly = self._view.$container.append("path");
+            self.poly = self._view.$world.append("path");
             self.poly.data(self.model.vertices).attr("d", self.shape_line(self.model.vertices));
 
             self.poly.on("mouseover", function() {
-                for (var i = 0; i < self.ev_mouse_in.length; i++) {
-                    self.ev_mouse_in[i](self);
+                for (var i = 0; i < self._event_listeners.length; i++) {
+                    self._event_listeners[i].on_mouse_in(self);
                 }
-                self._view.on_entity_mouse_in(self);
             });
 
             self.poly.on("mouseout", function() {
-                for (var i = 0; i < self.ev_mouse_in.length; i++) {
-                    self.ev_mouse_out[i](self);
+                for (var i = 0; i < self._event_listeners.length; i++) {
+                    self._event_listeners[i].on_mouse_out(self);
                 }
-                self._view.on_entity_mouse_out(self);
             });
 
             self._update_polyk_poly();
             self._update_style();
+
+            super_attach();
         };
 
+        var super_detach = self.detach;
         self.detach = function() {
             self.poly.remove();
             self._polyk_poly = [];
+            super_detach();
         };
 
         self._update_polyk_poly = function() {
@@ -344,6 +460,10 @@ function LabellingTool() {
             return compute_centroid_of_points(self.model.vertices);
         };
 
+        self.compute_bounding_box = function() {
+            return AABox_from_points(self.model.vertices);
+        };
+
         self.distance_to_point = function(point) {
             if (PolyK.ContainsPoint(self._polyk_poly, point.x, point.y)) {
                 return 0.0;
@@ -367,17 +487,12 @@ function LabellingTool() {
     var CompositeLabelEntity = function(view, composite_label_model) {
         var self = AbstractLabelEntity(view, composite_label_model);
 
-        self.ev_mouse_in = [];
-        self.ev_mouse_out = [];
-
-        self._hover = false;
-        self._selected = false;
-
+        var super_attach = self.attach;
         self.attach = function() {
-            self.circle = self._view.$container.append("circle")
+            self.circle = self._view.$world.append("circle")
                 .attr('r', 8.0);
 
-            self.central_circle = self._view.$container.append("circle")
+            self.central_circle = self._view.$world.append("circle")
                 .attr('r', 4.0);
 
             self.shape_line = d3.svg.line()
@@ -389,11 +504,11 @@ function LabellingTool() {
 
             self.update();
 
-            self.circle.on("mouseover", function() {
-                self._on_mouse_over_event();
-            }).on("mouseout", function() {
-                self._on_mouse_out_event();
-            });
+            //self.circle.on("mouseover", function() {
+            //    self._on_mouse_over_event();
+            //}).on("mouseout", function() {
+            //    self._on_mouse_out_event();
+            //});
 
             self.central_circle.on("mouseover", function() {
                 self._on_mouse_over_event();
@@ -403,30 +518,33 @@ function LabellingTool() {
 
 
             self._update_style();
+            super_attach();
         };
 
-
-        self._on_mouse_over_event = function() {
-            for (var i = 0; i < self.ev_mouse_in.length; i++) {
-                self.ev_mouse_in[i](self);
-            }
-            self._view.on_entity_mouse_in(self);
-        };
-
-        self._on_mouse_out_event = function() {
-            for (var i = 0; i < self.ev_mouse_in.length; i++) {
-                self.ev_mouse_out[i](self);
-            }
-            self._view.on_entity_mouse_out(self);
-        };
-
-
+        var super_detach = self.detach;
         self.detach = function() {
             self.circle.remove();
             self.central_circle.remove();
             self.connections_group.remove();
             self.connections_group = null;
+            super_detach();
         };
+
+
+        self._on_mouse_over_event = function() {
+            for (var i = 0; i < self._event_listeners.length; i++) {
+                self._event_listeners[i].on_mouse_in(self);
+            }
+            self._view.on_entity_mouse_in(self);
+        };
+
+        self._on_mouse_out_event = function() {
+            for (var i = 0; i < self._event_listeners.length; i++) {
+                self._event_listeners[i].on_mouse_out(self);
+            }
+            self._view.on_entity_mouse_out(self);
+        };
+
 
         self.update = function() {
             var component_centroids = self._compute_component_centroids();
@@ -445,7 +563,7 @@ function LabellingTool() {
                 self.connections_group = null;
             }
 
-            self.connections_group = self._view.$container.append("g");
+            self.connections_group = self._view.$world.append("g");
             for (var i = 0; i < component_centroids.length; i++) {
                 self.connections_group.append("path")
                     .attr("d", self.shape_line([centroid, component_centroids[i]]))
@@ -520,6 +638,141 @@ function LabellingTool() {
             return compute_centroid_of_points(self._compute_component_centroids());
         };
 
+        self.compute_bounding_box = function() {
+            var centre = self.compute_centroid();
+            return AABox({x: centre.x - 1, y: centre.y - 1}, {x: centre.x + 1, y: centre.y + 1});
+        };
+
+        self.notify_model_destroyed = function(model_id) {
+            var index = self.model.components.indexOf(model_id);
+
+            if (index !== -1) {
+                // Remove the model ID from the components array
+                self.model.components = self.model.components.slice(0, index).concat(self.model.components.slice(index+1));
+                self.update();
+            }
+        };
+
+        self.poly = null;
+
+        return self;
+    };
+
+
+    /*
+    Group label entity
+     */
+    var GroupLabelEntity = function(view, composite_label_model) {
+        var self = AbstractLabelEntity(view, composite_label_model);
+
+        self._component_entities = [];
+        self._bounding_rect = null;
+        self._bounding_aabox = null;
+
+        var super_attach = self.attach;
+        self.attach = function() {
+            self._bounding_rect = self._view.$world.append("rect")
+                .attr("x", 0).attr("y", 0)
+                .attr("width", 0).attr("height", 0)
+                .attr("visibility", "hidden");
+
+            self.update();
+
+            self._update_style();
+            super_attach();
+        };
+
+        var super_detach = self.detach;
+        self.detach = function() {
+            self.bounding_box.remove();
+            super_detach();
+        };
+
+        self.update = function() {
+            for (var i = 0; i < self._component_entities.length; i++) {
+                self._component_entities[i].set_parent(null);
+                self._component_entities[i].remove_event_listener(self._component_event_listener);
+            }
+
+            self._component_entities = [];
+            var component_bboxes = [];
+            for (var i = 0; i < self.model.component_models.length; i++) {
+                var model = self.model.component_models[i];
+                var model_entity = self._view.get_or_create_entity_for_model(model);
+                self._component_entities.push(model_entity);
+                component_bboxes.push(model_entity.compute_bounding_box());
+                model_entity.add_event_listener(self._component_event_listener);
+                model_entity.set_parent(self);
+            }
+            self._bounding_aabox = AABox_from_aaboxes(component_bboxes);
+
+            self._bounding_rect
+                .attr('x', self._bounding_aabox.lower.x)
+                .attr('y', self._bounding_aabox.lower.y)
+                .attr('width', self._bounding_aabox.lower.x - self._bounding_aabox.lower.x)
+                .attr('height', self._bounding_aabox.lower.y - self._bounding_aabox.lower.y);
+        };
+
+        self.commit = function() {
+            self._view.commit_model(self.model);
+        };
+
+
+        self._component_event_listener = LabelEntityEventListener();
+        self._component_event_listener.on_mouse_in = function(entity) {
+            for (var i = 0; i < self._event_listeners.length; i++) {
+                self._event_listeners[i].on_mouse_in(self);
+            }
+        };
+        self._component_event_listener.on_mouse_out = function(entity) {
+            for (var i = 0; i < self._event_listeners.length; i++) {
+                self._event_listeners[i].on_mouse_out(self);
+            }
+        };
+
+
+        self._update_style = function() {
+            if (self._selected) {
+                if (self._hover) {
+                    self._bounding_rect.attr("style", "stroke:rgba(255,255,0,0.75); fill:rgba(255,128,0,0.1);")
+                        .attr("visibility", "visible");
+                }
+                else {
+                    self._bounding_rect.attr("style", "stroke:rgba(255,255,0,0.5); fill:none;")
+                        .attr("visibility", "visible");
+                }
+            }
+            else {
+                if (self._hover) {
+                    self._bounding_rect.attr("style", "stroke:rgba(255,255,0,0.2); fill:none;")
+                        .attr("visibility", "visible");
+                }
+                else {
+                    self._bounding_rect.attr("visibility", "hidden");
+                }
+            }
+        };
+
+        self._compute_component_centroids = function() {
+            var component_centroids = [];
+            for (var i = 0; i < self.model.components.length; i++) {
+                var model_id = self.model.components[i];
+                var entity = self._view.get_entity_for_model_id(model_id);
+                var centroid = entity.compute_centroid();
+                component_centroids.push(centroid);
+            }
+            return component_centroids;
+        };
+
+        self.compute_centroid = function() {
+            return compute_centroid_of_points(self._compute_component_centroids());
+        };
+
+        self.compute_bounding_box = function() {
+            var centre = self.compute_centroid();
+            return AABox({x: centre.x - 1, y: centre.y - 1}, {x: centre.x + 1, y: centre.y + 1});
+        };
+
         self.notify_model_destroyed = function(model_id) {
             var index = self.model.components.indexOf(model_id);
 
@@ -542,7 +795,8 @@ function LabellingTool() {
      */
     var label_type_to_entity_constructor = {
         'polygon': PolygonalLabelEntity,
-        'composite': CompositeLabelEntity
+        'composite': CompositeLabelEntity,
+        'group': GroupLabelEntity
     };
 
 
@@ -695,7 +949,7 @@ function LabellingTool() {
 
         self.on_init = function() {
             self._highlighted_entities = [];
-            self._brush_circle = self._view.$container.append("circle");
+            self._brush_circle = self._view.$world.append("circle");
             self._brush_circle.attr("r", self._brush_radius);
             self._brush_circle.attr("visibility", "hidden");
             self._brush_circle.style("fill", "rgba(128,0,0,0.05)");
@@ -739,6 +993,7 @@ function LabellingTool() {
 
 
         self.on_button_down = function(pos, event) {
+            self._highlight_entities([]);
             var entities = self._get_entities_in_range(pos);
             for (var i = 0; i < entities.length; i++) {
                 self._view.select_entity(entities[i], event.shiftKey || i > 0, false);
@@ -793,10 +1048,12 @@ function LabellingTool() {
         };
 
         self.on_switch_in = function(pos) {
+            self._highlight_entities(self._get_entities_in_range(pos));
             self._brush_circle.attr("visibility", "visible");
         };
 
         self.on_switch_out = function(pos) {
+            self._highlight_entities([]);
             self._brush_circle.attr("visibility", "hidden");
         };
 
@@ -863,12 +1120,12 @@ function LabellingTool() {
             var model = PolygonalLabelModel();
             var entity = PolygonalLabelEntity(self._view, model);
             self.entity = entity;
-            self._view.add_entity(entity, false);
+            self._view.add_root_entity(entity, false);
             self._view.select_entity(entity, false, false);
         };
 
         self.destroy_entity = function() {
-            self._view.remove_entity(self.entity, false);
+            self._view.remove_root_entity(self.entity, false);
             self.entity = null;
         };
 
@@ -958,7 +1215,8 @@ function LabellingTool() {
         // Model
         LabellingToolSelf._label_header = {};
         // Entity list
-        LabellingToolSelf.entities = [];
+        LabellingToolSelf.root_entities = [];
+        LabellingToolSelf._all_entities = [];
         // Active tool
         LabellingToolSelf.$tool = null;
         // Selected entity
@@ -969,6 +1227,7 @@ function LabellingTool() {
         LabellingToolSelf.hide_labels = false;
         // Button state
         LabellingToolSelf._button_down = false;
+        LabellingToolSelf._capture_move_events = false;
 
         // Label model object table
         LabellingToolSelf._label_model_obj_table = ObjectIDTable();
@@ -1110,8 +1369,8 @@ function LabellingTool() {
             var value = event.target.checked;
             LabellingToolSelf.hide_labels = value;
 
-            for (var i = 0; i < LabellingToolSelf.entities.length; i++) {
-                LabellingToolSelf.entities[i].notify_hide_labels_change(value);
+            for (var i = 0; i < LabellingToolSelf._all_entities.length; i++) {
+                LabellingToolSelf._all_entities[i].notify_hide_labels_change(value);
             }
         });
 
@@ -1160,7 +1419,7 @@ function LabellingTool() {
                         model.components.push(LabellingToolSelf.$selected_entities[i].model.object_id);
                     }
 
-                    LabellingToolSelf.add_entity(entity, true);
+                    LabellingToolSelf.add_root_entity(entity, true);
                     LabellingToolSelf.select_entity(entity, false, false);
                 }
 
@@ -1193,7 +1452,7 @@ function LabellingTool() {
                         var entities_to_remove = LabellingToolSelf.$selected_entities.slice();
 
                         for (var i = 0; i < entities_to_remove.length; i++) {
-                            LabellingToolSelf.remove_entity(entities_to_remove[i], true);
+                            LabellingToolSelf.remove_root_entity(entities_to_remove[i], true);
                         }
 
                         remove_confirm_ui();
@@ -1222,6 +1481,8 @@ function LabellingTool() {
         // Zoom callback
         function zoomed() {
             var t = d3.event.translate, s = d3.event.scale;
+            LabellingToolSelf._zoom_xlat = t;
+            LabellingToolSelf._zoom_scale = s;
             LabellingToolSelf._zoom_node.attr("transform", "translate(" + t[0] + "," + t[1] + ") scale(" + s + ")");
         }
 
@@ -1242,16 +1503,18 @@ function LabellingTool() {
                 .attr("width", LabellingToolSelf._labelling_area_width)
                 .attr("height", LabellingToolSelf._tool_height)
                 .call(LabellingToolSelf._zoom_behaviour);
+        var svg = LabellingToolSelf.$svg;
 
         // Add the zoom transformation <g> element
         LabellingToolSelf._zoom_node = LabellingToolSelf.$svg.append('svg:g').attr('transform', 'scale(1)');
+        LabellingToolSelf._zoom_scale = 1.0;
+        LabellingToolSelf._zoom_xlat = [0.0, 0.0];
 
         // Create the container <g> element that will contain our scene
-        var container = LabellingToolSelf._zoom_node.append('g');
-        LabellingToolSelf.$container = container;
+        LabellingToolSelf.$world = LabellingToolSelf._zoom_node.append('g');
 
         // Add the image element to the container
-        LabellingToolSelf._image = container.append("image")
+        LabellingToolSelf._image = LabellingToolSelf.$world.append("image")
                 .attr("x", 0)
                 .attr("y", 0);
 
@@ -1266,66 +1529,67 @@ function LabellingTool() {
         //
 
         // Click
-        container.on("click", function() {
+        LabellingToolSelf.$world.on("click", function() {
             if (d3.event.button === 0) {
                 // Left click; send to tool
-                var handled = false;
-                if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_left_click(LabellingToolSelf.get_mouse_pos(), d3.event);
-                }
-
-                if (handled) {
+                if (!d3.event.altKey) {
+                    if (LabellingToolSelf.$tool !== null) {
+                        LabellingToolSelf.$tool.on_left_click(LabellingToolSelf.get_mouse_pos_world_space(), d3.event);
+                    }
                     d3.event.stopPropagation();
                 }
+
             }
         });
 
         // Button press
-        container.on("mousedown", function() {
-            var handled = false;
+        LabellingToolSelf.$world.on("mousedown", function() {
             if (d3.event.button === 0) {
                 // Left button down
-                LabellingToolSelf._button_down = true;
-                if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_button_down(LabellingToolSelf.get_mouse_pos(), d3.event);
+                if (!d3.event.altKey) {
+                    LabellingToolSelf._button_down = true;
+                    if (LabellingToolSelf.$tool !== null) {
+                        LabellingToolSelf.$tool.on_button_down(LabellingToolSelf.get_mouse_pos_world_space(), d3.event);
+                    }
+                    d3.event.stopPropagation();
                 }
             }
             else if (d3.event.button === 2) {
                 // Right click; on_cancel current tool
                 if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_cancel(LabellingToolSelf.get_mouse_pos());
+                    var handled = LabellingToolSelf.$tool.on_cancel(LabellingToolSelf.get_mouse_pos_world_space());
+                    if (handled) {
+                        d3.event.stopPropagation();
+                    }
                 }
-            }
-            if (handled) {
-                d3.event.stopPropagation();
             }
         });
 
         // Button press
-        container.on("mouseup", function() {
-            var handled = false;
+        LabellingToolSelf.$world.on("mouseup", function() {
             if (d3.event.button === 0) {
                 // Left buton up
-                LabellingToolSelf._button_down = false;
-                if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_button_up(LabellingToolSelf.get_mouse_pos(), d3.event);
+                if (!d3.event.altKey) {
+                    LabellingToolSelf._button_down = false;
+                    if (LabellingToolSelf.$tool !== null) {
+                        LabellingToolSelf.$tool.on_button_up(LabellingToolSelf.get_mouse_pos_world_space(), d3.event);
+                    }
+                    d3.event.stopPropagation();
                 }
-            }
-            if (handled) {
-                d3.event.stopPropagation();
             }
         });
 
         // Mouse on_move
-        container.on("mousemove", function() {
-            var handled = false;
-            LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos();
+        LabellingToolSelf.$world.on("mousemove", function() {
+            LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos_world_space();
             if (LabellingToolSelf._button_down) {
                 if (LabellingToolSelf.$tool !== null) {
-                    handled = LabellingToolSelf.$tool.on_drag(LabellingToolSelf._last_mouse_pos);
+                    LabellingToolSelf.$tool.on_drag(LabellingToolSelf._last_mouse_pos);
                 }
+                d3.event.stopPropagation();
             }
             else {
+                var handled = false;
                 if (!LabellingToolSelf._mouse_within) {
                     LabellingToolSelf._init_key_handlers();
 
@@ -1342,16 +1606,16 @@ function LabellingTool() {
                         handled = LabellingToolSelf.$tool.on_move(LabellingToolSelf._last_mouse_pos);
                     }
                 }
-            }
-            if (handled) {
-                d3.event.stopPropagation();
+                if (handled) {
+                    d3.event.stopPropagation();
+                }
             }
         });
 
         // Mouse wheel
-        container.on("mousewheel", function() {
+        LabellingToolSelf.$world.on("mousewheel", function() {
             var handled = false;
-            LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos();
+            LabellingToolSelf._last_mouse_pos = LabellingToolSelf.get_mouse_pos_world_space();
             if (d3.event.ctrlKey || d3.event.shiftKey || d3.event.altKey) {
                 if (LabellingToolSelf.$tool !== null) {
                     handled = LabellingToolSelf.$tool.on_wheel(LabellingToolSelf._last_mouse_pos,
@@ -1371,7 +1635,7 @@ function LabellingTool() {
                     // invoke tool.on_switch_out()
                     var handled = false;
                     if (LabellingToolSelf.$tool !== null) {
-                        handled = LabellingToolSelf.$tool.on_switch_out(pos);
+                        handled = LabellingToolSelf.$tool.on_switch_out(LabellingToolSelf.get_mouse_pos_world_space());
                     }
 
                     if (handled) {
@@ -1387,11 +1651,7 @@ function LabellingTool() {
 
         // Mouse leave
         LabellingToolSelf.$svg.on("mouseout", function() {
-            on_mouse_out(LabellingToolSelf.get_tool_area_mouse_pos(), LabellingToolSelf._labelling_area_width, LabellingToolSelf._tool_height);
-        });
-
-        container.on("mouseout", function() {
-            on_mouse_out(LabellingToolSelf.get_mouse_pos(), LabellingToolSelf._image_width, LabellingToolSelf._image_height);
+            on_mouse_out(LabellingToolSelf.get_mouse_pos_screen_space(), LabellingToolSelf._labelling_area_width, LabellingToolSelf._tool_height);
         });
 
 
@@ -1446,8 +1706,8 @@ function LabellingTool() {
 
     LabellingToolSelf.setImage = function(image_data) {
         // Remove all entities
-        while (LabellingToolSelf.entities.length > 0) {
-            LabellingToolSelf.unregister_entity_by_index(LabellingToolSelf.entities.length-1);
+        while (LabellingToolSelf.root_entities.length > 0) {
+            LabellingToolSelf.shutdown_entity(LabellingToolSelf.root_entities[LabellingToolSelf.root_entities.length-1]);
         }
 
         // Update the image SVG element
@@ -1459,10 +1719,7 @@ function LabellingTool() {
 
         // Update the labels
         LabellingToolSelf._label_header = image_data.label_header;
-        var labels = LabellingToolSelf._label_header.labels;
-        if (labels === null) {
-            labels = [];
-        }
+        var labels = get_label_header_labels(LabellingToolSelf._label_header);
 
         // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
         LabellingToolSelf._label_model_obj_table = ObjectIDTable();
@@ -1471,7 +1728,8 @@ function LabellingTool() {
         for (var i = 0; i < labels.length; i++) {
             var label = labels[i];
             var entity = new_entity_for_model(LabellingToolSelf, label);
-            LabellingToolSelf.register_entity(entity);
+            LabellingToolSelf.initialise_entity(entity);
+            LabellingToolSelf._register_root_entity(entity);
         }
 
         LabellingToolSelf._complete_checkbox[0].checked = LabellingToolSelf._label_header.complete;
@@ -1484,23 +1742,6 @@ function LabellingTool() {
         console.log(LabellingToolSelf);
     };
 
-
-
-
-    /*
-    Entity mouse in event
-     */
-    LabellingToolSelf.on_entity_mouse_in = function(entity) {
-        if (LabellingToolSelf.$tool !== null) {
-            LabellingToolSelf.$tool.on_entity_mouse_in(entity);
-        }
-    };
-
-    LabellingToolSelf.on_entity_mouse_out = function(entity) {
-        if (LabellingToolSelf.$tool !== null) {
-            LabellingToolSelf.$tool.on_entity_mouse_out(entity);
-        }
-    };
 
 
 
@@ -1648,31 +1889,48 @@ function LabellingTool() {
     Get all entities
      */
     LabellingToolSelf.get_entities = function() {
-        return LabellingToolSelf.entities;
+        return LabellingToolSelf.root_entities;
     };
 
 
 
     /*
-    Register entity
+    Entity event listener
      */
-    LabellingToolSelf.register_entity = function(entity) {
+    LabellingToolSelf._entity_event_listener = LabelEntityEventListener();
+    LabellingToolSelf._entity_event_listener.on_mouse_in = function(entity) {
+        if (LabellingToolSelf.$tool !== null) {
+            LabellingToolSelf.$tool.on_entity_mouse_in(entity);
+        }
+    };
+
+    LabellingToolSelf._entity_event_listener.on_mouse_out = function(entity) {
+        if (LabellingToolSelf.$tool !== null) {
+            LabellingToolSelf.$tool.on_entity_mouse_out(entity);
+        }
+    };
+
+
+    /*
+    Register and unregister entities
+     */
+    LabellingToolSelf._register_entity = function(entity) {
+        LabellingToolSelf._all_entities.push(entity);
         LabellingToolSelf._label_model_obj_table.register(entity.model);
-        LabellingToolSelf.entities.push(entity);
         LabellingToolSelf._label_model_id_to_entity[entity.model.object_id] = entity;
-        entity.attach();
     };
 
-    /*
-    Unregister entity by index
-     */
-    LabellingToolSelf.unregister_entity_by_index = function(index) {
-        var entity = LabellingToolSelf.entities[index];
+    LabellingToolSelf._unregister_entity = function(entity) {
+        var index = LabellingToolSelf._all_entities.indexOf(entity);
 
-        // Notify all models of the destruction of this model
-        for (var i = 0; i < LabellingToolSelf.entities.length; i++) {
+        if (index === -1) {
+            throw "Attempting to unregister entity that is not in _all_entities";
+        }
+
+        // Notify all entities of the destruction of this model
+        for (var i = 0; i < LabellingToolSelf._all_entities.length; i++) {
             if (i !== index) {
-                LabellingToolSelf.entities[i].notify_model_destroyed(entity.model);
+                LabellingToolSelf._all_entities[i].notify_model_destroyed(entity.model);
             }
         }
 
@@ -1680,6 +1938,27 @@ function LabellingTool() {
         LabellingToolSelf._label_model_obj_table.unregister(entity.model);
         delete LabellingToolSelf._label_model_id_to_entity[entity.model.object_id];
 
+        // Remove
+        LabellingToolSelf._all_entities.splice(index, 1);
+    };
+
+    /*
+    Register and unregister root entities
+     */
+    LabellingToolSelf._register_root_entity = function(entity) {
+        LabellingToolSelf.root_entities.push(entity);
+        entity.add_event_listener(LabellingToolSelf._entity_event_listener);
+    };
+
+    LabellingToolSelf._unregister_root_entity = function(entity) {
+        // Remove from list of root entities
+        var index_in_roots = LabellingToolSelf.root_entities.indexOf(entity);
+
+        if (index_in_roots === -1) {
+            throw "Attempting to unregister root entity that is not in root_entities";
+        }
+
+        LabellingToolSelf.root_entities.splice(index_in_roots, 1);
 
         // Remove from selection if present
         var index_in_selection = LabellingToolSelf.$selected_entities.indexOf(entity);
@@ -1688,10 +1967,21 @@ function LabellingTool() {
             LabellingToolSelf.$selected_entities.splice(index_in_selection, 1);
         }
 
-        entity.detach();
-        // Remove
-        LabellingToolSelf.entities.splice(index, 1);
+        entity.remove_event_listener(LabellingToolSelf._entity_event_listener);
     };
+
+
+    /*
+    Initialise and shutdown entities
+     */
+    LabellingToolSelf.initialise_entity = function(entity) {
+        entity.attach();
+    };
+
+    LabellingToolSelf.shutdown_entity = function(entity) {
+        entity.detach();
+    };
+
 
 
     /*
@@ -1708,16 +1998,32 @@ function LabellingTool() {
         return LabellingToolSelf._label_model_id_to_entity[model.object_id];
     };
 
+    /*
+    Get or create entity for model
+     */
+    LabellingToolSelf.get_or_create_entity_for_model = function(model) {
+        var model_id = model.object_id;
+        if (model_id === undefined || model_id === null ||
+            !LabellingToolSelf._label_model_id_to_entity.hasOwnProperty(model_id)) {
+            var entity = new_entity_for_model(LabellingToolSelf, model);
+            LabellingToolSelf.initialise_entity(entity);
+        }
+        else {
+            return LabellingToolSelf._label_model_id_to_entity[model.object_id];
+        }
+    };
+
 
 
     /*
     Add entity:
     register the entity and add its label to the tool data model
      */
-    LabellingToolSelf.add_entity = function(entity, commit) {
-        LabellingToolSelf.register_entity(entity);
+    LabellingToolSelf.add_root_entity = function(entity, commit) {
+        LabellingToolSelf.initialise_entity(entity);
+        LabellingToolSelf._register_root_entity(entity);
 
-        var labels = LabellingToolSelf._label_header.labels;
+        var labels = get_label_header_labels(LabellingToolSelf._label_header);
         labels = labels.concat([entity.model]);
         LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
 
@@ -1730,26 +2036,28 @@ function LabellingTool() {
     Remove entity
     unregister the entity and remove its label from the tool data model
      */
-    LabellingToolSelf.remove_entity = function(entity, commit) {
+    LabellingToolSelf.remove_root_entity = function(entity, commit) {
         // Find the entity's index in the array
-        var index = LabellingToolSelf.entities.indexOf(entity);
+        var index = LabellingToolSelf._all_entities.indexOf(entity);
 
-        if (index !== -1) {
-            // Unregister the entity
-            LabellingToolSelf.unregister_entity_by_index(index);
+        if (index === -1) {
+            throw "Attempting to remove root entity that is not in _all_entities";
+        }
 
-            // Get the label model
-            var labels = LabellingToolSelf._label_header.labels;
+        // Unregister the entity
+        LabellingToolSelf.shutdown_entity(entity);
 
-            // Remove the model from the label model array
-            labels = labels.slice(0, index).concat(labels.slice(index+1));
-            // Replace the labels in the label header
-            LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
+        // Get the label model
+        var labels = get_label_header_labels(LabellingToolSelf._label_header);
 
-            if (commit) {
-                // Commit changes
-                LabellingToolSelf.queue_push_label_data();
-            }
+        // Remove the model from the label model array
+        labels = labels.slice(0, index).concat(labels.slice(index+1));
+        // Replace the labels in the label header
+        LabellingToolSelf._label_header = replace_label_header_labels(LabellingToolSelf._label_header, labels);
+
+        if (commit) {
+            // Commit changes
+            LabellingToolSelf.queue_push_label_data();
         }
     };
 
@@ -1759,7 +2067,7 @@ function LabellingTool() {
     inserts the model into the tool data model and ensures that the relevant change events get send over
      */
     LabellingToolSelf.commit_model = function(model) {
-        var labels = LabellingToolSelf._label_header.labels;
+        var labels = get_label_header_labels(LabellingToolSelf._label_header);
         var index = labels.indexOf(model);
 
         if (index !== -1) {
@@ -1777,12 +2085,13 @@ function LabellingTool() {
     };
 
     // Function for getting the current mouse position
-    LabellingToolSelf.get_mouse_pos = function() {
-        var pos = d3.mouse(LabellingToolSelf.$container[0][0]);
-        return {x: pos[0], y: pos[1]};
+    LabellingToolSelf.get_mouse_pos_world_space = function() {
+        var pos_screen = d3.mouse(LabellingToolSelf.$svg[0][0]);
+        return {x: (pos_screen[0] - LabellingToolSelf._zoom_xlat[0]) / LabellingToolSelf._zoom_scale,
+                y: (pos_screen[1] - LabellingToolSelf._zoom_xlat[1]) / LabellingToolSelf._zoom_scale};
     };
 
-    LabellingToolSelf.get_tool_area_mouse_pos = function() {
+    LabellingToolSelf.get_mouse_pos_screen_space = function() {
         var pos = d3.mouse(LabellingToolSelf.$svg[0][0]);
         return {x: pos[0], y: pos[1]};
     };

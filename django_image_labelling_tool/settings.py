@@ -106,3 +106,5 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'ext_static'),
 )
+
+CSRF_COOKIE_SECURE = False

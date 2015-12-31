@@ -121,10 +121,8 @@
         };
 
         // Create the labelling tool
-        var tool = LabellingTool();
-        // Initialise: place it in the #labelling_tool div
         // Give it: label classes, dimensions, image IDs, initial image ID and the callbacks above
-        tool.initialise($("#labelling_tool")[0],
+        var tool = new labelling_tool.LabellingTool($("#labelling_tool")[0],
                 {{ label_classes }},
                 1280,
                 720,

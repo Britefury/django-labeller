@@ -39,8 +39,7 @@
             });
         };
 
-        var tool = LabellingTool();
-        tool.initialise($("#{{ tool_id }}")[0],
+        var tool = new labelling_tool.LabellingTool($("#{{ tool_id }}")[0],
                 {{ label_classes | safe }},
                 {{ width }},
                 {{ height }},
@@ -53,19 +52,19 @@
 
 
         // CSRF Token setup
-        var csrf = Cookies.get('csrftoken');
-        if (csrf != null) {
+{#        var csrftoken = Cookies.get('csrftoken');#}
+        var csrftoken = '{{ csrf_token }}'
+        if (csrftoken != null) {
             // Adapted from Django DOCS
-            var csrfSafeMethod = function(method) {
+            function csrfSafeMethod(method) {
                 // these HTTP methods do not require CSRF protection
                 return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
-            };
+            }
 
             $.ajaxSetup({
-                crossDomain: false,
                 beforeSend: function(xhr, settings) {
-                    if (!csrfSafeMethod(settings.type)) {
-                        xhr.setRequestHeader('X-CSRFToken', csrf);
+                    if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
                     }
                 }
             });

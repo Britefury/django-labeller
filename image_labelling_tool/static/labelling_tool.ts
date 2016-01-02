@@ -215,6 +215,16 @@ module labelling_tool {
 
 
     /*
+    Label class
+     */
+    interface LabelClass {
+        name: string;
+        human_name: string;
+        colour: number[];
+    }
+
+
+    /*
     Label header model
 
     This is the model that gets send back and forth between the frontend and the backend.
@@ -1705,7 +1715,7 @@ module labelling_tool {
         private root_view: RootLabelView;
         private root_view_listener: RootLabelViewListener;
         private _current_tool: AbstractTool;
-        label_classes: any[];
+        label_classes: LabelClass[];
         hide_labels: boolean;
         private _button_down: boolean;
         private _mouse_within: boolean;
@@ -1739,7 +1749,7 @@ module labelling_tool {
 
 
 
-        constructor(element: Element, label_classes: any[], tool_width: number, tool_height: number,
+        constructor(element: Element, label_classes: LabelClass[], tool_width: number, tool_height: number,
                     image_ids: string[], initial_image_id: string,
                     requestImageCallback: any, sendLabelHeaderFn: any, config: any) {
             var self = this;

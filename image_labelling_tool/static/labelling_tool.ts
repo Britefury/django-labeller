@@ -912,11 +912,11 @@ module labelling_tool {
 
         view: LabellingTool;
 
-        world: any;
+        world: d3.Selection<any>;
 
         constructor(model: LabelHeaderModel, root_listener: RootLabelViewListener,
                     entity_listener: LabelEntityEventListener, ltool: LabellingTool,
-                    world: any) {
+                    world: d3.Selection<any>) {
             this.model = model;
 
             this._all_entities = [];
@@ -1721,16 +1721,16 @@ module labelling_tool {
         private _sendLabelHeaderFn: any;
         private _pushDataTimeout: any;
 
-        private _label_class_selector_menu: any;
-        private _confirm_delete: any;
+        private _label_class_selector_menu: JQuery;
+        private _confirm_delete: JQuery;
         private _confirm_delete_visible: boolean;
-        private _svg: any;
+        private _svg: d3.Selection<any>;
         world: any;
-        private _image: any;
-        private _image_index_input: any;
-        private _complete_checkbox: any;
+        private _image: d3.Selection<any>;
+        private _image_index_input: JQuery;
+        private _complete_checkbox: JQuery;
 
-        private _zoom_node: any;
+        private _zoom_node: d3.Selection<any>;
         private _zoom_xlat: number[];
         private _zoom_scale: number;
 
@@ -1908,7 +1908,7 @@ module labelling_tool {
             $('<br/>').appendTo(toolbar);
             this._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(toolbar);
             this._complete_checkbox.change(function(event, ui) {
-                self.root_view.set_complete(event.target.checked);
+                self.root_view.set_complete((event.target as any).checked);
                 self.queue_push_label_data();
             });
 
@@ -1929,7 +1929,7 @@ module labelling_tool {
                 }
                 $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(this._label_class_selector_menu);
                 this._label_class_selector_menu.change(function (event, ui) {
-                    var label_class_name = event.target.value;
+                    var label_class_name = (event.target as any).value;
                     if (label_class_name == '__unclassified') {
                         label_class_name = null;
                     }
@@ -2301,7 +2301,7 @@ module labelling_tool {
 
             this.root_view.set_model(image_data.label_header);
 
-            this._complete_checkbox[0].checked = this.root_view.model.complete;
+            (this._complete_checkbox[0] as any).checked = this.root_view.model.complete;
 
             this._update_image_index_input(this.root_view.model.image_id);
 

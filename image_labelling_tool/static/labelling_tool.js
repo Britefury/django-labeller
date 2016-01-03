@@ -140,6 +140,7 @@ var labelling_tool;
                 id = this._id_counter;
                 this._id_counter += 1;
                 this._id_to_object[id] = obj;
+                obj.object_id = id;
             }
         };
         ObjectIDTable.prototype.unregister = function (obj) {
@@ -222,15 +223,7 @@ var labelling_tool;
             }
         };
         AbstractLabelEntity.prototype.set_parent = function (parent) {
-            var was_root = this.parent_entity === null;
             this.parent_entity = parent;
-            var is_root = this.parent_entity === null;
-            if (was_root && !is_root) {
-                this.root_view._unregister_root_entity(this);
-            }
-            else if (!was_root && is_root) {
-                this.root_view._register_root_entity(this);
-            }
         };
         AbstractLabelEntity.prototype.attach = function () {
             this.root_view._register_entity(this);
@@ -238,15 +231,13 @@ var labelling_tool;
         };
         AbstractLabelEntity.prototype.detach = function () {
             this._attached = false;
-            if (this.parent_entity === null) {
-                this.root_view._unregister_root_entity(this);
-            }
             this.root_view._unregister_entity(this);
         };
-        AbstractLabelEntity.prototype.destroy = function (commit) {
+        AbstractLabelEntity.prototype.destroy = function () {
             if (this.parent_entity !== null) {
-                this.root_view.remove_root_entity(this, commit);
+                this.parent_entity.remove_child(this);
             }
+            this.root_view.shutdown_entity(this);
         };
         AbstractLabelEntity.prototype.update = function () {
         };
@@ -355,11 +346,11 @@ var labelling_tool;
                     this.poly.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
                 }
                 else {
-                    var fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    var fill_colour_rgb = this.root_view.view.colour_for_label_class(this.model.label_class);
                     if (this._hover) {
-                        fill_colour = lighten_colour(fill_colour, 0.4);
+                        fill_colour_rgb = lighten_colour(fill_colour_rgb, 0.4);
                     }
-                    fill_colour = rgb_to_rgba_string(fill_colour, 0.35);
+                    var fill_colour = rgb_to_rgba_string(fill_colour_rgb, 0.35);
                     stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.5);
                     this.poly.attr("style", "fill:" + fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
                 }
@@ -548,6 +539,40 @@ var labelling_tool;
                 }
             };
         }
+        GroupLabelEntity.prototype.add_child = function (child) {
+            this.model.component_models.push(child.model);
+            this._component_entities.push(child);
+            child.add_event_listener(this._component_event_listener);
+            child.set_parent(this);
+            this.update_bbox();
+            this.update();
+            this._update_style();
+        };
+        GroupLabelEntity.prototype.remove_child = function (child) {
+            var index = this.model.component_models.indexOf(child.model);
+            if (index === -1) {
+                throw "GroupLabelEntity.remove_child: could not find child model";
+            }
+            this.model.component_models.splice(index, 1);
+            this._component_entities.splice(index, 1);
+            child.remove_event_listener(this._component_event_listener);
+            child.set_parent(null);
+            this.update_bbox();
+            this.update();
+            this._update_style();
+        };
+        GroupLabelEntity.prototype.remove_all_children = function () {
+            for (var i = 0; i < this._component_entities.length; i++) {
+                var child = this._component_entities[i];
+                child.remove_event_listener(this._component_event_listener);
+                child.set_parent(null);
+            }
+            this.model.component_models = [];
+            this._component_entities = [];
+            this.update_bbox();
+            this.update();
+            this._update_style();
+        };
         GroupLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
             this._bounding_rect = this.root_view.world.append("rect")
@@ -574,20 +599,29 @@ var labelling_tool;
         GroupLabelEntity.prototype.detach = function () {
             for (var i = 0; i < this._component_entities.length; i++) {
                 var entity = this._component_entities[i];
-                this.root_view._unregister_entity(entity);
+                this.root_view.shutdown_entity(entity);
             }
             this._bounding_rect.remove();
             _super.prototype.detach.call(this);
         };
         ;
-        GroupLabelEntity.prototype.destroy = function (commit) {
+        GroupLabelEntity.prototype.destroy = function () {
+            var children = this._component_entities.slice();
+            this.remove_all_children();
+            for (var i = 0; i < children.length; i++) {
+                this.parent_entity.add_child(children[i]);
+            }
+            this.parent_entity.remove_child(this);
+            this.root_view.shutdown_entity(this);
+            this._component_entities = [];
+        };
+        GroupLabelEntity.prototype.update_bbox = function () {
+            var component_bboxes = [];
             for (var i = 0; i < this._component_entities.length; i++) {
                 var entity = this._component_entities[i];
-                entity.remove_event_listener(this._component_event_listener);
-                entity.set_parent(this.parent_entity);
+                component_bboxes.push(entity.compute_bounding_box());
             }
-            this._component_entities = [];
-            this.root_view.remove_root_entity(this, commit);
+            this._bounding_aabox = AABox_from_aaboxes(component_bboxes);
         };
         GroupLabelEntity.prototype.update = function () {
             this._bounding_rect
@@ -649,10 +683,22 @@ var labelling_tool;
         };
         ;
         GroupLabelEntity.prototype.compute_bounding_box = function () {
-            var centre = this.compute_centroid();
-            return new AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
+            return this._bounding_aabox;
         };
         ;
+        GroupLabelEntity.prototype.distance_to_point = function (point) {
+            var best_dist = null;
+            for (var i = 0; i < this._component_entities.length; i++) {
+                var entity = this._component_entities[i];
+                var d = entity.distance_to_point(point);
+                if (d !== null) {
+                    if (best_dist === null || d < best_dist) {
+                        best_dist = d;
+                    }
+                }
+            }
+            return best_dist;
+        };
         return GroupLabelEntity;
     })(AbstractLabelEntity);
     /*
@@ -700,8 +746,9 @@ var labelling_tool;
          */
         RootLabelView.prototype.set_model = function (model) {
             // Remove all entities
-            while (this.root_entities.length > 0) {
-                this.shutdown_entity(this.root_entities[this.root_entities.length - 1]);
+            var entites_to_shutdown = this.root_entities.slice();
+            for (var i = 0; i < entites_to_shutdown.length; i++) {
+                this.shutdown_entity(entites_to_shutdown[i]);
             }
             // Update the labels
             this.model = model;
@@ -710,11 +757,14 @@ var labelling_tool;
             this._label_model_obj_table = new ObjectIDTable();
             this._label_model_obj_table.register_objects(labels);
             this._label_model_id_to_entity = {};
+            // Reset the entity lists
+            this._all_entities = [];
+            this.root_entities = [];
+            this.selected_entities = [];
             for (var i = 0; i < labels.length; i++) {
                 var label = labels[i];
-                var entity = new_entity_for_model(this, label);
-                this.initialise_entity(entity);
-                this._register_root_entity(entity);
+                var entity = this.get_or_create_entity_for_model(label);
+                this.register_child(entity);
             }
         };
         /*
@@ -839,11 +889,12 @@ var labelling_tool;
             var N = this.selected_entities.length;
             if (N > 0) {
                 var model = new_CompositeLabelModel();
-                var entity = new CompositeLabelEntity(this, model);
                 for (var i = 0; i < this.selected_entities.length; i++) {
                     var model_id = ObjectIDTable.get_id(this.selected_entities[i].model);
                     model.components.push(model_id);
                 }
+                var entity = this.get_or_create_entity_for_model(model);
+                this.add_child(entity);
                 return entity;
             }
             else {
@@ -854,15 +905,17 @@ var labelling_tool;
         Create group label
          */
         RootLabelView.prototype.create_group_label_from_selection = function () {
-            var N = this.selected_entities.length;
+            var selection = this.selected_entities.slice();
+            var N = selection.length;
             if (N > 0) {
                 var model = new_GroupLabelModel();
-                for (var i = 0; i < this.selected_entities.length; i++) {
-                    var entity = this.selected_entities[i];
+                for (var i = 0; i < selection.length; i++) {
+                    var entity = selection[i];
                     model.component_models.push(entity.model);
+                    this.remove_child(entity);
                 }
-                var group_entity = new GroupLabelEntity(this, model);
-                this.add_root_entity(group_entity, true);
+                var group_entity = this.get_or_create_entity_for_model(model);
+                this.add_child(group_entity);
                 return group_entity;
             }
             else {
@@ -876,7 +929,7 @@ var labelling_tool;
             var entities_to_remove = this.selected_entities.slice();
             this.unselect_all_entities();
             for (var i = 0; i < entities_to_remove.length; i++) {
-                this.remove_root_entity(entities_to_remove[i], true);
+                entities_to_remove[i].destroy();
             }
         };
         /*
@@ -904,30 +957,6 @@ var labelling_tool;
             delete this._label_model_id_to_entity[entity.model.object_id];
             // Remove
             this._all_entities.splice(index, 1);
-        };
-        ;
-        /*
-        Register and unregister root entities
-         */
-        RootLabelView.prototype._register_root_entity = function (entity) {
-            this.root_entities.push(entity);
-            entity.add_event_listener(this._entity_event_listener);
-        };
-        ;
-        RootLabelView.prototype._unregister_root_entity = function (entity) {
-            // Remove from list of root entities
-            var index_in_roots = this.root_entities.indexOf(entity);
-            if (index_in_roots === -1) {
-                throw "Attempting to unregister root entity that is not in root_entities";
-            }
-            this.root_entities.splice(index_in_roots, 1);
-            // Remove from selection if present
-            var index_in_selection = this.selected_entities.indexOf(entity);
-            if (index_in_selection !== -1) {
-                entity.select(false);
-                this.selected_entities.splice(index_in_selection, 1);
-            }
-            entity.remove_event_listener(this._entity_event_listener);
         };
         ;
         /*
@@ -965,6 +994,7 @@ var labelling_tool;
                 !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
                 var entity = new_entity_for_model(this, model);
                 this.initialise_entity(entity);
+                return entity;
             }
             else {
                 return this._label_model_id_to_entity[model_id];
@@ -972,42 +1002,61 @@ var labelling_tool;
         };
         ;
         /*
+        Register and unregister child entities
+         */
+        RootLabelView.prototype.register_child = function (entity) {
+            this.root_entities.push(entity);
+            entity.add_event_listener(this._entity_event_listener);
+            entity.set_parent(this);
+        };
+        ;
+        RootLabelView.prototype.unregister_child = function (entity) {
+            // Remove from list of root entities
+            var index_in_roots = this.root_entities.indexOf(entity);
+            if (index_in_roots === -1) {
+                throw "Attempting to unregister root entity that is not in root_entities";
+            }
+            this.root_entities.splice(index_in_roots, 1);
+            // Remove from selection if present
+            var index_in_selection = this.selected_entities.indexOf(entity);
+            if (index_in_selection !== -1) {
+                entity.select(false);
+                this.selected_entities.splice(index_in_selection, 1);
+            }
+            entity.remove_event_listener(this._entity_event_listener);
+            entity.set_parent(null);
+        };
+        ;
+        /*
         Add entity:
         register the entity and add its label to the tool data model
          */
-        RootLabelView.prototype.add_root_entity = function (entity, commit) {
-            this.initialise_entity(entity);
-            this._register_root_entity(entity);
+        RootLabelView.prototype.add_child = function (child) {
+            this.register_child(child);
             var labels = get_label_header_labels(this.model);
-            labels = labels.concat([entity.model]);
+            labels = labels.concat([child.model]);
             this.model = replace_label_header_labels(this.model, labels);
-            if (commit) {
-                this.root_listener.root_list_changed(this);
-            }
+            this.root_listener.root_list_changed(this);
         };
         ;
         /*
         Remove entity
         unregister the entity and remove its label from the tool data model
          */
-        RootLabelView.prototype.remove_root_entity = function (entity, commit) {
-            // Find the entity's index in the array
-            var index = this._all_entities.indexOf(entity);
-            if (index === -1) {
-                throw "Attempting to remove root entity that is not in _all_entities";
-            }
-            // Unregister the entity
-            this.shutdown_entity(entity);
+        RootLabelView.prototype.remove_child = function (child) {
             // Get the label model
             var labels = get_label_header_labels(this.model);
+            var index = labels.indexOf(child.model);
+            if (index === -1) {
+                throw "Attempting to remove root label that is not present";
+            }
             // Remove the model from the label model array
             labels = labels.slice(0, index).concat(labels.slice(index + 1));
             // Replace the labels in the label header
             this.model = replace_label_header_labels(this.model, labels);
-            if (commit) {
-                // Commit changes
-                this.root_listener.root_list_changed(this);
-            }
+            this.unregister_child(child);
+            // Commit changes
+            this.root_listener.root_list_changed(this);
         };
         ;
         return RootLabelView;
@@ -1314,15 +1363,21 @@ var labelling_tool;
         ;
         DrawPolygonTool.prototype.create_entity = function () {
             var model = new_PolygonalLabelModel();
-            var entity = new PolygonalLabelEntity(this._view, model);
+            var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
-            this._view.add_root_entity(entity, false);
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this._view.add_child(entity);
             this._view.select_entity(entity, false, false);
+            this._view.view.thaw();
         };
         ;
         DrawPolygonTool.prototype.destroy_entity = function () {
-            this._view.remove_root_entity(this.entity, false);
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this.entity.destroy();
             this.entity = null;
+            this._view.view.thaw();
         };
         ;
         DrawPolygonTool.prototype.get_vertices = function () {
@@ -1454,6 +1509,8 @@ var labelling_tool;
             this._sendLabelHeaderFn = sendLabelHeaderFn;
             // Send data interval for storing interval ID for queued label send
             this._pushDataTimeout = null;
+            // Frozen flag; while frozen, data will not be sent to backend
+            this.frozen = false;
             var toolbar_width = 220;
             this._labelling_area_width = this._tool_width - toolbar_width;
             var labelling_area_x_pos = toolbar_width + 10;
@@ -1906,13 +1963,21 @@ var labelling_tool;
             }
         };
         ;
+        LabellingTool.prototype.freeze = function () {
+            this.frozen = true;
+        };
+        LabellingTool.prototype.thaw = function () {
+            this.frozen = false;
+        };
         LabellingTool.prototype.queue_push_label_data = function () {
             var _this = this;
-            if (this._pushDataTimeout === null) {
-                this._pushDataTimeout = setTimeout(function () {
-                    _this._pushDataTimeout = null;
-                    _this._sendLabelHeaderFn(_this.root_view.model);
-                }, 0);
+            if (!this.frozen) {
+                if (this._pushDataTimeout === null) {
+                    this._pushDataTimeout = setTimeout(function () {
+                        _this._pushDataTimeout = null;
+                        _this._sendLabelHeaderFn(_this.root_view.model);
+                    }, 0);
+                }
             }
         };
         ;

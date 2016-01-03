@@ -41,18 +41,6 @@ var labelling_tool;
         }
         return x[flag_name];
     }
-    /*
-    Colour utility functions
-     */
-    function lighten_colour(rgb, amount) {
-        var x = 1.0 - amount;
-        return [Math.round(rgb[0] * x + 255 * amount),
-            Math.round(rgb[1] * x + 255 * amount),
-            Math.round(rgb[2] * x + 255 * amount)];
-    }
-    function rgb_to_rgba_string(rgb, alpha) {
-        return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')';
-    }
     function compute_centroid_of_points(vertices) {
         var sum = [0.0, 0.0];
         var N = vertices.length;
@@ -69,6 +57,36 @@ var labelling_tool;
             return { x: sum[0] * scale, y: sum[1] * scale };
         }
     }
+    /*
+    RGBA colour
+     */
+    var Colour4 = (function () {
+        function Colour4(r, g, b, a) {
+            this.r = r;
+            this.g = g;
+            this.b = b;
+            this.a = a;
+        }
+        Colour4.prototype.lerp = function (x, t) {
+            var s = 1.0 - t;
+            return new Colour4(Math.round(this.r * s + x.r * t), Math.round(this.g * s + x.g * t), Math.round(this.b * s + x.b * t), this.a * s + x.a * t);
+        };
+        Colour4.prototype.lighten = function (amount) {
+            return this.lerp(Colour4.WHITE, amount);
+        };
+        Colour4.prototype.with_alpha = function (alpha) {
+            return new Colour4(this.r, this.g, this.b, alpha);
+        };
+        Colour4.prototype.to_rgba_string = function () {
+            return 'rgba(' + this.r + ',' + this.g + ',' + this.b + ',' + this.a + ')';
+        };
+        Colour4.from_rgb_a = function (rgb, alpha) {
+            return new Colour4(rgb[0], rgb[1], rgb[2], alpha);
+        };
+        Colour4.BLACK = new Colour4(0, 0, 0, 1.0);
+        Colour4.WHITE = new Colour4(255, 255, 255, 1.0);
+        return Colour4;
+    })();
     /*
     Axis-aligned box
      */
@@ -178,6 +196,23 @@ var labelling_tool;
             }
         };
         return ObjectIDTable;
+    })();
+    /*
+    Label visibility
+     */
+    var LabelVisibility;
+    (function (LabelVisibility) {
+        LabelVisibility[LabelVisibility["HIDDEN"] = 0] = "HIDDEN";
+        LabelVisibility[LabelVisibility["FAINT"] = 1] = "FAINT";
+        LabelVisibility[LabelVisibility["FULL"] = 2] = "FULL";
+    })(LabelVisibility || (LabelVisibility = {}));
+    var LabelClass = (function () {
+        function LabelClass(j) {
+            this.name = j.name;
+            this.human_name = j.human_name;
+            this.colour = Colour4.from_rgb_a(j.colour, 1.0);
+        }
+        return LabelClass;
     })();
     var get_label_header_labels = function (label_header) {
         var labels = label_header.labels;
@@ -339,20 +374,33 @@ var labelling_tool;
         };
         PolygonalLabelEntity.prototype._update_style = function () {
             if (this._attached) {
-                var stroke_colour_rgb = this._selected ? [255, 0, 0] : [255, 255, 0];
-                var stroke_colour;
-                if (this.root_view.view.hide_labels) {
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.2);
-                    this.poly.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
+                var stroke_colour = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                    this.poly.attr("visibility", "hidden");
                 }
                 else {
-                    var fill_colour_rgb = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this._hover) {
-                        fill_colour_rgb = lighten_colour(fill_colour_rgb, 0.4);
+                    var fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                        stroke_colour = stroke_colour.with_alpha(0.2);
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.1);
                     }
-                    var fill_colour = rgb_to_rgba_string(fill_colour_rgb, 0.35);
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.5);
-                    this.poly.attr("style", "fill:" + fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
+                    else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.35);
+                    }
+                    this.poly.attr("style", "fill:" + fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1")
+                        .attr("visibility", "visible");
                 }
             }
         };
@@ -455,38 +503,37 @@ var labelling_tool;
         };
         CompositeLabelEntity.prototype._update_style = function () {
             if (this._attached) {
-                var stroke_colour_rgb = this._selected ? [255, 0, 0] : [255, 255, 0];
-                var stroke_colour;
-                if (this.root_view.view.hide_labels) {
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.2);
-                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
+                var stroke_colour = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this.connections_group.selectAll("path")
                         .attr("style", "stroke:rgba(255,0,255,0.2);");
                     this.connections_group.selectAll("circle")
                         .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");
                 }
-                else {
-                    var circle_fill_colour_rgb = [255, 128, 255];
-                    var central_circle_fill_colour_rgb = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    var connection_fill_colour_rgb = [255, 0, 255];
-                    var connection_stroke_colour_rgb = [255, 0, 255];
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = new Colour4(255, 128, 255, 1.0);
+                    var central_circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    var connection_fill_colour = new Colour4(255, 0, 255, 1.0);
+                    var connection_stroke_colour = new Colour4(255, 0, 255, 1.0);
                     if (this._hover) {
-                        circle_fill_colour_rgb = lighten_colour(circle_fill_colour_rgb, 0.4);
-                        central_circle_fill_colour_rgb = lighten_colour(central_circle_fill_colour_rgb, 0.4);
-                        connection_fill_colour_rgb = lighten_colour(connection_fill_colour_rgb, 0.4);
-                        connection_stroke_colour_rgb = lighten_colour(connection_stroke_colour_rgb, 0.4);
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                        central_circle_fill_colour = central_circle_fill_colour.lighten(0.4);
+                        connection_fill_colour = connection_fill_colour.lighten(0.4);
+                        connection_stroke_colour = connection_stroke_colour.lighten(0.4);
                     }
-                    var circle_fill_colour = rgb_to_rgba_string(circle_fill_colour_rgb, 0.35);
-                    var central_circle_fill_colour = rgb_to_rgba_string(central_circle_fill_colour_rgb, 0.35);
-                    var connection_fill_colour = rgb_to_rgba_string(connection_fill_colour_rgb, 0.25);
-                    var connection_stroke_colour = rgb_to_rgba_string(connection_stroke_colour_rgb, 0.6);
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.5);
-                    this.circle.attr("style", "fill:" + circle_fill_colour + ";stroke:" + connection_stroke_colour + ";stroke-width:1");
-                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    central_circle_fill_colour = central_circle_fill_colour.with_alpha(0.35);
+                    connection_fill_colour = connection_fill_colour.with_alpha(0.25);
+                    connection_stroke_colour = connection_stroke_colour.with_alpha(0.6);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + connection_stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this.connections_group.selectAll("path")
                         .attr("style", "stroke:rgba(255,0,255,0.6);");
                     this.connections_group.selectAll("circle")
-                        .attr("style", "stroke:" + connection_stroke_colour + ";fill:" + connection_fill_colour + ";");
+                        .attr("style", "stroke:" + connection_stroke_colour.to_rgba_string() + ";fill:" + connection_fill_colour.to_rgba_string() + ";");
                 }
             }
         };
@@ -1084,6 +1131,7 @@ var labelling_tool;
         };
         ;
         AbstractTool.prototype.on_cancel = function (pos) {
+            return false;
         };
         ;
         AbstractTool.prototype.on_button_down = function (pos, event) {
@@ -1093,7 +1141,6 @@ var labelling_tool;
         };
         ;
         AbstractTool.prototype.on_move = function (pos) {
-            return false;
         };
         ;
         AbstractTool.prototype.on_drag = function (pos) {
@@ -1258,7 +1305,6 @@ var labelling_tool;
             this._highlight_entities(this._get_entities_in_range(pos));
             this._brush_circle.attr("cx", pos.x);
             this._brush_circle.attr("cy", pos.y);
-            return true;
         };
         ;
         BrushSelectEntityTool.prototype.on_drag = function (pos) {
@@ -1350,6 +1396,7 @@ var labelling_tool;
                 this._view.unselect_all_entities();
                 this._view.view.set_current_tool(new SelectEntityTool(this._view));
             }
+            return true;
         };
         ;
         DrawPolygonTool.prototype.on_left_click = function (pos, event) {
@@ -1358,7 +1405,6 @@ var labelling_tool;
         ;
         DrawPolygonTool.prototype.on_move = function (pos) {
             this.update_last_point(pos);
-            return true;
         };
         ;
         DrawPolygonTool.prototype.create_entity = function () {
@@ -1487,9 +1533,12 @@ var labelling_tool;
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = label_classes;
+            this.label_classes = [];
+            for (var i = 0; i < label_classes.length; i++) {
+                this.label_classes.push(new LabelClass(label_classes[i]));
+            }
             // Hide labels
-            this.hide_labels = false;
+            this.label_visibility = LabelVisibility.FULL;
             // Button state
             this._button_down = false;
             // Labelling tool dimensions
@@ -1595,11 +1644,24 @@ var labelling_tool;
                     }
                 });
             }
-            $('<br/>').appendTo(toolbar);
-            var hide_labels_checkbox = $('<input type="checkbox">Hide labels</input>').appendTo(toolbar);
-            hide_labels_checkbox.change(function (event, ui) {
-                self.hide_labels = event.target.checked;
-                self.root_view.set_label_visibility(!self.hide_labels);
+            $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
+            this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
+            this.label_vis_faint_radio = $('<input type="radio" name="labelvis" value="faint">faint</input>').appendTo(toolbar);
+            this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
+            this.label_vis_hidden_radio.change(function (event, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.HIDDEN);
+                }
+            });
+            this.label_vis_faint_radio.change(function (event, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.FAINT);
+                }
+            });
+            this.label_vis_full_radio.change(function (event, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.FULL);
+                }
             });
             //
             // Tool buttons:
@@ -1784,13 +1846,11 @@ var labelling_tool;
                     move_event.stopPropagation();
                 }
                 else {
-                    var handled = false;
                     if (!self._mouse_within) {
                         self._init_key_handlers();
                         // Entered tool area; invoke tool.on_switch_in()
                         if (_this._current_tool !== null) {
                             _this._current_tool.on_switch_in(self._last_mouse_pos);
-                            handled = true;
                         }
                         self._mouse_within = true;
                     }
@@ -1798,11 +1858,7 @@ var labelling_tool;
                         // Send mouse on_move event to tool
                         if (_this._current_tool !== null) {
                             _this._current_tool.on_move(self._last_mouse_pos);
-                            handled = true;
                         }
-                    }
-                    if (handled) {
-                        move_event.stopPropagation();
                     }
                 }
             });
@@ -1860,6 +1916,29 @@ var labelling_tool;
             // Create entities for the pre-existing labels
             this._requestImageCallback(initial_image_id);
         }
+        ;
+        LabellingTool.prototype.on_key_down = function (event) {
+            var handled = false;
+            if (event.keyCode === 186) {
+                if (this.label_visibility === LabelVisibility.HIDDEN) {
+                    this.set_label_visibility(LabelVisibility.FULL);
+                    this.label_vis_full_radio[0].checked = true;
+                }
+                else if (this.label_visibility === LabelVisibility.FAINT) {
+                    this.set_label_visibility(LabelVisibility.HIDDEN);
+                    this.label_vis_hidden_radio[0].checked = true;
+                }
+                else if (this.label_visibility === LabelVisibility.FULL) {
+                    this.set_label_visibility(LabelVisibility.FAINT);
+                    this.label_vis_faint_radio[0].checked = true;
+                }
+                else {
+                    throw "Unknown label visibility " + this.label_visibility;
+                }
+                handled = true;
+            }
+            return handled;
+        };
         ;
         LabellingTool.prototype._image_id_to_index = function (image_id) {
             var image_index = this._image_ids.indexOf(image_id);
@@ -1922,7 +2001,7 @@ var labelling_tool;
             }
             else {
                 // Default
-                return [0, 0, 0];
+                return Colour4.BLACK;
             }
         };
         ;
@@ -1944,6 +2023,13 @@ var labelling_tool;
             }
         };
         ;
+        /*
+        Set label visibility
+         */
+        LabellingTool.prototype.set_label_visibility = function (visibility) {
+            this.label_visibility = visibility;
+            this.root_view.set_label_visibility(visibility);
+        };
         /*
         Set the current tool; switch the old one out and a new one in
          */
@@ -1996,7 +2082,7 @@ var labelling_tool;
         LabellingTool.prototype._init_key_handlers = function () {
             var self = this;
             var on_key_down = function (event) {
-                return self._on_key_down(event);
+                return self._overall_on_key_down(event);
             };
             LabellingTool._global_key_handler = on_key_down;
         };
@@ -2005,9 +2091,16 @@ var labelling_tool;
             LabellingTool._global_key_handler = null;
         };
         ;
-        LabellingTool.prototype._on_key_down = function (event) {
-            if (this._current_tool !== null && this._mouse_within) {
-                return this._current_tool.on_key_down(event);
+        LabellingTool.prototype._overall_on_key_down = function (event) {
+            if (this._mouse_within) {
+                var handled = false;
+                if (this._current_tool !== null) {
+                    handled = this._current_tool.on_key_down(event);
+                }
+                if (!handled) {
+                    handled = this.on_key_down(event);
+                }
+                return handled;
             }
             else {
                 return false;

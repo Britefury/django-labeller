@@ -46,20 +46,6 @@ module labelling_tool {
         return x[flag_name];
     }
 
-    /*
-    Colour utility functions
-     */
-    function lighten_colour(rgb: number[], amount: number): number[] {
-        var x = 1.0 - amount;
-        return [Math.round(rgb[0]*x + 255*amount),
-                Math.round(rgb[1]*x + 255*amount),
-                Math.round(rgb[2]*x + 255*amount)];
-    }
-
-    function rgb_to_rgba_string(rgb: number[], alpha: number): string {
-        return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')';
-    }
-
     function compute_centroid_of_points(vertices: Vector2[]): Vector2 {
         var sum = [0.0, 0.0];
         var N = vertices.length;
@@ -78,7 +64,49 @@ module labelling_tool {
     }
 
 
+    /*
+    RGBA colour
+     */
+    class Colour4 {
+        r: number;
+        g: number;
+        b: number;
+        a: number;
 
+        constructor(r: number, g: number, b: number, a: number) {
+            this.r = r;
+            this.g = g;
+            this.b = b;
+            this.a = a;
+        }
+
+        lerp(x: Colour4, t: number) {
+            let s = 1.0 - t;
+            return new Colour4(Math.round(this.r*s + x.r*t),
+                               Math.round(this.g*s + x.g*t),
+                               Math.round(this.b*s + x.b*t),
+                               this.a*s + x.a*t);
+        }
+
+        lighten(amount: number): Colour4 {
+            return this.lerp(Colour4.WHITE, amount);
+        }
+
+        with_alpha(alpha: number): Colour4 {
+            return new Colour4(this.r, this.g, this.b, alpha);
+        }
+
+        to_rgba_string(): string {
+            return 'rgba(' + this.r + ',' + this.g + ',' + this.b + ',' + this.a + ')';
+        }
+
+        static from_rgb_a(rgb: number[], alpha: number): Colour4 {
+            return new Colour4(rgb[0], rgb[1], rgb[2], alpha);
+        }
+
+        static BLACK: Colour4 = new Colour4(0, 0, 0, 1.0);
+        static WHITE: Colour4 = new Colour4(255, 255, 255, 1.0);
+    }
 
 
 
@@ -216,12 +244,35 @@ module labelling_tool {
 
 
     /*
+    Label visibility
+     */
+    enum LabelVisibility {
+        HIDDEN,
+        FAINT,
+        FULL
+    }
+
+
+    /*
     Label class
      */
-    interface LabelClass {
+    interface LabelClassJSON {
         name: string;
         human_name: string;
         colour: number[];
+    }
+
+
+    class LabelClass {
+        name: string;
+        human_name: string;
+        colour: Colour4;
+
+        constructor(j: LabelClassJSON) {
+            this.name = j.name;
+            this.human_name = j.human_name;
+            this.colour = Colour4.from_rgb_a(j.colour, 1.0);
+        }
     }
 
 
@@ -498,23 +549,37 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour_rgb: number[] = this._selected ? [255,0,0] : [255,255,0];
-                var stroke_colour: string;
+                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
 
-                if (this.root_view.view.hide_labels) {
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.2);
-                    this.poly.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
+                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                    this.poly.attr("visibility", "hidden");
                 }
                 else {
-                    var fill_colour_rgb = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this._hover) {
-                        fill_colour_rgb = lighten_colour(fill_colour_rgb, 0.4);
+                    var fill_colour: Colour4 = this.root_view.view.colour_for_label_class(this.model.label_class);
+
+                    if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                        stroke_colour = stroke_colour.with_alpha(0.2);
+
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.1);
                     }
-                    var fill_colour = rgb_to_rgba_string(fill_colour_rgb, 0.35);
+                    else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.35);
+                    }
 
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.5);
-
-                    this.poly.attr("style", "fill:" + fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
+                    this.poly.attr("style", "fill:" + fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1")
+                        .attr("visibility", "visible");
                 }
             }
         }
@@ -646,42 +711,42 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour_rgb = this._selected ? [255,0,0] : [255,255,0];
-                var stroke_colour: string;
+                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
 
-                if (this.root_view.view.hide_labels) {
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.2);
-                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour + ";stroke-width:1");
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
 
                     this.connections_group.selectAll("path")
                         .attr("style", "stroke:rgba(255,0,255,0.2);");
                     this.connections_group.selectAll("circle")
-                        .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");            }
-                else {
-                    var circle_fill_colour_rgb = [255, 128, 255];
-                    var central_circle_fill_colour_rgb = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    var connection_fill_colour_rgb = [255, 0, 255];
-                    var connection_stroke_colour_rgb = [255, 0, 255];
+                        .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = new Colour4(255, 128, 255, 1.0);
+                    var central_circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    var connection_fill_colour = new Colour4(255, 0, 255, 1.0);
+                    var connection_stroke_colour = new Colour4(255, 0, 255, 1.0);
                     if (this._hover) {
-                        circle_fill_colour_rgb = lighten_colour(circle_fill_colour_rgb, 0.4);
-                        central_circle_fill_colour_rgb = lighten_colour(central_circle_fill_colour_rgb, 0.4);
-                        connection_fill_colour_rgb = lighten_colour(connection_fill_colour_rgb, 0.4);
-                        connection_stroke_colour_rgb = lighten_colour(connection_stroke_colour_rgb, 0.4);
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                        central_circle_fill_colour = central_circle_fill_colour.lighten(0.4);
+                        connection_fill_colour = connection_fill_colour.lighten(0.4);
+                        connection_stroke_colour = connection_stroke_colour.lighten(0.4);
                     }
-                    var circle_fill_colour = rgb_to_rgba_string(circle_fill_colour_rgb, 0.35);
-                    var central_circle_fill_colour = rgb_to_rgba_string(central_circle_fill_colour_rgb, 0.35);
-                    var connection_fill_colour = rgb_to_rgba_string(connection_fill_colour_rgb, 0.25);
-                    var connection_stroke_colour = rgb_to_rgba_string(connection_stroke_colour_rgb, 0.6);
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    central_circle_fill_colour = central_circle_fill_colour.with_alpha(0.35);
+                    connection_fill_colour = connection_fill_colour.with_alpha(0.25);
+                    connection_stroke_colour = connection_stroke_colour.with_alpha(0.6);
 
-                    stroke_colour = rgb_to_rgba_string(stroke_colour_rgb, 0.5);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
 
-                    this.circle.attr("style", "fill:" + circle_fill_colour + ";stroke:" + connection_stroke_colour + ";stroke-width:1");
-                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour + ";stroke:" + stroke_colour + ";stroke-width:1");
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + connection_stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
 
                     this.connections_group.selectAll("path")
                         .attr("style", "stroke:rgba(255,0,255,0.6);");
                     this.connections_group.selectAll("circle")
-                        .attr("style", "stroke:"+connection_stroke_colour+";fill:"+connection_fill_colour+";");
+                        .attr("style", "stroke:"+connection_stroke_colour.to_rgba_string()+";fill:"+connection_fill_colour.to_rgba_string()+";");
                 }
             }
         }
@@ -1064,7 +1129,7 @@ module labelling_tool {
         /*
         Set label visibility
          */
-        set_label_visibility(visibility: boolean) {
+        set_label_visibility(visibility: LabelVisibility) {
             for (var i = 0; i < this._all_entities.length; i++) {
                 this._all_entities[i].notify_hide_labels_change();
             }
@@ -1410,7 +1475,8 @@ module labelling_tool {
         on_left_click(pos: Vector2, event: any) {
         };
 
-        on_cancel(pos: Vector2) {
+        on_cancel(pos: Vector2): boolean {
+            return false;
         };
 
         on_button_down(pos: Vector2, event: any) {
@@ -1419,8 +1485,7 @@ module labelling_tool {
         on_button_up(pos: Vector2, event: any) {
         };
 
-        on_move(pos: Vector2): boolean {
-            return false;
+        on_move(pos: Vector2) {
         };
 
         on_drag(pos: Vector2): boolean {
@@ -1597,11 +1662,10 @@ module labelling_tool {
             return true;
         };
 
-        on_move(pos: Vector2): boolean {
+        on_move(pos: Vector2) {
             this._highlight_entities(this._get_entities_in_range(pos));
             this._brush_circle.attr("cx", pos.x);
             this._brush_circle.attr("cy", pos.y);
-            return true;
         };
 
         on_drag(pos: Vector2): boolean {
@@ -1679,7 +1743,7 @@ module labelling_tool {
             }
         };
 
-        on_cancel(pos: Vector2) {
+        on_cancel(pos: Vector2): boolean {
             if (this.entity !== null) {
                 this.remove_last_point();
 
@@ -1696,15 +1760,15 @@ module labelling_tool {
                 this._view.unselect_all_entities();
                 this._view.view.set_current_tool(new SelectEntityTool(this._view));
             }
+            return true;
         };
 
         on_left_click(pos: Vector2, event: any) {
             this.add_point(pos);
         };
 
-        on_move(pos: Vector2): boolean {
+        on_move(pos: Vector2) {
             this.update_last_point(pos);
-            return true;
         };
 
 
@@ -1793,7 +1857,7 @@ module labelling_tool {
         private root_view_listener: RootLabelViewListener;
         private _current_tool: AbstractTool;
         label_classes: LabelClass[];
-        hide_labels: boolean;
+        label_visibility: LabelVisibility;
         private _button_down: boolean;
         private _mouse_within: boolean;
         private _last_mouse_pos: Vector2;
@@ -1811,6 +1875,9 @@ module labelling_tool {
         private frozen: boolean;
 
         private _label_class_selector_menu: JQuery;
+        private label_vis_hidden_radio: JQuery;
+        private label_vis_faint_radio: JQuery;
+        private label_vis_full_radio: JQuery;
         private _confirm_delete: JQuery;
         private _confirm_delete_visible: boolean;
         private _svg: d3.Selection<any>;
@@ -1828,7 +1895,7 @@ module labelling_tool {
 
 
 
-        constructor(element: Element, label_classes: LabelClass[], tool_width: number, tool_height: number,
+        constructor(element: Element, label_classes: LabelClassJSON[], tool_width: number, tool_height: number,
                     image_ids: string[], initial_image_id: string,
                     requestImageCallback: any, sendLabelHeaderFn: any, config: any) {
             var self = this;
@@ -1893,9 +1960,12 @@ module labelling_tool {
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = label_classes;
+            this.label_classes = [];
+            for (var i = 0; i < label_classes.length; i++) {
+                this.label_classes.push(new LabelClass(label_classes[i]));
+            }
             // Hide labels
-            this.hide_labels = false;
+            this.label_visibility = LabelVisibility.FULL;
             // Button state
             this._button_down = false;
 
@@ -2032,11 +2102,24 @@ module labelling_tool {
                 });
             }
 
-            $('<br/>').appendTo(toolbar);
-            var hide_labels_checkbox = $('<input type="checkbox">Hide labels</input>').appendTo(toolbar);
-            hide_labels_checkbox.change(function(event: any, ui) {
-                self.hide_labels = event.target.checked;
-                self.root_view.set_label_visibility(!self.hide_labels);
+            $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
+            this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
+            this.label_vis_faint_radio = $('<input type="radio" name="labelvis" value="faint">faint</input>').appendTo(toolbar);
+            this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
+            this.label_vis_hidden_radio.change(function(event: any, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.HIDDEN);
+                }
+            });
+            this.label_vis_faint_radio.change(function(event: any, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.FAINT);
+                }
+            });
+            this.label_vis_full_radio.change(function(event: any, ui) {
+                if (event.target.checked) {
+                    self.set_label_visibility(LabelVisibility.FULL);
+                }
             });
 
 
@@ -2267,14 +2350,12 @@ module labelling_tool {
                     move_event.stopPropagation();
                 }
                 else {
-                    var handled = false;
                     if (!self._mouse_within) {
                         self._init_key_handlers();
 
                         // Entered tool area; invoke tool.on_switch_in()
                         if (this._current_tool !== null) {
                             this._current_tool.on_switch_in(self._last_mouse_pos);
-                            handled = true;
                         }
 
                         self._mouse_within = true;
@@ -2283,11 +2364,7 @@ module labelling_tool {
                         // Send mouse on_move event to tool
                         if (this._current_tool !== null) {
                             this._current_tool.on_move(self._last_mouse_pos);
-                            handled = true;
                         }
-                    }
-                    if (handled) {
-                        move_event.stopPropagation();
                     }
                 }
             });
@@ -2358,6 +2435,29 @@ module labelling_tool {
         };
 
 
+        on_key_down(event: any): boolean {
+            var handled = false;
+            if (event.keyCode === 186) { // ';'
+                if (this.label_visibility === LabelVisibility.HIDDEN) {
+                    this.set_label_visibility(LabelVisibility.FULL);
+                    (this.label_vis_full_radio[0] as any).checked = true;
+                }
+                else if (this.label_visibility === LabelVisibility.FAINT) {
+                    this.set_label_visibility(LabelVisibility.HIDDEN);
+                    (this.label_vis_hidden_radio[0] as any).checked = true;
+                }
+                else if (this.label_visibility === LabelVisibility.FULL) {
+                    this.set_label_visibility(LabelVisibility.FAINT);
+                    (this.label_vis_faint_radio[0] as any).checked = true;
+                }
+                else {
+                    throw "Unknown label visibility " + this.label_visibility;
+                }
+                handled = true;
+            }
+            return handled;
+        };
+
         _image_id_to_index(image_id: string) {
             var image_index = this._image_ids.indexOf(image_id);
             if (image_index === -1) {
@@ -2424,14 +2524,14 @@ module labelling_tool {
             return -1;
         };
 
-        colour_for_label_class(label_class) {
+        colour_for_label_class(label_class): Colour4 {
             var index = this.index_for_label_class(label_class);
             if (index !== -1) {
                 return this.label_classes[index].colour;
             }
             else {
                 // Default
-                return [0, 0, 0];
+                return Colour4.BLACK;
             }
         };
 
@@ -2453,6 +2553,15 @@ module labelling_tool {
                 this._update_label_class_menu(null);
             }
         };
+
+
+        /*
+        Set label visibility
+         */
+        set_label_visibility(visibility: LabelVisibility) {
+            this.label_visibility = visibility;
+            this.root_view.set_label_visibility(visibility);
+        }
 
 
 
@@ -2513,7 +2622,7 @@ module labelling_tool {
         _init_key_handlers() {
             var self = this;
             var on_key_down = function(event: any): boolean {
-                return self._on_key_down(event);
+                return self._overall_on_key_down(event);
             };
             LabellingTool._global_key_handler = on_key_down;
         };
@@ -2522,9 +2631,16 @@ module labelling_tool {
             LabellingTool._global_key_handler = null;
         };
 
-        _on_key_down(event: any): boolean {
-            if (this._current_tool !== null && this._mouse_within) {
-                return this._current_tool.on_key_down(event);
+        _overall_on_key_down(event: any): boolean {
+            if (this._mouse_within) {
+                var handled: boolean = false;
+                if (this._current_tool !== null) {
+                    handled = this._current_tool.on_key_down(event);
+                }
+                if (!handled) {
+                    handled = this.on_key_down(event);
+                }
+                return handled;
             }
             else {
                 return false;

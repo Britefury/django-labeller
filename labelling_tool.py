@@ -36,7 +36,8 @@ from skimage import img_as_float
 from skimage import transform
 from skimage.io import imread, imsave
 from skimage.color import gray2rgb
-
+from skimage.util import pad
+from skimage.measure import find_contours
 
 
 class LabelClass (object):
@@ -64,6 +65,31 @@ def label_class(name, human_name, rgb):
     return {'name': name,
             'human_name': human_name,
             'colour': rgb}
+
+
+def _next_wrapped_array(xs):
+    return np.append(xs[1:], xs[:1], axis=0)
+
+def _prev_wrapped_array(xs):
+    return np.append(xs[-1:], xs[:-1], axis=0)
+
+def _simplify_contour(cs):
+    degenerate_verts = (cs == _next_wrapped_array(cs)).all(axis=1)
+    while degenerate_verts.any():
+        cs = cs[~degenerate_verts,:]
+        degenerate_verts = (cs == _next_wrapped_array(cs)).all(axis=1)
+
+    if cs.shape[0] > 0:
+        # Degenerate eges
+        edges = (_next_wrapped_array(cs) - cs)
+        edges = edges / np.sqrt((edges**2).sum(axis=1))[:,None]
+        degenerate_edges = (_prev_wrapped_array(edges) * edges).sum(axis=1) > (1.0 - 1.0e-6)
+        cs = cs[~degenerate_edges,:]
+
+        if cs.shape[0] > 0:
+            return cs
+    return None
+
 
 
 class ImageLabels (object):
@@ -321,6 +347,43 @@ class ImageLabels (object):
                     raise TypeError, 'Unknown label type {0}'.format(label_type)
 
         return label_images
+
+
+    @classmethod
+    def from_contours(cls, list_of_contours, label_classes=None):
+        labels = []
+        if not isinstance(label_classes, list):
+            label_classes = [label_classes] * len(list_of_contours)
+        for contour, lcls in zip(list_of_contours, label_classes):
+            vertices = [{'x': contour[i][1], 'y': contour[i][0]}   for i in xrange(contour.shape[0])]
+            label = {
+                'label_type': 'polygon',
+                'label_class': lcls,
+                'vertices': vertices
+            }
+            labels.append(label)
+        return cls(labels)
+
+
+    @classmethod
+    def from_label_image(cls, labels):
+        # labels = pad(labels, [(1,1), (1,1)], mode='constant').astype(np.int32)
+        contours = []
+        for i in xrange(labels.max()+1):
+            lmask = labels == i
+
+            mask_positions = np.argwhere(lmask)
+            (ystart, xstart), (ystop, xstop) = mask_positions.min(0), mask_positions.max(0) + 1
+
+            if ystop >= ystart+1 and xstop >= xstart+1:
+                mask_trim = lmask[ystart:ystop, xstart:xstop]
+                mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
+                cs = find_contours(mask_trim, 0.5)
+                for contour in cs:
+                    simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
+                    if simp is not None:
+                        contours.append(simp)
+        return cls.from_contours(contours)
 
 
 
@@ -662,21 +725,6 @@ class LabelledImageFile (AbsractLabelledImage):
         self.__complete = c
 
 
-
-
-def contours_to_labels(list_of_contours, label_classes=None):
-    labels = []
-    if not isinstance(label_classes, list):
-        label_classes = [label_classes] * len(list_of_contours)
-    for contour, lcls in zip(list_of_contours, label_classes):
-        vertices = [{'x': contour[i][1], 'y': contour[i][0]}   for i in xrange(contour.shape[0])]
-        label = {
-            'label_type': 'polygon',
-            'label_class': lcls,
-            'vertices': vertices
-        }
-        labels.append(label)
-    return ImageLabels(labels)
 
 
 

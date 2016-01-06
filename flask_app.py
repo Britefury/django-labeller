@@ -55,17 +55,8 @@ if __name__ == '__main__':
             # slic_labels = slic(img, 1000, compactness=20.0)
             slic_labels = slic(img, 1000, slic_zero=True)
 
-            print 'Finding contours...'
-            contours = []
-            for i in xrange(slic_labels.max()+1):
-                lmask = slic_labels == i
-                lmask = pad(lmask, [(1,1), (1,1)], mode='constant').astype('float32')
-                label_contours = find_contours(lmask, 0.5)
-                label_contours = [lc - np.array([[1.0, 1.0]]) for lc in label_contours]
-                contours.extend(label_contours)
-
-            print 'Converting contours...'
-            labels = labelling_tool.contours_to_labels(contours)
+            print 'Converting SLIC labels to vector labels...'
+            labels = labelling_tool.ImageLabels.from_label_image(slic_labels)
 
             limg = labelling_tool.LabelledImageFile(path, labels)
             labelled_images.append(limg)

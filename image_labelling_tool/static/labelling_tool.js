@@ -692,6 +692,12 @@ var labelling_tool;
             }
             _super.prototype.hover.call(this, state);
         };
+        GroupLabelEntity.prototype.set_label_class = function (label_class) {
+            for (var i = 0; i < this._component_entities.length; i++) {
+                this._component_entities[i].set_label_class(label_class);
+            }
+            _super.prototype.set_label_class.call(this, label_class);
+        };
         GroupLabelEntity.prototype._update_style = function () {
             if (this._attached) {
                 if (this._selected) {

@@ -944,6 +944,14 @@ module labelling_tool {
         }
 
 
+        set_label_class(label_class: string) {
+            for (var i = 0; i < this._component_entities.length; i++) {
+                this._component_entities[i].set_label_class(label_class);
+            }
+            super.set_label_class(label_class);
+        }
+
+
         _update_style() {
             if (this._attached) {
                 if (this._selected) {

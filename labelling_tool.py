@@ -372,17 +372,18 @@ class ImageLabels (object):
         for i in xrange(labels.max()+1):
             lmask = labels == i
 
-            mask_positions = np.argwhere(lmask)
-            (ystart, xstart), (ystop, xstop) = mask_positions.min(0), mask_positions.max(0) + 1
+            if lmask.sum() > 0:
+                mask_positions = np.argwhere(lmask)
+                (ystart, xstart), (ystop, xstop) = mask_positions.min(0), mask_positions.max(0) + 1
 
-            if ystop >= ystart+1 and xstop >= xstart+1:
-                mask_trim = lmask[ystart:ystop, xstart:xstop]
-                mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
-                cs = find_contours(mask_trim, 0.5)
-                for contour in cs:
-                    simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
-                    if simp is not None:
-                        contours.append(simp)
+                if ystop >= ystart+1 and xstop >= xstart+1:
+                    mask_trim = lmask[ystart:ystop, xstart:xstop]
+                    mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
+                    cs = find_contours(mask_trim, 0.5)
+                    for contour in cs:
+                        simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
+                        if simp is not None:
+                            contours.append(simp)
         return cls.from_contours(contours)
 
 

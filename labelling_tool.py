@@ -351,6 +351,15 @@ class ImageLabels (object):
 
     @classmethod
     def from_contours(cls, list_of_contours, label_classes=None):
+        """
+        Convert a list of contours to an `ImageLabels` instance.
+
+        :param list_of_contours: list of contours, where each contour is an `(N,2)` numpy array.
+                where `N` is the number of vertices, each of which is a `(y,x)` pair.
+        :param label_classes: [optional] a list of the same length as `list_of_contours` that provides
+                the label class of each contour
+        :return: an `ImageLabels` instance containing the labels extracted from the contours
+        """
         labels = []
         if not isinstance(label_classes, list):
             label_classes = [label_classes] * len(list_of_contours)
@@ -367,9 +376,16 @@ class ImageLabels (object):
 
     @classmethod
     def from_label_image(cls, labels):
-        # labels = pad(labels, [(1,1), (1,1)], mode='constant').astype(np.int32)
+        """
+        Convert a integer label mask image to an `ImageLabels` instance.
+
+        :param labels: a `(h,w)` numpy array of dtype `int32` that gives an integer label for each
+                pixel in the image. Label values start at 1; pixels with a value of 0 will not be
+                included in the returned labels.
+        :return: an `ImageLabels` instance containing the labels extracted from the label mask image
+        """
         contours = []
-        for i in xrange(labels.max()+1):
+        for i in xrange(1, labels.max()+1):
             lmask = labels == i
 
             if lmask.sum() > 0:

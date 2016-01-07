@@ -53,7 +53,7 @@ if __name__ == '__main__':
             print 'Segmenting {0}'.format(path)
             img = plt.imread(path)
             # slic_labels = slic(img, 1000, compactness=20.0)
-            slic_labels = slic(img, 1000, slic_zero=True)
+            slic_labels = slic(img, 1000, slic_zero=True) + 1
 
             print 'Converting SLIC labels to vector labels...'
             labels = labelling_tool.ImageLabels.from_label_image(slic_labels)

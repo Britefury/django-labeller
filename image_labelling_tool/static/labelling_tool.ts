@@ -126,6 +126,32 @@ module labelling_tool {
             return point.x >= this.lower.x && point.x <= this.upper.x &&
                    point.y >= this.lower.y && point.y <= this.upper.y;
         }
+
+        centre(): Vector2 {
+            return {x: (this.lower.x + this.upper.x) * 0.5,
+                    y: (this.lower.y + this.upper.y) * 0.5};
+        }
+
+        size(): Vector2 {
+            return {x: this.upper.x - this.lower.x,
+                    y: this.upper.y - this.lower.y};
+        }
+
+        closest_point_to(p: Vector2): Vector2 {
+            var x = Math.max(this.lower.x, Math.min(this.upper.x, p.x));
+            var y = Math.max(this.lower.y, Math.min(this.upper.y, p.y));
+            return {x: x, y: y};
+        }
+
+        sqr_distance_to(p: Vector2): number {
+            var c = this.closest_point_to(p);
+            var dx: number = c.x - p.x, dy: number = c.y - p.y;
+            return dx * dx + dy * dy;
+        }
+
+        distance_to(p: Vector2): number {
+            return Math.sqrt(this.sqr_distance_to(p));
+        }
     }
 
     function AABox_from_points(array_of_points: Vector2[]): AABox {
@@ -320,9 +346,38 @@ module labelling_tool {
 
 
     /*
-    Create a polygonal label model
+    Point label model
+     */
+    interface PointLabelModel extends AbstractLabelModel {
+        position: Vector2;
+    }
 
-    vertices: list of pairs, each pair is [x, y]
+    function new_PointLabelModel(position: Vector2): PointLabelModel {
+        return {label_type: 'point', label_class: null, position: position};
+    }
+
+
+    /*
+    Box label model
+     */
+    interface BoxLabelModel extends AbstractLabelModel {
+        centre: Vector2;
+        size: Vector2;
+    }
+
+    function new_BoxLabelModel(centre: Vector2, size: Vector2): BoxLabelModel {
+        return {label_type: 'box', label_class: null, centre: centre, size: size};
+    }
+
+    function BoxLabel_box(label: BoxLabelModel): AABox {
+        var lower = {x: label.centre.x - label.size.x*0.5, y: label.centre.y - label.size.y*0.5};
+        var upper = {x: label.centre.x + label.size.x*0.5, y: label.centre.y + label.size.y*0.5};
+        return new AABox(lower, upper);
+    }
+
+
+    /*
+    Polygonal label model
      */
     interface PolygonalLabelModel extends AbstractLabelModel {
         vertices: Vector2[];
@@ -479,6 +534,203 @@ module labelling_tool {
 
 
     /*
+    Point label entity
+     */
+    class PointLabelEntity extends AbstractLabelEntity<PointLabelModel> {
+        circle: any;
+        connections_group: any;
+
+        constructor(view: RootLabelView, model: PointLabelModel) {
+            super(view, model);
+        }
+
+        attach() {
+            super.attach();
+            this.circle = this.root_view.world.append("circle")
+                .attr('r', 4.0);
+
+            this.update();
+
+            var self = this;
+            this.circle.on("mouseover", function() {
+                self._on_mouse_over_event();
+            }).on("mouseout", function() {
+                self._on_mouse_out_event();
+            });
+
+
+            this._update_style();
+        }
+
+        detach() {
+            this.circle.remove();
+            this.circle = null;
+            super.detach();
+        }
+
+
+        _on_mouse_over_event() {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        }
+
+        _on_mouse_out_event() {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        }
+
+
+        update() {
+            var position = this.model.position;
+
+            this.circle
+                .attr('cx', position.x)
+                .attr('cy', position.y);
+        }
+
+        commit() {
+            this.root_view.commit_model(this.model);
+        }
+
+
+        _update_style() {
+            if (this._attached) {
+                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+            }
+        }
+
+        compute_centroid(): Vector2 {
+            return this.model.position;
+        }
+
+        compute_bounding_box(): AABox {
+            var centre = this.compute_centroid();
+            return new AABox({x: centre.x - 1, y: centre.y - 1}, {x: centre.x + 1, y: centre.y + 1});
+        }
+    }
+
+
+    /*
+    Box label entity
+     */
+    class BoxLabelEntity extends AbstractLabelEntity<BoxLabelModel> {
+        _rect: any;
+
+
+        constructor(view: RootLabelView, model: BoxLabelModel) {
+            super(view, model);
+        }
+
+
+        attach() {
+            super.attach();
+
+            this._rect = this.root_view.world.append("rect")
+                .attr("x", 0).attr("y", 0)
+                .attr("width", 0).attr("height", 0);
+
+            this.update();
+
+            var self = this;
+            this._rect.on("mouseover", function() {
+                self._on_mouse_over_event();
+            }).on("mouseout", function() {
+                self._on_mouse_out_event();
+            });
+
+
+            this._update_style();
+        };
+
+        detach() {
+            this._rect.remove();
+            this._rect = null;
+            super.detach();
+        }
+
+
+        _on_mouse_over_event() {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        }
+
+        _on_mouse_out_event() {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        }
+
+
+
+        update() {
+            var box = BoxLabel_box(this.model);
+            var size = box.size();
+
+            this._rect
+                .attr('x', box.lower.x).attr('y', box.lower.y)
+                .attr('width', size.x).attr('height', size.y);
+        }
+
+        commit() {
+            this.root_view.commit_model(this.model);
+        }
+
+        _update_style() {
+            if (this._attached) {
+                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+
+                    this._rect.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+            }
+        }
+
+        compute_centroid(): Vector2 {
+            return this.model.centre;
+        };
+
+        compute_bounding_box(): AABox {
+            return BoxLabel_box(this.model);
+        };
+
+        distance_to_point(point: Vector2): number {
+            return BoxLabel_box(this.model).distance_to(point);
+        }
+    }
+
+
+    /*
     Polygonal label entity
      */
     class PolygonalLabelEntity extends AbstractLabelEntity<PolygonalLabelModel> {
@@ -493,7 +745,7 @@ module labelling_tool {
             this.poly = null;
             this.shape_line = null;
         }
-        
+
         attach() {
             super.attach();
 
@@ -915,11 +1167,12 @@ module labelling_tool {
         }
 
         update() {
+            var size = this._bounding_aabox.size();
             this._bounding_rect
                 .attr('x', this._bounding_aabox.lower.x)
                 .attr('y', this._bounding_aabox.lower.y)
-                .attr('width', this._bounding_aabox.upper.x - this._bounding_aabox.lower.x)
-                .attr('height', this._bounding_aabox.upper.y - this._bounding_aabox.lower.y);
+                .attr('width', size.x)
+                .attr('height', size.y);
         }
 
         commit() {
@@ -1015,6 +1268,12 @@ module labelling_tool {
     Map label type to entity constructor
      */
     var label_type_to_entity_factory = {
+        'point': (root_view: RootLabelView, model: AbstractLabelModel) => {
+            return new PointLabelEntity(root_view, model as PointLabelModel);
+        },
+        'box': (root_view: RootLabelView, model: AbstractLabelModel) => {
+            return new BoxLabelEntity(root_view, model as BoxLabelModel);
+        },
         'polygon': (root_view: RootLabelView, model: AbstractLabelModel) => {
             return new PolygonalLabelEntity(root_view, model as PolygonalLabelModel);
         },
@@ -1723,11 +1982,184 @@ module labelling_tool {
 
 
     /*
+    Draw point tool
+     */
+    class DrawPointTool extends AbstractTool {
+        entity: PointLabelEntity;
+        
+        constructor(view: RootLabelView, entity: PointLabelEntity) {
+            super(view);
+            this.entity = entity;
+        }
+
+        on_init() {
+        };
+
+        on_shutdown() {
+        };
+
+        // on_switch_in(pos: Vector2) {
+        //     if (this.entity !== null) {
+        //         this.add_point(pos);
+        //     }
+        // };
+        //
+        // on_switch_out(pos: Vector2) {
+        //     if (this.entity !== null) {
+        //         this.remove_last_point();
+        //     }
+        // };
+        //
+        on_cancel(pos: Vector2): boolean {
+            this._view.unselect_all_entities();
+            this._view.view.set_current_tool(new SelectEntityTool(this._view));
+            return true;
+        };
+
+        on_left_click(pos: Vector2, event: any) {
+            this.create_entity(pos);
+            this.entity.update();
+        };
+
+
+        create_entity(position: Vector2) {
+            var model = new_PointLabelModel(position);
+            var entity = this._view.get_or_create_entity_for_model(model);
+            this.entity = entity;
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this._view.add_child(entity);
+            this._view.select_entity(entity, false, false);
+            this._view.view.thaw();
+        };
+
+        destroy_entity() {
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this.entity.destroy();
+            this.entity = null;
+            this._view.view.thaw();
+        };
+    }
+
+
+    /*
+    Draw box tool
+     */
+    class DrawBoxTool extends AbstractTool {
+        entity: BoxLabelEntity;
+        _start_point: Vector2;
+        _current_point: Vector2;
+
+        constructor(view: RootLabelView, entity: BoxLabelEntity) {
+            super(view);
+            this.entity = entity;
+            this._start_point = null;
+            this._current_point = null;
+        }
+
+        on_init() {
+        };
+
+        on_shutdown() {
+        };
+
+        on_switch_in(pos: Vector2) {
+            if (this._start_point !== null) {
+                this._current_point = pos;
+                this.update_box();
+            }
+        };
+
+        on_switch_out(pos: Vector2) {
+            if (this._start_point !== null) {
+                this._current_point = null;
+                this.update_box();
+            }
+        };
+
+        on_cancel(pos: Vector2): boolean {
+            if (this.entity !== null) {
+                if (this._start_point !== null) {
+                    this.destroy_entity();
+                    this._start_point = null;
+                }
+            }
+            else {
+                this._view.unselect_all_entities();
+                this._view.view.set_current_tool(new SelectEntityTool(this._view));
+            }
+            return true;
+        };
+
+        on_left_click(pos: Vector2, event: any) {
+            if (this._start_point === null) {
+                this._start_point = pos;
+                this._current_point = pos;
+                this.create_entity(pos);
+            }
+            else {
+                this._current_point = pos;
+                this.update_box();
+                this.entity.commit();
+                this._start_point = null;
+                this._current_point = null;
+            }
+        };
+
+        on_move(pos: Vector2) {
+            if (this._start_point !== null) {
+                this._current_point = pos;
+                this.update_box();
+            }
+        };
+
+
+
+        create_entity(pos: Vector2) {
+            var model = new_BoxLabelModel(pos, {x: 0.0, y: 0.0});
+            var entity = this._view.get_or_create_entity_for_model(model);
+            this.entity = entity;
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this._view.add_child(entity);
+            this._view.select_entity(entity, false, false);
+            this._view.view.thaw();
+        };
+
+        destroy_entity() {
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this.entity.destroy();
+            this.entity = null;
+            this._view.view.thaw();
+        };
+
+        update_box() {
+            if (this.entity !== null) {
+                var box: AABox = null;
+                if (this._start_point !== null) {
+                    if (this._current_point !== null) {
+                        box = AABox_from_points([this._start_point, this._current_point]);
+                    }
+                    else {
+                        box = new AABox(this._start_point, this._start_point);
+                    }
+                }
+                this.entity.model.centre = box.centre();
+                this.entity.model.size = box.size();
+                this.entity.update();
+            }
+        };
+    }
+
+
+    /*
     Draw polygon tool
      */
     class DrawPolygonTool extends AbstractTool {
         entity: PolygonalLabelEntity;
-        
+
         constructor(view: RootLabelView, entity: PolygonalLabelEntity) {
             super(view);
             this.entity = entity;
@@ -1748,6 +2180,7 @@ module labelling_tool {
         on_switch_out(pos: Vector2) {
             if (this.entity !== null) {
                 this.remove_last_point();
+                this.entity.commit();
             }
         };
 
@@ -1921,6 +2354,8 @@ module labelling_tool {
             ensure_flag_exists(config.tools, 'imageSelector', true);
             ensure_flag_exists(config.tools, 'labelClassSelector', true);
             ensure_flag_exists(config.tools, 'brushSelect', true);
+            ensure_flag_exists(config.tools, 'drawPointLabel', true);
+            ensure_flag_exists(config.tools, 'drawBoxLabel', true);
             ensure_flag_exists(config.tools, 'drawPolyLabel', true);
             ensure_flag_exists(config.tools, 'compositeLabel', true);
             ensure_flag_exists(config.tools, 'groupLabel', true);
@@ -2150,6 +2585,34 @@ module labelling_tool {
                 var brush_select_button: any = $('<button>Brush select</button>').appendTo(toolbar);
                 brush_select_button.button().click(function (event) {
                     self.set_current_tool(new BrushSelectEntityTool(self.root_view));
+                    event.preventDefault();
+                });
+            }
+
+            if (config.tools.drawPointLabel) {
+                var draw_point_button: any = $('<button>Add point</button>').appendTo(toolbar);
+                draw_point_button.button().click(function (event) {
+                    var current = self.root_view.get_selected_entity();
+                    if (current instanceof PointLabelEntity) {
+                        self.set_current_tool(new DrawPointTool(self.root_view, current));
+                    }
+                    else {
+                        self.set_current_tool(new DrawPointTool(self.root_view, null));
+                    }
+                    event.preventDefault();
+                });
+            }
+
+            if (config.tools.drawBoxLabel) {
+                var draw_box_button: any = $('<button>Draw box</button>').appendTo(toolbar);
+                draw_box_button.button().click(function (event) {
+                    var current = self.root_view.get_selected_entity();
+                    if (current instanceof BoxLabelEntity) {
+                        self.set_current_tool(new DrawBoxTool(self.root_view, current));
+                    }
+                    else {
+                        self.set_current_tool(new DrawBoxTool(self.root_view, null));
+                    }
                     event.preventDefault();
                 });
             }

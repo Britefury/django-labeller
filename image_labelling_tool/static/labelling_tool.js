@@ -86,7 +86,7 @@ var labelling_tool;
         Colour4.BLACK = new Colour4(0, 0, 0, 1.0);
         Colour4.WHITE = new Colour4(255, 255, 255, 1.0);
         return Colour4;
-    })();
+    }());
     /*
     Axis-aligned box
      */
@@ -99,8 +99,29 @@ var labelling_tool;
             return point.x >= this.lower.x && point.x <= this.upper.x &&
                 point.y >= this.lower.y && point.y <= this.upper.y;
         };
+        AABox.prototype.centre = function () {
+            return { x: (this.lower.x + this.upper.x) * 0.5,
+                y: (this.lower.y + this.upper.y) * 0.5 };
+        };
+        AABox.prototype.size = function () {
+            return { x: this.upper.x - this.lower.x,
+                y: this.upper.y - this.lower.y };
+        };
+        AABox.prototype.closest_point_to = function (p) {
+            var x = Math.max(this.lower.x, Math.min(this.upper.x, p.x));
+            var y = Math.max(this.lower.y, Math.min(this.upper.y, p.y));
+            return { x: x, y: y };
+        };
+        AABox.prototype.sqr_distance_to = function (p) {
+            var c = this.closest_point_to(p);
+            var dx = c.x - p.x, dy = c.y - p.y;
+            return dx * dx + dy * dy;
+        };
+        AABox.prototype.distance_to = function (p) {
+            return Math.sqrt(this.sqr_distance_to(p));
+        };
         return AABox;
-    })();
+    }());
     function AABox_from_points(array_of_points) {
         if (array_of_points.length > 0) {
             var first = array_of_points[0];
@@ -196,7 +217,7 @@ var labelling_tool;
             }
         };
         return ObjectIDTable;
-    })();
+    }());
     /*
     Label visibility
      */
@@ -213,7 +234,7 @@ var labelling_tool;
             this.colour = Colour4.from_rgb_a(j.colour, 1.0);
         }
         return LabelClass;
-    })();
+    }());
     var get_label_header_labels = function (label_header) {
         var labels = label_header.labels;
         if (labels === undefined || labels === null) {
@@ -228,6 +249,17 @@ var labelling_tool;
             complete: label_header.complete,
             labels: labels };
     };
+    function new_PointLabelModel(position) {
+        return { label_type: 'point', label_class: null, position: position };
+    }
+    function new_BoxLabelModel(centre, size) {
+        return { label_type: 'box', label_class: null, centre: centre, size: size };
+    }
+    function BoxLabel_box(label) {
+        var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
+        var upper = { x: label.centre.x + label.size.x * 0.5, y: label.centre.y + label.size.y * 0.5 };
+        return new AABox(lower, upper);
+    }
     function new_PolygonalLabelModel() {
         return { label_type: 'polygon', label_class: null, vertices: [] };
     }
@@ -315,7 +347,158 @@ var labelling_tool;
         };
         ;
         return AbstractLabelEntity;
-    })();
+    }());
+    /*
+    Point label entity
+     */
+    var PointLabelEntity = (function (_super) {
+        __extends(PointLabelEntity, _super);
+        function PointLabelEntity(view, model) {
+            _super.call(this, view, model);
+        }
+        PointLabelEntity.prototype.attach = function () {
+            _super.prototype.attach.call(this);
+            this.circle = this.root_view.world.append("circle")
+                .attr('r', 4.0);
+            this.update();
+            var self = this;
+            this.circle.on("mouseover", function () {
+                self._on_mouse_over_event();
+            }).on("mouseout", function () {
+                self._on_mouse_out_event();
+            });
+            this._update_style();
+        };
+        PointLabelEntity.prototype.detach = function () {
+            this.circle.remove();
+            this.circle = null;
+            _super.prototype.detach.call(this);
+        };
+        PointLabelEntity.prototype._on_mouse_over_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        };
+        PointLabelEntity.prototype._on_mouse_out_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        };
+        PointLabelEntity.prototype.update = function () {
+            var position = this.model.position;
+            this.circle
+                .attr('cx', position.x)
+                .attr('cy', position.y);
+        };
+        PointLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        PointLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+            }
+        };
+        PointLabelEntity.prototype.compute_centroid = function () {
+            return this.model.position;
+        };
+        PointLabelEntity.prototype.compute_bounding_box = function () {
+            var centre = this.compute_centroid();
+            return new AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
+        };
+        return PointLabelEntity;
+    }(AbstractLabelEntity));
+    /*
+    Box label entity
+     */
+    var BoxLabelEntity = (function (_super) {
+        __extends(BoxLabelEntity, _super);
+        function BoxLabelEntity(view, model) {
+            _super.call(this, view, model);
+        }
+        BoxLabelEntity.prototype.attach = function () {
+            _super.prototype.attach.call(this);
+            this._rect = this.root_view.world.append("rect")
+                .attr("x", 0).attr("y", 0)
+                .attr("width", 0).attr("height", 0);
+            this.update();
+            var self = this;
+            this._rect.on("mouseover", function () {
+                self._on_mouse_over_event();
+            }).on("mouseout", function () {
+                self._on_mouse_out_event();
+            });
+            this._update_style();
+        };
+        ;
+        BoxLabelEntity.prototype.detach = function () {
+            this._rect.remove();
+            this._rect = null;
+            _super.prototype.detach.call(this);
+        };
+        BoxLabelEntity.prototype._on_mouse_over_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        };
+        BoxLabelEntity.prototype._on_mouse_out_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        };
+        BoxLabelEntity.prototype.update = function () {
+            var box = BoxLabel_box(this.model);
+            var size = box.size();
+            this._rect
+                .attr('x', box.lower.x).attr('y', box.lower.y)
+                .attr('width', size.x).attr('height', size.y);
+        };
+        BoxLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        BoxLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this._rect.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                }
+            }
+        };
+        BoxLabelEntity.prototype.compute_centroid = function () {
+            return this.model.centre;
+        };
+        ;
+        BoxLabelEntity.prototype.compute_bounding_box = function () {
+            return BoxLabel_box(this.model);
+        };
+        ;
+        BoxLabelEntity.prototype.distance_to_point = function (point) {
+            return BoxLabel_box(this.model).distance_to(point);
+        };
+        return BoxLabelEntity;
+    }(AbstractLabelEntity));
     /*
     Polygonal label entity
      */
@@ -420,7 +603,7 @@ var labelling_tool;
             }
         };
         return PolygonalLabelEntity;
-    })(AbstractLabelEntity);
+    }(AbstractLabelEntity));
     /*
     Composite label entity
      */
@@ -564,7 +747,7 @@ var labelling_tool;
             }
         };
         return CompositeLabelEntity;
-    })(AbstractLabelEntity);
+    }(AbstractLabelEntity));
     /*
     Group label entity
      */
@@ -671,11 +854,12 @@ var labelling_tool;
             this._bounding_aabox = AABox_from_aaboxes(component_bboxes);
         };
         GroupLabelEntity.prototype.update = function () {
+            var size = this._bounding_aabox.size();
             this._bounding_rect
                 .attr('x', this._bounding_aabox.lower.x)
                 .attr('y', this._bounding_aabox.lower.y)
-                .attr('width', this._bounding_aabox.upper.x - this._bounding_aabox.lower.x)
-                .attr('height', this._bounding_aabox.upper.y - this._bounding_aabox.lower.y);
+                .attr('width', size.x)
+                .attr('height', size.y);
         };
         GroupLabelEntity.prototype.commit = function () {
             this.root_view.commit_model(this.model);
@@ -753,11 +937,17 @@ var labelling_tool;
             return best_dist;
         };
         return GroupLabelEntity;
-    })(AbstractLabelEntity);
+    }(AbstractLabelEntity));
     /*
     Map label type to entity constructor
      */
     var label_type_to_entity_factory = {
+        'point': function (root_view, model) {
+            return new PointLabelEntity(root_view, model);
+        },
+        'box': function (root_view, model) {
+            return new BoxLabelEntity(root_view, model);
+        },
         'polygon': function (root_view, model) {
             return new PolygonalLabelEntity(root_view, model);
         },
@@ -1113,7 +1303,7 @@ var labelling_tool;
         };
         ;
         return RootLabelView;
-    })();
+    }());
     /*
     Abstract tool
      */
@@ -1168,7 +1358,7 @@ var labelling_tool;
         };
         ;
         return AbstractTool;
-    })();
+    }());
     /*
     Select entity tool
      */
@@ -1238,7 +1428,7 @@ var labelling_tool;
         };
         ;
         return SelectEntityTool;
-    })(AbstractTool);
+    }(AbstractTool));
     /*
     Brush select entity tool
      */
@@ -1358,7 +1548,171 @@ var labelling_tool;
         };
         ;
         return BrushSelectEntityTool;
-    })(AbstractTool);
+    }(AbstractTool));
+    /*
+    Draw point tool
+     */
+    var DrawPointTool = (function (_super) {
+        __extends(DrawPointTool, _super);
+        function DrawPointTool(view, entity) {
+            _super.call(this, view);
+            this.entity = entity;
+        }
+        DrawPointTool.prototype.on_init = function () {
+        };
+        ;
+        DrawPointTool.prototype.on_shutdown = function () {
+        };
+        ;
+        // on_switch_in(pos: Vector2) {
+        //     if (this.entity !== null) {
+        //         this.add_point(pos);
+        //     }
+        // };
+        //
+        // on_switch_out(pos: Vector2) {
+        //     if (this.entity !== null) {
+        //         this.remove_last_point();
+        //     }
+        // };
+        //
+        DrawPointTool.prototype.on_cancel = function (pos) {
+            this._view.unselect_all_entities();
+            this._view.view.set_current_tool(new SelectEntityTool(this._view));
+            return true;
+        };
+        ;
+        DrawPointTool.prototype.on_left_click = function (pos, event) {
+            this.create_entity(pos);
+            this.entity.update();
+        };
+        ;
+        DrawPointTool.prototype.create_entity = function (position) {
+            var model = new_PointLabelModel(position);
+            var entity = this._view.get_or_create_entity_for_model(model);
+            this.entity = entity;
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this._view.add_child(entity);
+            this._view.select_entity(entity, false, false);
+            this._view.view.thaw();
+        };
+        ;
+        DrawPointTool.prototype.destroy_entity = function () {
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this.entity.destroy();
+            this.entity = null;
+            this._view.view.thaw();
+        };
+        ;
+        return DrawPointTool;
+    }(AbstractTool));
+    /*
+    Draw box tool
+     */
+    var DrawBoxTool = (function (_super) {
+        __extends(DrawBoxTool, _super);
+        function DrawBoxTool(view, entity) {
+            _super.call(this, view);
+            this.entity = entity;
+            this._start_point = null;
+            this._current_point = null;
+        }
+        DrawBoxTool.prototype.on_init = function () {
+        };
+        ;
+        DrawBoxTool.prototype.on_shutdown = function () {
+        };
+        ;
+        DrawBoxTool.prototype.on_switch_in = function (pos) {
+            if (this._start_point !== null) {
+                this._current_point = pos;
+                this.update_box();
+            }
+        };
+        ;
+        DrawBoxTool.prototype.on_switch_out = function (pos) {
+            if (this._start_point !== null) {
+                this._current_point = null;
+                this.update_box();
+            }
+        };
+        ;
+        DrawBoxTool.prototype.on_cancel = function (pos) {
+            if (this.entity !== null) {
+                if (this._start_point !== null) {
+                    this.destroy_entity();
+                    this._start_point = null;
+                }
+            }
+            else {
+                this._view.unselect_all_entities();
+                this._view.view.set_current_tool(new SelectEntityTool(this._view));
+            }
+            return true;
+        };
+        ;
+        DrawBoxTool.prototype.on_left_click = function (pos, event) {
+            if (this._start_point === null) {
+                this._start_point = pos;
+                this._current_point = pos;
+                this.create_entity(pos);
+            }
+            else {
+                this._current_point = pos;
+                this.update_box();
+                this.entity.commit();
+                this._start_point = null;
+                this._current_point = null;
+            }
+        };
+        ;
+        DrawBoxTool.prototype.on_move = function (pos) {
+            if (this._start_point !== null) {
+                this._current_point = pos;
+                this.update_box();
+            }
+        };
+        ;
+        DrawBoxTool.prototype.create_entity = function (pos) {
+            var model = new_BoxLabelModel(pos, { x: 0.0, y: 0.0 });
+            var entity = this._view.get_or_create_entity_for_model(model);
+            this.entity = entity;
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this._view.add_child(entity);
+            this._view.select_entity(entity, false, false);
+            this._view.view.thaw();
+        };
+        ;
+        DrawBoxTool.prototype.destroy_entity = function () {
+            // Freeze to prevent this temporary change from being sent to the backend
+            this._view.view.freeze();
+            this.entity.destroy();
+            this.entity = null;
+            this._view.view.thaw();
+        };
+        ;
+        DrawBoxTool.prototype.update_box = function () {
+            if (this.entity !== null) {
+                var box = null;
+                if (this._start_point !== null) {
+                    if (this._current_point !== null) {
+                        box = AABox_from_points([this._start_point, this._current_point]);
+                    }
+                    else {
+                        box = new AABox(this._start_point, this._start_point);
+                    }
+                }
+                this.entity.model.centre = box.centre();
+                this.entity.model.size = box.size();
+                this.entity.update();
+            }
+        };
+        ;
+        return DrawBoxTool;
+    }(AbstractTool));
     /*
     Draw polygon tool
      */
@@ -1383,6 +1737,7 @@ var labelling_tool;
         DrawPolygonTool.prototype.on_switch_out = function (pos) {
             if (this.entity !== null) {
                 this.remove_last_point();
+                this.entity.commit();
             }
         };
         ;
@@ -1479,7 +1834,7 @@ var labelling_tool;
         };
         ;
         return DrawPolygonTool;
-    })(AbstractTool);
+    }(AbstractTool));
     /*
     Labelling tool view; links to the server side data structures
      */
@@ -1498,6 +1853,8 @@ var labelling_tool;
             ensure_flag_exists(config.tools, 'imageSelector', true);
             ensure_flag_exists(config.tools, 'labelClassSelector', true);
             ensure_flag_exists(config.tools, 'brushSelect', true);
+            ensure_flag_exists(config.tools, 'drawPointLabel', true);
+            ensure_flag_exists(config.tools, 'drawBoxLabel', true);
             ensure_flag_exists(config.tools, 'drawPolyLabel', true);
             ensure_flag_exists(config.tools, 'compositeLabel', true);
             ensure_flag_exists(config.tools, 'groupLabel', true);
@@ -1683,6 +2040,32 @@ var labelling_tool;
                 var brush_select_button = $('<button>Brush select</button>').appendTo(toolbar);
                 brush_select_button.button().click(function (event) {
                     self.set_current_tool(new BrushSelectEntityTool(self.root_view));
+                    event.preventDefault();
+                });
+            }
+            if (config.tools.drawPointLabel) {
+                var draw_point_button = $('<button>Add point</button>').appendTo(toolbar);
+                draw_point_button.button().click(function (event) {
+                    var current = self.root_view.get_selected_entity();
+                    if (current instanceof PointLabelEntity) {
+                        self.set_current_tool(new DrawPointTool(self.root_view, current));
+                    }
+                    else {
+                        self.set_current_tool(new DrawPointTool(self.root_view, null));
+                    }
+                    event.preventDefault();
+                });
+            }
+            if (config.tools.drawBoxLabel) {
+                var draw_box_button = $('<button>Draw box</button>').appendTo(toolbar);
+                draw_box_button.button().click(function (event) {
+                    var current = self.root_view.get_selected_entity();
+                    if (current instanceof BoxLabelEntity) {
+                        self.set_current_tool(new DrawBoxTool(self.root_view, current));
+                    }
+                    else {
+                        self.set_current_tool(new DrawBoxTool(self.root_view, null));
+                    }
                     event.preventDefault();
                 });
             }
@@ -2113,7 +2496,7 @@ var labelling_tool;
             }
         };
         return LabellingTool;
-    })();
+    }());
     labelling_tool.LabellingTool = LabellingTool;
 })(labelling_tool || (labelling_tool = {}));
 //# sourceMappingURL=labelling_tool.js.map

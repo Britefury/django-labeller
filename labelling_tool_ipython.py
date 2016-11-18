@@ -27,7 +27,8 @@
 
 import base64
 
-from IPython.html import widgets
+from ipywidgets import widgets
+
 from IPython.utils.traitlets import Unicode, Integer, List, Dict
 
 

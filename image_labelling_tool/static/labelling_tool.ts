@@ -2019,6 +2019,7 @@ module labelling_tool {
         on_left_click(pos: Vector2, event: any) {
             this.create_entity(pos);
             this.entity.update();
+            this.entity.commit();
         };
 
 

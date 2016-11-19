@@ -180,7 +180,7 @@ class ImageLabels (object):
                 yield label
 
 
-    def _render_mask(self, label, width, height, fill, dx=0.0, dy=0.0):
+    def _render_mask(self, label, width, height, fill, dx=0.0, dy=0.0, point_radius=0.0):
         # Rendering helper function: create a binary mask for a given label
 
         img = None
@@ -189,10 +189,16 @@ class ImageLabels (object):
         if label_type == 'point':
             pos = [label['position']['x'] + dx, label['position']['y'] + dy]
             img = Image.new('L', (width, height), 0)
-            if fill:
-                ImageDraw.Draw(img).point(pos, outline=1, fill=1)
+
+            if point_radius == 0.0:
+                ImageDraw.Draw(img).point(pos, fill=1)
             else:
-                ImageDraw.Draw(img).polygon(pos, outline=1, fill=0)
+                ellipse = [(pos[0]-point_radius, pos[1]-point_radius),
+                           (pos[0]+point_radius, pos[1]+point_radius)]
+                if fill:
+                    ImageDraw.Draw(img).ellipse(ellipse, outline=1, fill=1)
+                else:
+                    ImageDraw.Draw(img).ellipse(ellipse, outline=1, fill=0)
 
         elif label_type == 'box':
             centre = [label['centre']['x'] + dx, label['centre']['y'] + dy]
@@ -233,7 +239,7 @@ class ImageLabels (object):
             return None
 
 
-    def _label_bounds(self, label):
+    def _label_bounds(self, label, point_radius=0.0):
         # Rendering helper function: create a binary mask for a given label
 
         img = None
@@ -241,7 +247,9 @@ class ImageLabels (object):
         label_type = label['label_type']
         if label_type == 'point':
             pos = [label['position']['x'], label['position']['y']]
-            return pos, pos
+            return [[pos[0]-point_radius, pos[1]-point_radius],
+                    [pos[0]+point_radius, pos[1]+point_radius]]
+
         elif label_type == 'box':
             centre = [label['centre']['x'], label['centre']['y']]
             size = [label['size']['x'], label['size']['y']]
@@ -250,6 +258,7 @@ class ImageLabels (object):
             upper = [centre[0] + size[0] * 0.5, centre[1] + size[1] * 0.5]
 
             return lower, upper
+
         elif label_type == 'polygon':
             # Polygonal label
             vertices = label['vertices']
@@ -272,7 +281,7 @@ class ImageLabels (object):
             raise TypeError, 'Unknown label type {0}'.format(label_type)
 
 
-    def render_labels(self, label_classes, image_shape, pixels_as_vectors=False, fill=True):
+    def render_labels(self, label_classes, image_shape, pixels_as_vectors=False, fill=True, point_radius=4.0):
         """
         Render the labels to create a label image
 
@@ -317,7 +326,7 @@ class ImageLabels (object):
         for label in self._flatten_labels_json(self.labels_json):
             label_cls_n = cls_to_index.get(label['label_class'], None)
             if label_cls_n is not None:
-                mask = self._render_mask(label, width, height, fill)
+                mask = self._render_mask(label, width, height, fill, point_radius=point_radius)
                 if mask is not None:
                     if pixels_as_vectors:
                         label_image[:,:,label_cls_n] += mask
@@ -328,7 +337,7 @@ class ImageLabels (object):
         return label_image
 
 
-    def render_individual_labels(self, label_classes, image_shape, fill=True):
+    def render_individual_labels(self, label_classes, image_shape, fill=True, point_radius=4.0):
         """
         Render individual labels to create a label image.
         The resulting image is a multi-channel image, with a channel for each class in `label_classes`.
@@ -377,7 +386,7 @@ class ImageLabels (object):
         for label in self._flatten_labels_json(self.labels_json):
             label_channel = cls_to_channel.get(label['label_class'], None)
             if label_channel is not None:
-                mask = self._render_mask(label, width, height, fill)
+                mask = self._render_mask(label, width, height, fill, point_radius=point_radius)
                 if mask is not None:
                     value = channel_label_count[label_channel]
                     channel_label_count[label_channel] += 1
@@ -387,7 +396,7 @@ class ImageLabels (object):
         return label_image, np.array(channel_label_count)
 
 
-    def extract_label_images(self, image_2d, label_class_set=None):
+    def extract_label_images(self, image_2d, label_class_set=None, point_radius=4.0):
         """
         Extract an image of each labelled entity from a given image.
         The resulting image is the original image masked with an alpha channel that results from rendering the label
@@ -402,7 +411,7 @@ class ImageLabels (object):
 
         for label in self._flatten_labels_json(self.labels_json):
             if label_class_set is None  or  label['label_class'] in label_class_set:
-                bounds = self._label_bounds(label)
+                bounds = self._label_bounds(label, point_radius=point_radius)
 
                 lx = int(math.floor(bounds[0][0]))
                 ly = int(math.floor(bounds[0][1]))
@@ -421,7 +430,8 @@ class ImageLabels (object):
 
                 if w > 0 and h > 0:
 
-                    mask = self._render_mask(label, w, h, fill=True, dx=float(-lx), dy=float(-ly))
+                    mask = self._render_mask(label, w, h, fill=True, dx=float(-lx), dy=float(-ly),
+                                             point_radius=point_radius)
                     if mask is not None and (mask > 0).any():
                         img_box = image_2d[ly:uy, lx:ux]
                         if len(img_box.shape) == 2:

@@ -109,6 +109,48 @@ class ImageLabels (object):
         return self.labels_json[item]
 
 
+    def _warp_label(self, label, xform_fn):
+        # Warp helper function
+        label_type = label['label_type']
+
+        if label_type == 'point':
+            position = np.array([label['position']['x'], label['position']['y']])
+            xf_pos = xform_fn(np.array([position]))
+            label['position'] = {'x': xf_pos[0, 0], 'y': xf_pos[0, 1]}
+        elif label_type == 'box':
+            centre = [label['centre']['x'], label['centre']['y']]
+            size = [label['size']['x'], label['size']['y']]
+            corners = [
+                [centre[0] - size[0], centre[1] - size[1]],
+                [centre[0] + size[0], centre[1] - size[1]],
+                [centre[0] + size[0], centre[1] + size[1]],
+                [centre[0] - size[0], centre[1] + size[1]],
+            ]
+            xf_corners = xform_fn(np.array(corners))
+            lower = xf_corners.min(axis=0)
+            upper = xf_corners.max(axis=0)
+            xf_centre = (lower + upper) * 0.5
+            xf_size = upper - lower
+            label['centre'] = {'x': xf_centre[0], 'y': xf_centre[1]}
+            label['size'] = {'x': xf_size[0], 'y': xf_size[1]}
+        elif label_type == 'polygon':
+            # Polygonal label
+            vertices = label['vertices']
+            polygon = [[v['x'], v['y']] for v in vertices]
+            polygon = xform_fn(np.array(polygon))
+            transformed_verts = [{'x': polygon[i, 0], 'y': polygon[i, 1]}
+                                 for i in xrange(len(polygon))]
+            label['vertices'] = transformed_verts
+        elif label_type == 'composite':
+            # Nothing to do
+            pass
+        elif label_type == 'group':
+            # Warp the component models
+            for model in label['component_models']:
+                self._warp_label(model, xform_fn)
+        else:
+            raise TypeError, 'Unknown label type {0}'.format(label_type)
+
     def warp(self, xform_fn):
         """
         Warp the labels given a warping function
@@ -119,23 +161,115 @@ class ImageLabels (object):
         be used here.
         :return: an `ImageLabels` instance that contains the warped labels
         """
+        # Duplicate the labels
         labels = copy.deepcopy(self.labels_json)
+        # Warp them in-place
         for label in labels:
-            label_type = label['label_type']
-            if label_type == 'polygon':
-                # Polygonal label
-                vertices = label['vertices']
-                polygon = [[v['x'], v['y']]  for v in vertices]
-                polygon = xform_fn(np.array(polygon))
-                transformed_verts = [{'x': polygon[i,0], 'y': polygon[i,1]}
-                                     for i in xrange(len(polygon))]
-                label['vertices'] = transformed_verts
-            elif label_type == 'composite':
-                # Nothing to do
-                pass
-            else:
-                raise TypeError, 'Unknown label type {0}'.format(label_type)
+            self._warp_label(label, xform_fn)
+        # Return new labels instance
         return ImageLabels(labels)
+
+
+    def _flatten_labels_json(self, labels_json):
+        # Helper for iterating over all labels, descending into grouped labels
+        for label in labels_json:
+            if label['label_type'] == 'group':
+                for sub_label in self._flatten_labels_json(label['component_models']):
+                    yield sub_label
+            else:
+                yield label
+
+
+    def _render_mask(self, label, width, height, fill, dx=0.0, dy=0.0):
+        # Rendering helper function: create a binary mask for a given label
+
+        img = None
+
+        label_type = label['label_type']
+        if label_type == 'point':
+            pos = [label['position']['x'] + dx, label['position']['y'] + dy]
+            img = Image.new('L', (width, height), 0)
+            if fill:
+                ImageDraw.Draw(img).point(pos, outline=1, fill=1)
+            else:
+                ImageDraw.Draw(img).polygon(pos, outline=1, fill=0)
+
+        elif label_type == 'box':
+            centre = [label['centre']['x'] + dx, label['centre']['y'] + dy]
+            size = [label['size']['x'], label['size']['y']]
+
+            lower = (centre[0] - size[0] * 0.5, centre[1] - size[1] * 0.5)
+            upper = (centre[0] + size[0] * 0.5, centre[1] + size[1] * 0.5)
+
+            img = Image.new('L', (width, height), 0)
+            if fill:
+                ImageDraw.Draw(img).rectangle([lower, upper], outline=1, fill=1)
+            else:
+                ImageDraw.Draw(img).rectangle([lower, upper], outline=1, fill=0)
+
+        elif label_type == 'polygon':
+            # Polygonal label
+            vertices = label['vertices']
+            if len(vertices) >= 3:
+                polygon = [(v['x'] + dx, v['y'] + dy) for v in vertices]
+
+                img = Image.new('L', (width, height), 0)
+                if fill:
+                    ImageDraw.Draw(img).polygon(polygon, outline=1, fill=1)
+                else:
+                    ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
+
+        elif label_type == 'group':
+            pass
+        elif label_type == 'composite':
+            pass
+        else:
+            raise TypeError, 'Unknown label type {0}'.format(label_type)
+
+        if img is not None:
+            # Convert to NumPy array
+            return np.array(img)
+        else:
+            return None
+
+
+    def _label_bounds(self, label):
+        # Rendering helper function: create a binary mask for a given label
+
+        img = None
+
+        label_type = label['label_type']
+        if label_type == 'point':
+            pos = [label['position']['x'], label['position']['y']]
+            return pos, pos
+        elif label_type == 'box':
+            centre = [label['centre']['x'], label['centre']['y']]
+            size = [label['size']['x'], label['size']['y']]
+
+            lower = [centre[0] - size[0] * 0.5, centre[1] - size[1] * 0.5]
+            upper = [centre[0] + size[0] * 0.5, centre[1] + size[1] * 0.5]
+
+            return lower, upper
+        elif label_type == 'polygon':
+            # Polygonal label
+            vertices = label['vertices']
+            polygon = np.array([[v['x'], v['y']] for v in vertices])
+            if polygon.shape[0] > 0:
+                lower = polygon.min(axis=0)
+                upper = polygon.max(axis=0)
+                return [[lower[0], lower[1]], [upper[0], upper[1]]]
+            else:
+                return None
+
+        elif label_type == 'group':
+            sub_bounds = np.array([self._label_bounds(sub) for sub in label['component_models']])
+            lower = sub_bounds[:,0,:].min(axis=0)
+            upper = sub_bounds[:,1,:].max(axis=0)
+            return [[lower[0], lower[1]], [upper[0], upper[1]]]
+        elif label_type == 'composite':
+            return None
+        else:
+            raise TypeError, 'Unknown label type {0}'.format(label_type)
 
 
     def render_labels(self, label_classes, image_shape, pixels_as_vectors=False, fill=True):
@@ -180,33 +314,16 @@ class ImageLabels (object):
         else:
             label_image = np.zeros((height, width), dtype=int)
 
-        for label in self.labels_json:
-            label_type = label['label_type']
+        for label in self._flatten_labels_json(self.labels_json):
             label_cls_n = cls_to_index.get(label['label_class'], None)
             if label_cls_n is not None:
-                if label_type == 'polygon':
-                    # Polygonal label
-                    vertices = label['vertices']
-                    if len(vertices) >= 3:
-                        polygon = [(v['x'], v['y'])  for v in vertices]
-
-                        img = Image.new('L', (width, height), 0)
-                        if fill:
-                            ImageDraw.Draw(img).polygon(polygon, outline=1, fill=1)
-                        else:
-                            ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
-                        mask = np.array(img)
-
-                        if pixels_as_vectors:
-                            label_image[:,:,label_cls_n] += mask
-                            label_image[:,:,label_cls_n] = np.clip(label_image[:,:,label_cls_n], 0.0, 1.0)
-                        else:
-                            label_image[mask >= 0.5] = label_cls_n + 1
-
-                elif label_type == 'composite':
-                    pass
-                else:
-                    raise TypeError, 'Unknown label type {0}'.format(label_type)
+                mask = self._render_mask(label, width, height, fill)
+                if mask is not None:
+                    if pixels_as_vectors:
+                        label_image[:,:,label_cls_n] += mask
+                        label_image[:,:,label_cls_n] = np.clip(label_image[:,:,label_cls_n], 0.0, 1.0)
+                    else:
+                        label_image[mask >= 0.5] = label_cls_n + 1
 
         return label_image
 
@@ -257,31 +374,15 @@ class ImageLabels (object):
 
         channel_label_count = [0] * len(label_classes)
 
-        for label in self.labels_json:
-            label_type = label['label_type']
+        for label in self._flatten_labels_json(self.labels_json):
             label_channel = cls_to_channel.get(label['label_class'], None)
             if label_channel is not None:
-                if label_type == 'polygon':
-                    # Polygonal label
-                    vertices = label['vertices']
-                    if len(vertices) >= 3:
-                        polygon = [(v['x'], v['y'])  for v in vertices]
+                mask = self._render_mask(label, width, height, fill)
+                if mask is not None:
+                    value = channel_label_count[label_channel]
+                    channel_label_count[label_channel] += 1
 
-                        img = Image.new('L', (width, height), 0)
-                        if fill:
-                            ImageDraw.Draw(img).polygon(polygon, outline=1, fill=1)
-                        else:
-                            ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
-                        mask = np.array(img)
-
-                        value = channel_label_count[label_channel]
-                        channel_label_count[label_channel] += 1
-
-                        label_image[mask >= 0.5, label_channel] = value + 1
-                elif label_type == 'composite':
-                    pass
-                else:
-                    raise TypeError, 'Unknown label type {0}'.format(label_type)
+                    label_image[mask >= 0.5, label_channel] = value + 1
 
         return label_image, np.array(channel_label_count)
 
@@ -299,52 +400,37 @@ class ImageLabels (object):
 
         label_images = []
 
-        for label in self.labels_json:
-            label_type = label['label_type']
+        for label in self._flatten_labels_json(self.labels_json):
             if label_class_set is None  or  label['label_class'] in label_class_set:
-                if label_type == 'polygon':
-                    # Polygonal label
-                    vertices = label['vertices']
-                    if len(vertices) >= 3:
-                        polygon = [(v['x'], v['y'])  for v in vertices]
-                        np_poly = np.array(polygon)
+                bounds = self._label_bounds(label)
 
-                        lx = int(math.floor(np.min(np_poly[:,0])))
-                        ly = int(math.floor(np.min(np_poly[:,1])))
-                        ux = int(math.ceil(np.max(np_poly[:,0])))
-                        uy = int(math.ceil(np.max(np_poly[:,1])))
+                lx = int(math.floor(bounds[0][0]))
+                ly = int(math.floor(bounds[0][1]))
+                ux = int(math.ceil(bounds[1][0]))
+                uy = int(math.ceil(bounds[1][1]))
 
-                        # Given that the images and labels may have been warped by a transformation,
-                        # there is no guarantee that they lie within the bounds of the image
-                        lx = max(min(lx, image_shape[1]), 0)
-                        ux = max(min(ux, image_shape[1]), 0)
-                        ly = max(min(ly, image_shape[0]), 0)
-                        uy = max(min(uy, image_shape[0]), 0)
+                # Given that the images and labels may have been warped by a transformation,
+                # there is no guarantee that they lie within the bounds of the image
+                lx = max(min(lx, image_shape[1]), 0)
+                ux = max(min(ux, image_shape[1]), 0)
+                ly = max(min(ly, image_shape[0]), 0)
+                uy = max(min(uy, image_shape[0]), 0)
 
-                        w = ux - lx
-                        h = uy - ly
+                w = ux - lx
+                h = uy - ly
 
-                        if w > 0  and  h > 0:
-                            np_box_poly = np_poly - np.array([[lx, ly]])
-                            box_poly = [(np_box_poly[i,0], np_box_poly[i,1])   for i in xrange(np_box_poly.shape[0])]
+                if w > 0 and h > 0:
 
-                            img = Image.new('L', (w, h), 0)
-                            ImageDraw.Draw(img).polygon(box_poly, outline=1, fill=1)
-                            mask = np.array(img)
+                    mask = self._render_mask(label, w, h, fill=True, dx=float(-lx), dy=float(-ly))
+                    if mask is not None and (mask > 0).any():
+                        img_box = image_2d[ly:uy, lx:ux]
+                        if len(img_box.shape) == 2:
+                            # Convert greyscale image to RGB:
+                            img_box = gray2rgb(img_box)
+                        # Append the mask as an alpha channel
+                        object_img = np.append(img_box, mask[:,:,None], axis=2)
 
-                            if (mask > 0).any():
-                                img_box = image_2d[ly:uy, lx:ux]
-                                if len(img_box.shape) == 2:
-                                    # Convert greyscale image to RGB:
-                                    img_box = gray2rgb(img_box)
-                                # Append the mask as an alpha channel
-                                object_img = np.append(img_box, mask[:,:,None], axis=2)
-
-                                label_images.append(object_img)
-                elif label_type == 'composite':
-                    pass
-                else:
-                    raise TypeError, 'Unknown label type {0}'.format(label_type)
+                        label_images.append(object_img)
 
         return label_images
 

@@ -37,6 +37,7 @@ from IPython.utils.traitlets import Unicode, Integer, List, Dict
 
 class ImageLabellingTool (widgets.DOMWidget):
     _view_name = Unicode('ImageLabellingToolView', sync=True)
+    _view_module = Unicode('image-labelling-tool', sync=True)
 
     label_classes = List(sync=True)
 

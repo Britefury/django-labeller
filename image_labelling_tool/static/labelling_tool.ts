@@ -63,6 +63,15 @@ module labelling_tool {
         }
     }
 
+    function compute_sqr_length(v: Vector2) {
+        return v.x * v.x + v.y * v.y;
+    }
+
+    function compute_sqr_dist(a: Vector2, b: Vector2) {
+        var dx = b.x - a.x, dy = b.y - a.y;
+        return dx * dx + dy * dy;
+    }
+
 
     /*
     RGBA colour
@@ -524,6 +533,10 @@ module labelling_tool {
             return null;
         };
 
+        contains_pointer_position(point: Vector2): boolean {
+            return false;
+        }
+
         distance_to_point(point: Vector2): number {
             return null;
         };
@@ -599,9 +612,13 @@ module labelling_tool {
             if (this._attached) {
                 var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
 
-                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                    this.circle.attr("visibility", "hidden");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.circle.attr("visibility", "visible");
                 }
                 else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
@@ -613,6 +630,7 @@ module labelling_tool {
                     stroke_colour = stroke_colour.with_alpha(0.5);
 
                     this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.circle.attr("visibility", "visible");
                 }
             }
         }
@@ -624,6 +642,10 @@ module labelling_tool {
         compute_bounding_box(): AABox {
             var centre = this.compute_centroid();
             return new AABox({x: centre.x - 1, y: centre.y - 1}, {x: centre.x + 1, y: centre.y + 1});
+        }
+
+        contains_pointer_position(point: Vector2): boolean {
+            return compute_sqr_dist(point, this.model.position) <= (4.0 * 4.0);
         }
     }
 
@@ -698,9 +720,13 @@ module labelling_tool {
             if (this._attached) {
                 var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
 
-                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                    this._rect.attr("visibility", "hidden");
+                }
+                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this._rect.attr("visibility", "visible");
                 }
                 else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
@@ -712,6 +738,7 @@ module labelling_tool {
                     stroke_colour = stroke_colour.with_alpha(0.5);
 
                     this._rect.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this._rect.attr("visibility", "visible");
                 }
             }
         }
@@ -724,6 +751,10 @@ module labelling_tool {
             return BoxLabel_box(this.model);
         };
 
+        contains_pointer_position(point: Vector2): boolean {
+            return this.compute_bounding_box().contains_point(point);
+        }
+
         distance_to_point(point: Vector2): number {
             return BoxLabel_box(this.model).distance_to(point);
         }
@@ -735,6 +766,8 @@ module labelling_tool {
      */
     class PolygonalLabelEntity extends AbstractLabelEntity<PolygonalLabelModel> {
         _polyk_poly: number[];
+        _centroid: Vector2;
+        _bounding_box: AABox;
         poly: any;
         shape_line: any;
 
@@ -742,6 +775,8 @@ module labelling_tool {
         constructor(view: RootLabelView, model: PolygonalLabelModel) {
             super(view, model);
             this._polyk_poly = [];
+            this._centroid = null;
+            this._bounding_box = null;
             this.poly = null;
             this.shape_line = null;
         }
@@ -792,6 +827,8 @@ module labelling_tool {
         update() {
             this.poly.data(this.model.vertices).attr("d", this.shape_line(this.model.vertices));
             this._update_polyk_poly();
+            this._centroid = null;
+            this._bounding_box = null;
         }
 
         commit() {
@@ -837,11 +874,21 @@ module labelling_tool {
         }
 
         compute_centroid(): Vector2 {
-            return compute_centroid_of_points(this.model.vertices);
+            if (this._centroid === null) {
+                this._centroid = compute_centroid_of_points(this.model.vertices);
+            }
+            return this._centroid;
         }
 
         compute_bounding_box(): AABox {
-            return AABox_from_points(this.model.vertices);
+            if (this._bounding_box === null) {
+                this._bounding_box = AABox_from_points(this.model.vertices);
+            }
+            return this._bounding_box;
+        }
+
+        contains_pointer_position(point: Vector2): boolean {
+            return PolyK.ContainsPoint(this._polyk_poly, point.x, point.y);
         }
 
         distance_to_point(point: Vector2): number {
@@ -864,9 +911,11 @@ module labelling_tool {
         central_circle: any;
         shape_line: any;
         connections_group: any;
+        _centroid: Vector2;
         
         constructor(view: RootLabelView, model: CompositeLabelModel) {
             super(view, model);
+            this._centroid = null;
         }
         
         attach() {
@@ -925,15 +974,15 @@ module labelling_tool {
 
         update() {
             var component_centroids = this._compute_component_centroids();
-            var centroid = compute_centroid_of_points(component_centroids);
+            this._centroid = compute_centroid_of_points(component_centroids);
 
             this.circle
-                .attr('cx', centroid.x)
-                .attr('cy', centroid.y);
+                .attr('cx', this._centroid.x)
+                .attr('cy', this._centroid.y);
 
             this.central_circle
-                .attr('cx', centroid.x)
-                .attr('cy', centroid.y);
+                .attr('cx', this._centroid.x)
+                .attr('cy', this._centroid.y);
 
             if (this.connections_group !== null) {
                 this.connections_group.remove();
@@ -943,7 +992,7 @@ module labelling_tool {
             this.connections_group = this.root_view.world.append("g");
             for (var i = 0; i < component_centroids.length; i++) {
                 this.connections_group.append("path")
-                    .attr("d", this.shape_line([centroid, component_centroids[i]]))
+                    .attr("d", this.shape_line([this._centroid, component_centroids[i]]))
                     .attr("stroke-width", 1)
                     .attr("stroke-dasharray", "3, 3")
                     .attr("style", "stroke:rgba(255,0,255,0.6);");
@@ -1015,12 +1064,16 @@ module labelling_tool {
         }
 
         compute_centroid(): Vector2 {
-            return compute_centroid_of_points(this._compute_component_centroids());
+            return this._centroid;
         };
 
         compute_bounding_box(): AABox {
             var centre = this.compute_centroid();
             return new AABox({x: centre.x - 1, y: centre.y - 1}, {x: centre.x + 1, y: centre.y + 1});
+        }
+
+        contains_pointer_position(point: Vector2): boolean {
+            return compute_sqr_dist(point, this._centroid) <= (8.0 * 8.0);
         }
 
         notify_model_destroyed(model_id: number) {
@@ -1240,12 +1293,21 @@ module labelling_tool {
         };
 
         compute_centroid(): Vector2 {
-            return compute_centroid_of_points(this._compute_component_centroids());
+            return this._bounding_aabox.centre();
         };
 
         compute_bounding_box(): AABox {
             return this._bounding_aabox;
         };
+
+        contains_pointer_position(point: Vector2): boolean {
+            for (var i = 0; i < this._component_entities.length; i++) {
+                if (this._component_entities[i].contains_pointer_position(point)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         distance_to_point(point: Vector2): number {
             var best_dist = null;
@@ -1780,21 +1842,23 @@ module labelling_tool {
      */
     class SelectEntityTool extends AbstractTool {
         _highlighted_entities: AbstractLabelEntity<AbstractLabelModel>[];
+        _current_entity: AbstractLabelEntity<AbstractLabelModel>;
     
         constructor(view: RootLabelView) {
             super(view);
             this._highlighted_entities = [];
+            this._current_entity = null;
         }
 
         on_init() {
             this._highlighted_entities = [];
+            this._current_entity = null;
         };
 
         on_shutdown() {
             // Remove any hover
-            var entity = this._get_current_entity();
-            if (entity !== null) {
-                entity.hover(false);
+            if (this._current_entity !== null) {
+                this._current_entity.hover(false);
             }
         };
 
@@ -1803,10 +1867,10 @@ module labelling_tool {
             var index = this._highlighted_entities.indexOf(entity);
 
             if (index === -1) {
-                var prev = this._get_current_entity();
+                var prev = this._current_entity;
                 this._highlighted_entities.push(entity);
-                var cur = this._get_current_entity();
-                SelectEntityTool._entity_stack_modified(prev, cur);
+                this._current_entity = this._update_current_entity(null);
+                SelectEntityTool._current_entity_modified(prev, this._current_entity);
             }
         };
 
@@ -1815,17 +1879,17 @@ module labelling_tool {
             var index = this._highlighted_entities.indexOf(entity);
 
             if (index !== -1) {
-                var prev = this._get_current_entity();
+                var prev = this._current_entity;
                 this._highlighted_entities.splice(index, 1);
-                var cur = this._get_current_entity();
-                SelectEntityTool._entity_stack_modified(prev, cur);
+                this._current_entity = this._update_current_entity(null);
+                SelectEntityTool._current_entity_modified(prev, this._current_entity);
             }
         };
 
         on_left_click(pos: Vector2, event: any) {
-            var entity = this._get_current_entity();
-            if (entity !== null) {
-                this._view.select_entity(entity, event.shiftKey, true);
+            this._current_entity = this._update_current_entity(pos);
+            if (this._current_entity !== null) {
+                this._view.select_entity(this._current_entity, event.shiftKey, true);
             }
             else {
                 if (!event.shiftKey) {
@@ -1834,11 +1898,40 @@ module labelling_tool {
             }
         };
 
-        _get_current_entity() {
-            return this._highlighted_entities.length !== 0  ?  this._highlighted_entities[this._highlighted_entities.length-1]  :  null;
+        on_move(pos: Vector2) {
+            var prev = this._current_entity;
+            this._current_entity = this._update_current_entity(pos);
+            SelectEntityTool._current_entity_modified(prev, this._current_entity);
         };
 
-        static _entity_stack_modified(prev: AbstractLabelEntity<AbstractLabelModel>, cur: AbstractLabelEntity<AbstractLabelModel>) {
+        _update_current_entity(pos: Vector2) {
+            if (this._highlighted_entities.length === 0) {
+                return null;
+            }
+            else if (this._highlighted_entities.length === 1) {
+                return this._highlighted_entities[0];
+            }
+            else {
+                if (pos === null) {
+                    return this._highlighted_entities[this._highlighted_entities.length-1];
+                }
+                else {
+                    var closest: AbstractLabelEntity<AbstractLabelModel> = null;
+                    var closest_sqr_dist: number = 0.0;
+                    for (var i = 0; i < this._highlighted_entities.length; i++) {
+                        var centroid = this._highlighted_entities[i].compute_centroid();
+                        var sqr_dist = compute_sqr_dist(centroid, pos);
+                        if (closest === null || sqr_dist < closest_sqr_dist) {
+                            closest_sqr_dist = sqr_dist;
+                            closest = this._highlighted_entities[i];
+                        }
+                    }
+                    return closest;
+                }
+            }
+        };
+
+        static _current_entity_modified(prev: AbstractLabelEntity<AbstractLabelModel>, cur: AbstractLabelEntity<AbstractLabelModel>) {
             if (cur !== prev) {
                 if (prev !== null) {
                     prev.hover(false);

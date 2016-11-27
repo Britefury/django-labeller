@@ -442,13 +442,16 @@ module labelling_tool {
     Abstract label entity
      */
     class AbstractLabelEntity<ModelType extends AbstractLabelModel> {
+        private static entity_id_counter: number = 0;
         model: ModelType;
         protected root_view: RootLabelView;
+        private entity_id: number;
         _attached: boolean;
         _hover: boolean;
         _selected: boolean;
         _event_listeners: LabelEntityEventListener[];
         parent_entity: ContainerEntity;
+
 
 
         constructor(view: RootLabelView, model: ModelType) {
@@ -457,6 +460,8 @@ module labelling_tool {
             this._attached = this._hover = this._selected = false;
             this._event_listeners = [];
             this.parent_entity = null;
+            this.entity_id = AbstractLabelEntity.entity_id_counter++;
+
         }
 
 
@@ -473,6 +478,10 @@ module labelling_tool {
 
         set_parent(parent: ContainerEntity) {
             this.parent_entity = parent;
+        }
+
+        get_entity_id(): number {
+            return this.entity_id;
         }
 
         attach() {
@@ -524,6 +533,25 @@ module labelling_tool {
 
         _update_style() {
         };
+
+        _outline_colour(): Colour4 {
+            if (this._selected) {
+                if (this._hover) {
+                    return new Colour4(255, 0, 128, 1.0);
+                }
+                else {
+                    return new Colour4(255, 0, 0, 1.0);
+                }
+            }
+            else {
+                if (this._hover) {
+                    return new Colour4(0, 255, 128, 1.0);
+                }
+                else {
+                    return new Colour4(255, 255, 0, 1.0);
+                }
+            }
+        }
 
         compute_centroid(): Vector2 {
             return null;
@@ -610,7 +638,7 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                var stroke_colour: Colour4 = this._outline_colour();
 
                 if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
                     this.circle.attr("visibility", "hidden");
@@ -718,7 +746,7 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                var stroke_colour: Colour4 = this._outline_colour();
 
                 if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
                     this._rect.attr("visibility", "hidden");
@@ -838,7 +866,7 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                var stroke_colour: Colour4 = this._outline_colour();
 
                 if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
                     this.poly.attr("visibility", "hidden");
@@ -888,7 +916,12 @@ module labelling_tool {
         }
 
         contains_pointer_position(point: Vector2): boolean {
-            return PolyK.ContainsPoint(this._polyk_poly, point.x, point.y);
+            if (this.compute_bounding_box().contains_point(point)) {
+                return PolyK.ContainsPoint(this._polyk_poly, point.x, point.y);
+            }
+            else {
+                return false;
+            }
         }
 
         distance_to_point(point: Vector2): number {
@@ -1012,7 +1045,7 @@ module labelling_tool {
 
         _update_style() {
             if (this._attached) {
-                var stroke_colour: Colour4 = this._selected ? new Colour4(255, 0, 0, 1.0) : new Colour4(255, 255, 0, 1.0);
+                var stroke_colour: Colour4 = this._outline_colour();
 
                 if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
@@ -1301,12 +1334,17 @@ module labelling_tool {
         };
 
         contains_pointer_position(point: Vector2): boolean {
-            for (var i = 0; i < this._component_entities.length; i++) {
-                if (this._component_entities[i].contains_pointer_position(point)) {
-                    return true;
+            if (this.compute_bounding_box().contains_point(point)) {
+                for (var i = 0; i < this._component_entities.length; i++) {
+                    if (this._component_entities[i].contains_pointer_position(point)) {
+                        return true;
+                    }
                 }
+                return false;
             }
-            return false;
+            else {
+                return false;
+            }
         }
 
         distance_to_point(point: Vector2): number {
@@ -1841,17 +1879,24 @@ module labelling_tool {
     Select entity tool
      */
     class SelectEntityTool extends AbstractTool {
-        _highlighted_entities: AbstractLabelEntity<AbstractLabelModel>[];
+        _entities_under_pointer: AbstractLabelEntity<AbstractLabelModel>[];
         _current_entity: AbstractLabelEntity<AbstractLabelModel>;
+        _current_entity_index: number;
+        _key_event_listener: (event)=>any;
     
         constructor(view: RootLabelView) {
             super(view);
-            this._highlighted_entities = [];
+            var self = this;
+            this._entities_under_pointer = [];
             this._current_entity = null;
+            this._current_entity_index = null;
+            this._key_event_listener = function(event) {
+                self.on_key_press(event);
+            }
         }
 
         on_init() {
-            this._highlighted_entities = [];
+            this._entities_under_pointer = [];
             this._current_entity = null;
         };
 
@@ -1862,32 +1907,43 @@ module labelling_tool {
             }
         };
 
-
-        on_entity_mouse_in(entity: AbstractLabelEntity<AbstractLabelModel>) {
-            var index = this._highlighted_entities.indexOf(entity);
-
-            if (index === -1) {
-                var prev = this._current_entity;
-                this._highlighted_entities.push(entity);
-                this._current_entity = this._update_current_entity(null);
-                SelectEntityTool._current_entity_modified(prev, this._current_entity);
-            }
+        on_switch_in(pos: Vector2) {
+            document.addEventListener("keypress", this._key_event_listener);
         };
 
+        on_switch_out(pos: Vector2) {
+            document.removeEventListener("keypress", this._key_event_listener);
+        };
 
-        on_entity_mouse_out(entity: AbstractLabelEntity<AbstractLabelModel>) {
-            var index = this._highlighted_entities.indexOf(entity);
-
-            if (index !== -1) {
+        on_key_press(event: any) {
+            var key: string = event.key;
+            if (key === '[' || key === ']') {
+                // 91: Open square bracket
+                // 93: Close square bracket
                 var prev = this._current_entity;
-                this._highlighted_entities.splice(index, 1);
-                this._current_entity = this._update_current_entity(null);
+
+                if (key === '[') {
+                    console.log('Backward through ' + this._entities_under_pointer.length);
+                    this._current_entity_index--;
+                    if (this._current_entity_index < 0) {
+                        this._current_entity_index = this._entities_under_pointer.length - 1;
+                    }
+                }
+                else if (key === ']') {
+                    console.log('Forward through ' + this._entities_under_pointer.length);
+                    this._current_entity_index++;
+                    if (this._current_entity_index >= this._entities_under_pointer.length) {
+                        this._current_entity_index = 0;
+                    }
+                }
+
+                this._current_entity = this._entities_under_pointer[this._current_entity_index];
                 SelectEntityTool._current_entity_modified(prev, this._current_entity);
             }
-        };
+        }
 
         on_left_click(pos: Vector2, event: any) {
-            this._current_entity = this._update_current_entity(pos);
+            this._update_entities_under_pointer(pos);
             if (this._current_entity !== null) {
                 this._view.select_entity(this._current_entity, event.shiftKey, true);
             }
@@ -1899,37 +1955,52 @@ module labelling_tool {
         };
 
         on_move(pos: Vector2) {
-            var prev = this._current_entity;
-            this._current_entity = this._update_current_entity(pos);
-            SelectEntityTool._current_entity_modified(prev, this._current_entity);
+            this._update_entities_under_pointer(pos);
         };
 
-        _update_current_entity(pos: Vector2) {
-            if (this._highlighted_entities.length === 0) {
-                return null;
-            }
-            else if (this._highlighted_entities.length === 1) {
-                return this._highlighted_entities[0];
+        _update_entities_under_pointer(pos: Vector2) {
+            var prev_under: AbstractLabelEntity<AbstractLabelModel>[] = this._entities_under_pointer;
+            var under: AbstractLabelEntity<AbstractLabelModel>[] = this._get_entities_under_pointer(pos);
+
+            var changed: boolean = false;
+            if (prev_under.length == under.length) {
+                for (var i = 0; i < prev_under.length; i++) {
+                    if (prev_under[i].get_entity_id() !== under[i].get_entity_id()) {
+                        changed = true;
+                        break;
+                    }
+                }
             }
             else {
-                if (pos === null) {
-                    return this._highlighted_entities[this._highlighted_entities.length-1];
+                changed = true;
+            }
+
+            if (changed) {
+                var prev: AbstractLabelEntity<AbstractLabelModel> = this._current_entity;
+                this._entities_under_pointer = under;
+                if (this._entities_under_pointer.length > 0) {
+                    this._current_entity_index = this._entities_under_pointer.length - 1;
+                    this._current_entity = this._entities_under_pointer[this._current_entity_index];
                 }
                 else {
-                    var closest: AbstractLabelEntity<AbstractLabelModel> = null;
-                    var closest_sqr_dist: number = 0.0;
-                    for (var i = 0; i < this._highlighted_entities.length; i++) {
-                        var centroid = this._highlighted_entities[i].compute_centroid();
-                        var sqr_dist = compute_sqr_dist(centroid, pos);
-                        if (closest === null || sqr_dist < closest_sqr_dist) {
-                            closest_sqr_dist = sqr_dist;
-                            closest = this._highlighted_entities[i];
-                        }
-                    }
-                    return closest;
+                    this._current_entity_index = null;
+                    this._current_entity = null;
+                }
+                SelectEntityTool._current_entity_modified(prev, this._current_entity);
+            }
+        }
+
+        _get_entities_under_pointer(pos: Vector2): AbstractLabelEntity<AbstractLabelModel>[] {
+            var entities: AbstractLabelEntity<AbstractLabelModel>[] = this._view.get_entities();
+            var entities_under_pointer: AbstractLabelEntity<AbstractLabelModel>[] = [];
+            for (var i = 0; i < entities.length; i++) {
+                var entity = entities[i];
+                if (entity.contains_pointer_position(pos)) {
+                    entities_under_pointer.push(entity);
                 }
             }
-        };
+            return entities_under_pointer;
+        }
 
         static _current_entity_modified(prev: AbstractLabelEntity<AbstractLabelModel>, cur: AbstractLabelEntity<AbstractLabelModel>) {
             if (cur !== prev) {

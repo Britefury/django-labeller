@@ -30,14 +30,41 @@
 
     <p>To label regions of the image:</p>
         <ul>
-            <li><strong>Drawing regions onto the image:</strong>
+            <li><strong>Drawing polygonal regions onto the image:</strong>
                 <ul>
                     <li>Click the <em>Draw poly</em> button</li>
                     <li>Within the image pane, left-click to draw polygonal corners of your region</li>
                     <li>When you have finished the region, right-click to stop</li>
                     <li>You are still in <em>draw poly</em> mode, so you can start left-clicking again to draw the next region</li>
                     <li>To exit <em>draw poly</em> mode, right-click a second time.</li>
-                    <li>If you make a mistake, delete the region and re-draw it; see below</li>
+                    <li>Fixing mistakes while in drawing mode:
+                        <ul>
+                            <li>The previous vertex is highlighted with a small pink circle. To delete it, press the
+                                '<code>/</code>' key.
+                            </li>
+                            <li>To insert vertices at a different point in the polygon, press the '<code>[</code>'
+                                and '<code>]</code>' keys to cycle through. This also cycles the vertex that is
+                                highlighted as the previous vertex (above), allowing you to select vertices to
+                                delete.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+
+            <li><strong>Drawing rectangular regions onto the image:</strong>
+                <ul>
+                    <li>Click the <em>Draw box</em> button</li>
+                    <li>Within the image pane, left-click to place one corner and left click again to place another
+                        corner; the tool will create a box between the two</li>
+                    <li>Repeat the above for each box that you want to create</li>
+                </ul>
+            </li>
+
+            <li><strong>Highlighting points of interest in the image:</strong>
+                <ul>
+                    <li>Click the <em>Add point</em> button</li>
+                    <li>Within the image pane, left-click to place a point marker in the image</li>
+                    <li>Repeat the above for each point that you want to create</li>
                 </ul>
             </li>
 
@@ -46,6 +73,11 @@
                     <li>Selected regions have a red outline, yellow otherwise</li>
                     <li>If only <em>one</em> region is selected, clicking the <em>Draw poly</em> button will allow you to modify it; you will go back to <em>draw poly</em> mode</li>
                     <li>To select a different region, click the <em>Select</em> button and choose a different region by clicking on it. Multiple regions can be selected by holding <em>SHIFT</em> while clicking.</li>
+                    <li>If multiple regions overlap and you wish to select a region that is obscured, move the
+                        pointer over the region that you wish to select; the front-most region will be highlighted.
+                        Press the '<code>[</code>' and '<code>]</code>' keys to cycle through the regions under the
+                        pointer until the one that you need is highlighted. Left-click to select it.
+                    </li>
                 </ul>
             </li>
 

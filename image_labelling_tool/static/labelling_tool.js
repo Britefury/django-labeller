@@ -1863,29 +1863,86 @@ var labelling_tool;
         __extends(DrawPolygonTool, _super);
         function DrawPolygonTool(view, entity) {
             _super.call(this, view);
+            var self = this;
             this.entity = entity;
+            this._last_vertex_marker = null;
+            this._key_event_listener = function (event) {
+                self.on_key_press(event);
+            };
         }
         DrawPolygonTool.prototype.on_init = function () {
+            this._last_vertex_marker = this._view.world.append("circle");
+            this._last_vertex_marker.attr("r", "3.0");
+            this._last_vertex_marker.attr("visibility", "hidden");
+            this._last_vertex_marker.style("fill", "rgba(128,0,192,0.1)");
+            this._last_vertex_marker.style("stroke-width", "1.0");
+            this._last_vertex_marker.style("stroke", "rgba(192,0,255,1.0)");
+            this._last_vertex_marker_visible = false;
         };
         ;
         DrawPolygonTool.prototype.on_shutdown = function () {
+            this._last_vertex_marker.remove();
+            this._last_vertex_marker = null;
         };
         ;
         DrawPolygonTool.prototype.on_switch_in = function (pos) {
             if (this.entity !== null) {
                 this.add_point(pos);
+                this._last_vertex_marker_visible = true;
             }
+            document.addEventListener("keypress", this._key_event_listener);
         };
         ;
         DrawPolygonTool.prototype.on_switch_out = function (pos) {
+            this._last_vertex_marker_visible = false;
             if (this.entity !== null) {
                 this.remove_last_point();
                 this.entity.commit();
             }
+            document.removeEventListener("keypress", this._key_event_listener);
         };
         ;
+        DrawPolygonTool.prototype.on_key_press = function (event) {
+            var key = event.key;
+            if (key === '[') {
+                // Shift vertices back
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    var last_vertex = vertices[vertices.length - 2];
+                    // Remove the last vertex
+                    vertices.splice(vertices.length - 2, 1);
+                    // Insert the last vertex at the beginning
+                    vertices.splice(0, 0, last_vertex);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+            else if (key == ']') {
+                // Shift vertices forward
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    var first_vertex = vertices[0];
+                    // Remove the first vertex
+                    vertices.splice(0, 1);
+                    // Insert the first vertex at the end, before the current vertex
+                    vertices.splice(vertices.length - 1, 0, first_vertex);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+            else if (key == '/') {
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    // Remove the last vertex
+                    vertices.splice(vertices.length - 2, 1);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+        };
         DrawPolygonTool.prototype.on_cancel = function (pos) {
             if (this.entity !== null) {
+                this._last_vertex_marker_visible = false;
                 this.remove_last_point();
                 var vertices = this.get_vertices();
                 if (vertices.length == 1) {
@@ -1935,11 +1992,27 @@ var labelling_tool;
         };
         ;
         DrawPolygonTool.prototype.update_poly = function () {
+            var last_vertex_pos = null;
             if (this.entity !== null) {
                 this.entity.update();
+                var vertices = this.get_vertices();
+                if (vertices.length >= 2 && this._last_vertex_marker_visible) {
+                    var last_vertex_pos = vertices[vertices.length - 2];
+                }
             }
+            this.show_last_vertex_at(last_vertex_pos);
         };
         ;
+        DrawPolygonTool.prototype.show_last_vertex_at = function (pos) {
+            if (pos === null) {
+                this._last_vertex_marker.attr("visibility", "hidden");
+            }
+            else {
+                this._last_vertex_marker.attr("visibility", "visible");
+                this._last_vertex_marker.attr("cx", pos.x);
+                this._last_vertex_marker.attr("cy", pos.y);
+            }
+        };
         DrawPolygonTool.prototype.add_point = function (pos) {
             var entity_is_new = false;
             if (this.entity === null) {

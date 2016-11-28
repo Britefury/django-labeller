@@ -2324,33 +2324,97 @@ module labelling_tool {
      */
     class DrawPolygonTool extends AbstractTool {
         entity: PolygonalLabelEntity;
+        _last_vertex_marker: any;
+        _last_vertex_marker_visible: boolean;
+        _key_event_listener: (event)=>any;
 
         constructor(view: RootLabelView, entity: PolygonalLabelEntity) {
             super(view);
+            var self = this;
             this.entity = entity;
+            this._last_vertex_marker = null;
+            this._key_event_listener = function(event) {
+                self.on_key_press(event);
+            }
         }
 
         on_init() {
+            this._last_vertex_marker = this._view.world.append("circle");
+            this._last_vertex_marker.attr("r", "3.0");
+            this._last_vertex_marker.attr("visibility", "hidden");
+            this._last_vertex_marker.style("fill", "rgba(128,0,192,0.1)");
+            this._last_vertex_marker.style("stroke-width", "1.0");
+            this._last_vertex_marker.style("stroke", "rgba(192,0,255,1.0)");
+            this._last_vertex_marker_visible = false;
         };
 
         on_shutdown() {
+            this._last_vertex_marker.remove();
+            this._last_vertex_marker = null;
         };
 
         on_switch_in(pos: Vector2) {
             if (this.entity !== null) {
                 this.add_point(pos);
+                this._last_vertex_marker_visible = true;
             }
+            document.addEventListener("keypress", this._key_event_listener);
         };
 
         on_switch_out(pos: Vector2) {
+            this._last_vertex_marker_visible = false;
             if (this.entity !== null) {
                 this.remove_last_point();
                 this.entity.commit();
             }
+            document.removeEventListener("keypress", this._key_event_listener);
         };
+
+        on_key_press(event: any) {
+            var key: string = event.key;
+            if (key === '[') {
+                // Shift vertices back
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    var last_vertex = vertices[vertices.length - 2];
+
+                    // Remove the last vertex
+                    vertices.splice(vertices.length - 2, 1);
+                    // Insert the last vertex at the beginning
+                    vertices.splice(0, 0, last_vertex);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+            else if (key == ']') {
+                // Shift vertices forward
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    var first_vertex = vertices[0];
+
+                    // Remove the first vertex
+                    vertices.splice(0, 1);
+                    // Insert the first vertex at the end, before the current vertex
+                    vertices.splice(vertices.length - 1, 0, first_vertex);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+            else if (key == '/') {
+                var vertices = this.get_vertices();
+                if (vertices !== null && vertices.length >= 3) {
+                    // Remove the last vertex
+                    vertices.splice(vertices.length - 2, 1);
+                    this.update_poly();
+                    this.entity.commit();
+                }
+            }
+        }
+
 
         on_cancel(pos: Vector2): boolean {
             if (this.entity !== null) {
+                this._last_vertex_marker_visible = false;
                 this.remove_last_point();
 
                 var vertices = this.get_vertices();
@@ -2403,10 +2467,28 @@ module labelling_tool {
         };
 
         update_poly() {
+            var last_vertex_pos: Vector2 = null;
             if (this.entity !== null) {
                 this.entity.update();
+                var vertices = this.get_vertices();
+                if (vertices.length >= 2 && this._last_vertex_marker_visible) {
+                    var last_vertex_pos = vertices[vertices.length - 2];
+                }
             }
+            this.show_last_vertex_at(last_vertex_pos);
         };
+
+        show_last_vertex_at(pos: Vector2) {
+            if (pos === null) {
+                this._last_vertex_marker.attr("visibility", "hidden");
+            }
+            else {
+                this._last_vertex_marker.attr("visibility", "visible");
+                this._last_vertex_marker.attr("cx", pos.x);
+                this._last_vertex_marker.attr("cy", pos.y);
+            }
+        }
+
 
         add_point(pos: Vector2) {
             var entity_is_new = false;

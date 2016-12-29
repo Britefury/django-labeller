@@ -1,3 +1,8 @@
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
 /*
 The MIT License (MIT)
 
@@ -24,14 +29,6 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
-/// <reference path="d3.d.ts" />
-/// <reference path="jquery.d.ts" />
-/// <reference path="polyk.d.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     function ensure_flag_exists(x, flag_name, default_value) {
@@ -41,6 +38,7 @@ var labelling_tool;
         }
         return x[flag_name];
     }
+    labelling_tool.ensure_flag_exists = ensure_flag_exists;
     function compute_centroid_of_points(vertices) {
         var sum = [0.0, 0.0];
         var N = vertices.length;
@@ -57,13 +55,16 @@ var labelling_tool;
             return { x: sum[0] * scale, y: sum[1] * scale };
         }
     }
+    labelling_tool.compute_centroid_of_points = compute_centroid_of_points;
     function compute_sqr_length(v) {
         return v.x * v.x + v.y * v.y;
     }
+    labelling_tool.compute_sqr_length = compute_sqr_length;
     function compute_sqr_dist(a, b) {
         var dx = b.x - a.x, dy = b.y - a.y;
         return dx * dx + dy * dy;
     }
+    labelling_tool.compute_sqr_dist = compute_sqr_dist;
     /*
     RGBA colour
      */
@@ -94,6 +95,7 @@ var labelling_tool;
         Colour4.WHITE = new Colour4(255, 255, 255, 1.0);
         return Colour4;
     }());
+    labelling_tool.Colour4 = Colour4;
     /*
     Axis-aligned box
      */
@@ -129,6 +131,7 @@ var labelling_tool;
         };
         return AABox;
     }());
+    labelling_tool.AABox = AABox;
     function AABox_from_points(array_of_points) {
         if (array_of_points.length > 0) {
             var first = array_of_points[0];
@@ -147,6 +150,7 @@ var labelling_tool;
             return new AABox({ x: 0, y: 0 }, { x: 0, y: 0 });
         }
     }
+    labelling_tool.AABox_from_points = AABox_from_points;
     function AABox_from_aaboxes(array_of_boxes) {
         if (array_of_boxes.length > 0) {
             var first = array_of_boxes[0];
@@ -164,9 +168,39 @@ var labelling_tool;
             return new AABox({ x: 1, y: 1 }, { x: -1, y: -1 });
         }
     }
+    labelling_tool.AABox_from_aaboxes = AABox_from_aaboxes;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+var labelling_tool;
+(function (labelling_tool) {
     /*
-    Object ID table
-     */
+     Object ID table
+      */
     var ObjectIDTable = (function () {
         function ObjectIDTable() {
             this._id_counter = 1;
@@ -225,600 +259,42 @@ var labelling_tool;
         };
         return ObjectIDTable;
     }());
-    /*
-    Label visibility
-     */
-    var LabelVisibility;
-    (function (LabelVisibility) {
-        LabelVisibility[LabelVisibility["HIDDEN"] = 0] = "HIDDEN";
-        LabelVisibility[LabelVisibility["FAINT"] = 1] = "FAINT";
-        LabelVisibility[LabelVisibility["FULL"] = 2] = "FULL";
-    })(LabelVisibility || (LabelVisibility = {}));
-    var LabelClass = (function () {
-        function LabelClass(j) {
-            this.name = j.name;
-            this.human_name = j.human_name;
-            this.colour = Colour4.from_rgb_a(j.colour, 1.0);
-        }
-        return LabelClass;
-    }());
-    var get_label_header_labels = function (label_header) {
-        var labels = label_header.labels;
-        if (labels === undefined || labels === null) {
-            return [];
-        }
-        else {
-            return labels;
-        }
-    };
-    var replace_label_header_labels = function (label_header, labels) {
-        return { image_id: label_header.image_id,
-            complete: label_header.complete,
-            labels: labels };
-    };
-    function new_PointLabelModel(position) {
-        return { label_type: 'point', label_class: null, position: position };
-    }
-    function new_BoxLabelModel(centre, size) {
-        return { label_type: 'box', label_class: null, centre: centre, size: size };
-    }
-    function BoxLabel_box(label) {
-        var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
-        var upper = { x: label.centre.x + label.size.x * 0.5, y: label.centre.y + label.size.y * 0.5 };
-        return new AABox(lower, upper);
-    }
-    function new_PolygonalLabelModel() {
-        return { label_type: 'polygon', label_class: null, vertices: [] };
-    }
-    function new_CompositeLabelModel() {
-        return { label_type: 'composite', label_class: null, components: [] };
-    }
+    labelling_tool.ObjectIDTable = ObjectIDTable;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+var labelling_tool;
+(function (labelling_tool) {
     function new_GroupLabelModel() {
         return { label_type: 'group', label_class: null, component_models: [] };
     }
-    /*
-    Abstract label entity
-     */
-    var AbstractLabelEntity = (function () {
-        function AbstractLabelEntity(view, model) {
-            this.root_view = view;
-            this.model = model;
-            this._attached = this._hover = this._selected = false;
-            this._event_listeners = [];
-            this.parent_entity = null;
-            this.entity_id = AbstractLabelEntity.entity_id_counter++;
-        }
-        AbstractLabelEntity.prototype.add_event_listener = function (listener) {
-            this._event_listeners.push(listener);
-        };
-        AbstractLabelEntity.prototype.remove_event_listener = function (listener) {
-            var i = this._event_listeners.indexOf(listener);
-            if (i !== -1) {
-                this._event_listeners.splice(i, 1);
-            }
-        };
-        AbstractLabelEntity.prototype.set_parent = function (parent) {
-            this.parent_entity = parent;
-        };
-        AbstractLabelEntity.prototype.get_entity_id = function () {
-            return this.entity_id;
-        };
-        AbstractLabelEntity.prototype.attach = function () {
-            this.root_view._register_entity(this);
-            this._attached = true;
-        };
-        AbstractLabelEntity.prototype.detach = function () {
-            this._attached = false;
-            this.root_view._unregister_entity(this);
-        };
-        AbstractLabelEntity.prototype.destroy = function () {
-            if (this.parent_entity !== null) {
-                this.parent_entity.remove_child(this);
-            }
-            this.root_view.shutdown_entity(this);
-        };
-        AbstractLabelEntity.prototype.update = function () {
-        };
-        AbstractLabelEntity.prototype.commit = function () {
-        };
-        AbstractLabelEntity.prototype.hover = function (state) {
-            this._hover = state;
-            this._update_style();
-        };
-        AbstractLabelEntity.prototype.select = function (state) {
-            this._selected = state;
-            this._update_style();
-        };
-        AbstractLabelEntity.prototype.notify_hide_labels_change = function () {
-            this._update_style();
-        };
-        AbstractLabelEntity.prototype.get_label_class = function () {
-            return this.model.label_class;
-        };
-        AbstractLabelEntity.prototype.set_label_class = function (label_class) {
-            this.model.label_class = label_class;
-            this._update_style();
-            this.commit();
-        };
-        AbstractLabelEntity.prototype._update_style = function () {
-        };
-        ;
-        AbstractLabelEntity.prototype._outline_colour = function () {
-            if (this._selected) {
-                if (this._hover) {
-                    return new Colour4(255, 0, 128, 1.0);
-                }
-                else {
-                    return new Colour4(255, 0, 0, 1.0);
-                }
-            }
-            else {
-                if (this._hover) {
-                    return new Colour4(0, 255, 128, 1.0);
-                }
-                else {
-                    return new Colour4(255, 255, 0, 1.0);
-                }
-            }
-        };
-        AbstractLabelEntity.prototype.compute_centroid = function () {
-            return null;
-        };
-        AbstractLabelEntity.prototype.compute_bounding_box = function () {
-            return null;
-        };
-        ;
-        AbstractLabelEntity.prototype.contains_pointer_position = function (point) {
-            return false;
-        };
-        AbstractLabelEntity.prototype.distance_to_point = function (point) {
-            return null;
-        };
-        ;
-        AbstractLabelEntity.prototype.notify_model_destroyed = function (model_id) {
-        };
-        ;
-        AbstractLabelEntity.entity_id_counter = 0;
-        return AbstractLabelEntity;
-    }());
-    /*
-    Point label entity
-     */
-    var PointLabelEntity = (function (_super) {
-        __extends(PointLabelEntity, _super);
-        function PointLabelEntity(view, model) {
-            _super.call(this, view, model);
-        }
-        PointLabelEntity.prototype.attach = function () {
-            _super.prototype.attach.call(this);
-            this.circle = this.root_view.world.append("circle")
-                .attr('r', 4.0);
-            this.update();
-            var self = this;
-            this.circle.on("mouseover", function () {
-                self._on_mouse_over_event();
-            }).on("mouseout", function () {
-                self._on_mouse_out_event();
-            });
-            this._update_style();
-        };
-        PointLabelEntity.prototype.detach = function () {
-            this.circle.remove();
-            this.circle = null;
-            _super.prototype.detach.call(this);
-        };
-        PointLabelEntity.prototype._on_mouse_over_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_in(this);
-            }
-        };
-        PointLabelEntity.prototype._on_mouse_out_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_out(this);
-            }
-        };
-        PointLabelEntity.prototype.update = function () {
-            var position = this.model.position;
-            this.circle
-                .attr('cx', position.x)
-                .attr('cy', position.y);
-        };
-        PointLabelEntity.prototype.commit = function () {
-            this.root_view.commit_model(this.model);
-        };
-        PointLabelEntity.prototype._update_style = function () {
-            if (this._attached) {
-                var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
-                    this.circle.attr("visibility", "hidden");
-                }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
-                    stroke_colour = stroke_colour.with_alpha(0.2);
-                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this.circle.attr("visibility", "visible");
-                }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
-                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this._hover) {
-                        circle_fill_colour = circle_fill_colour.lighten(0.4);
-                    }
-                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
-                    stroke_colour = stroke_colour.with_alpha(0.5);
-                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this.circle.attr("visibility", "visible");
-                }
-            }
-        };
-        PointLabelEntity.prototype.compute_centroid = function () {
-            return this.model.position;
-        };
-        PointLabelEntity.prototype.compute_bounding_box = function () {
-            var centre = this.compute_centroid();
-            return new AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
-        };
-        PointLabelEntity.prototype.contains_pointer_position = function (point) {
-            return compute_sqr_dist(point, this.model.position) <= (4.0 * 4.0);
-        };
-        return PointLabelEntity;
-    }(AbstractLabelEntity));
-    /*
-    Box label entity
-     */
-    var BoxLabelEntity = (function (_super) {
-        __extends(BoxLabelEntity, _super);
-        function BoxLabelEntity(view, model) {
-            _super.call(this, view, model);
-        }
-        BoxLabelEntity.prototype.attach = function () {
-            _super.prototype.attach.call(this);
-            this._rect = this.root_view.world.append("rect")
-                .attr("x", 0).attr("y", 0)
-                .attr("width", 0).attr("height", 0);
-            this.update();
-            var self = this;
-            this._rect.on("mouseover", function () {
-                self._on_mouse_over_event();
-            }).on("mouseout", function () {
-                self._on_mouse_out_event();
-            });
-            this._update_style();
-        };
-        ;
-        BoxLabelEntity.prototype.detach = function () {
-            this._rect.remove();
-            this._rect = null;
-            _super.prototype.detach.call(this);
-        };
-        BoxLabelEntity.prototype._on_mouse_over_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_in(this);
-            }
-        };
-        BoxLabelEntity.prototype._on_mouse_out_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_out(this);
-            }
-        };
-        BoxLabelEntity.prototype.update = function () {
-            var box = BoxLabel_box(this.model);
-            var size = box.size();
-            this._rect
-                .attr('x', box.lower.x).attr('y', box.lower.y)
-                .attr('width', size.x).attr('height', size.y);
-        };
-        BoxLabelEntity.prototype.commit = function () {
-            this.root_view.commit_model(this.model);
-        };
-        BoxLabelEntity.prototype._update_style = function () {
-            if (this._attached) {
-                var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
-                    this._rect.attr("visibility", "hidden");
-                }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
-                    stroke_colour = stroke_colour.with_alpha(0.2);
-                    this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this._rect.attr("visibility", "visible");
-                }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
-                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this._hover) {
-                        circle_fill_colour = circle_fill_colour.lighten(0.4);
-                    }
-                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
-                    stroke_colour = stroke_colour.with_alpha(0.5);
-                    this._rect.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this._rect.attr("visibility", "visible");
-                }
-            }
-        };
-        BoxLabelEntity.prototype.compute_centroid = function () {
-            return this.model.centre;
-        };
-        ;
-        BoxLabelEntity.prototype.compute_bounding_box = function () {
-            return BoxLabel_box(this.model);
-        };
-        ;
-        BoxLabelEntity.prototype.contains_pointer_position = function (point) {
-            return this.compute_bounding_box().contains_point(point);
-        };
-        BoxLabelEntity.prototype.distance_to_point = function (point) {
-            return BoxLabel_box(this.model).distance_to(point);
-        };
-        return BoxLabelEntity;
-    }(AbstractLabelEntity));
-    /*
-    Polygonal label entity
-     */
-    var PolygonalLabelEntity = (function (_super) {
-        __extends(PolygonalLabelEntity, _super);
-        function PolygonalLabelEntity(view, model) {
-            _super.call(this, view, model);
-            this._polyk_poly = [];
-            this._centroid = null;
-            this._bounding_box = null;
-            this.poly = null;
-            this.shape_line = null;
-        }
-        PolygonalLabelEntity.prototype.attach = function () {
-            var _this = this;
-            _super.prototype.attach.call(this);
-            this.shape_line = d3.svg.line()
-                .x(function (d) { return d.x; })
-                .y(function (d) { return d.y; })
-                .interpolate("linear-closed");
-            this.poly = this.root_view.world.append("path");
-            this.poly.data(this.model.vertices).attr("d", this.shape_line(this.model.vertices));
-            this.poly.on("mouseover", function () {
-                for (var i = 0; i < _this._event_listeners.length; i++) {
-                    _this._event_listeners[i].on_mouse_in(_this);
-                }
-            });
-            this.poly.on("mouseout", function () {
-                for (var i = 0; i < _this._event_listeners.length; i++) {
-                    _this._event_listeners[i].on_mouse_out(_this);
-                }
-            });
-            this._update_polyk_poly();
-            this._update_style();
-        };
-        ;
-        PolygonalLabelEntity.prototype.detach = function () {
-            this.poly.remove();
-            this.poly = null;
-            this.shape_line = null;
-            this._polyk_poly = [];
-            _super.prototype.detach.call(this);
-        };
-        ;
-        PolygonalLabelEntity.prototype._update_polyk_poly = function () {
-            this._polyk_poly = [];
-            for (var i = 0; i < this.model.vertices.length; i++) {
-                this._polyk_poly.push(this.model.vertices[i].x);
-                this._polyk_poly.push(this.model.vertices[i].y);
-            }
-        };
-        PolygonalLabelEntity.prototype.update = function () {
-            this.poly.data(this.model.vertices).attr("d", this.shape_line(this.model.vertices));
-            this._update_polyk_poly();
-            this._centroid = null;
-            this._bounding_box = null;
-        };
-        PolygonalLabelEntity.prototype.commit = function () {
-            this.root_view.commit_model(this.model);
-        };
-        PolygonalLabelEntity.prototype._update_style = function () {
-            if (this._attached) {
-                var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
-                    this.poly.attr("visibility", "hidden");
-                }
-                else {
-                    var fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
-                        stroke_colour = stroke_colour.with_alpha(0.2);
-                        if (this._hover) {
-                            fill_colour = fill_colour.lighten(0.4);
-                        }
-                        if (this._selected) {
-                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
-                        }
-                        fill_colour = fill_colour.with_alpha(0.1);
-                    }
-                    else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
-                        if (this._hover) {
-                            fill_colour = fill_colour.lighten(0.4);
-                        }
-                        if (this._selected) {
-                            fill_colour = fill_colour.lerp(new Colour4(255, 128, 0.0, 1.0), 0.2);
-                        }
-                        fill_colour = fill_colour.with_alpha(0.35);
-                    }
-                    this.poly.attr("style", "fill:" + fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1")
-                        .attr("visibility", "visible");
-                }
-            }
-        };
-        PolygonalLabelEntity.prototype.compute_centroid = function () {
-            if (this._centroid === null) {
-                this._centroid = compute_centroid_of_points(this.model.vertices);
-            }
-            return this._centroid;
-        };
-        PolygonalLabelEntity.prototype.compute_bounding_box = function () {
-            if (this._bounding_box === null) {
-                this._bounding_box = AABox_from_points(this.model.vertices);
-            }
-            return this._bounding_box;
-        };
-        PolygonalLabelEntity.prototype.contains_pointer_position = function (point) {
-            if (this.compute_bounding_box().contains_point(point)) {
-                return PolyK.ContainsPoint(this._polyk_poly, point.x, point.y);
-            }
-            else {
-                return false;
-            }
-        };
-        PolygonalLabelEntity.prototype.distance_to_point = function (point) {
-            if (PolyK.ContainsPoint(this._polyk_poly, point.x, point.y)) {
-                return 0.0;
-            }
-            else {
-                var e = PolyK.ClosestEdge(this._polyk_poly, point.x, point.y);
-                return e.dist;
-            }
-        };
-        return PolygonalLabelEntity;
-    }(AbstractLabelEntity));
-    /*
-    Composite label entity
-     */
-    var CompositeLabelEntity = (function (_super) {
-        __extends(CompositeLabelEntity, _super);
-        function CompositeLabelEntity(view, model) {
-            _super.call(this, view, model);
-            this._centroid = null;
-        }
-        CompositeLabelEntity.prototype.attach = function () {
-            _super.prototype.attach.call(this);
-            this.circle = this.root_view.world.append("circle")
-                .attr('r', 8.0);
-            this.central_circle = this.root_view.world.append("circle")
-                .attr("pointer-events", "none")
-                .attr('r', 4.0);
-            this.shape_line = d3.svg.line()
-                .x(function (d) { return d.x; })
-                .y(function (d) { return d.y; })
-                .interpolate("linear-closed");
-            this.connections_group = null;
-            this.update();
-            var self = this;
-            this.circle.on("mouseover", function () {
-                self._on_mouse_over_event();
-            }).on("mouseout", function () {
-                self._on_mouse_out_event();
-            });
-            this._update_style();
-        };
-        CompositeLabelEntity.prototype.detach = function () {
-            this.circle.remove();
-            this.central_circle.remove();
-            this.connections_group.remove();
-            this.circle = null;
-            this.central_circle = null;
-            this.shape_line = null;
-            this.connections_group = null;
-            _super.prototype.detach.call(this);
-        };
-        CompositeLabelEntity.prototype._on_mouse_over_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_in(this);
-            }
-        };
-        CompositeLabelEntity.prototype._on_mouse_out_event = function () {
-            for (var i = 0; i < this._event_listeners.length; i++) {
-                this._event_listeners[i].on_mouse_out(this);
-            }
-        };
-        CompositeLabelEntity.prototype.update = function () {
-            var component_centroids = this._compute_component_centroids();
-            this._centroid = compute_centroid_of_points(component_centroids);
-            this.circle
-                .attr('cx', this._centroid.x)
-                .attr('cy', this._centroid.y);
-            this.central_circle
-                .attr('cx', this._centroid.x)
-                .attr('cy', this._centroid.y);
-            if (this.connections_group !== null) {
-                this.connections_group.remove();
-                this.connections_group = null;
-            }
-            this.connections_group = this.root_view.world.append("g");
-            for (var i = 0; i < component_centroids.length; i++) {
-                this.connections_group.append("path")
-                    .attr("d", this.shape_line([this._centroid, component_centroids[i]]))
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "3, 3")
-                    .attr("style", "stroke:rgba(255,0,255,0.6);");
-                this.connections_group.append("circle")
-                    .attr("cx", component_centroids[i].x)
-                    .attr("cy", component_centroids[i].y)
-                    .attr("r", 3)
-                    .attr("stroke-width", 1)
-                    .attr("style", "stroke:rgba(255,0,255,0.6);fill: rgba(255,0,255,0.25);");
-            }
-        };
-        CompositeLabelEntity.prototype.commit = function () {
-            this.root_view.commit_model(this.model);
-        };
-        CompositeLabelEntity.prototype._update_style = function () {
-            if (this._attached) {
-                var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
-                    stroke_colour = stroke_colour.with_alpha(0.2);
-                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this.connections_group.selectAll("path")
-                        .attr("style", "stroke:rgba(255,0,255,0.2);");
-                    this.connections_group.selectAll("circle")
-                        .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");
-                }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
-                    var circle_fill_colour = new Colour4(255, 128, 255, 1.0);
-                    var central_circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    var connection_fill_colour = new Colour4(255, 0, 255, 1.0);
-                    var connection_stroke_colour = new Colour4(255, 0, 255, 1.0);
-                    if (this._hover) {
-                        circle_fill_colour = circle_fill_colour.lighten(0.4);
-                        central_circle_fill_colour = central_circle_fill_colour.lighten(0.4);
-                        connection_fill_colour = connection_fill_colour.lighten(0.4);
-                        connection_stroke_colour = connection_stroke_colour.lighten(0.4);
-                    }
-                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
-                    central_circle_fill_colour = central_circle_fill_colour.with_alpha(0.35);
-                    connection_fill_colour = connection_fill_colour.with_alpha(0.25);
-                    connection_stroke_colour = connection_stroke_colour.with_alpha(0.6);
-                    stroke_colour = stroke_colour.with_alpha(0.5);
-                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + connection_stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
-                    this.connections_group.selectAll("path")
-                        .attr("style", "stroke:rgba(255,0,255,0.6);");
-                    this.connections_group.selectAll("circle")
-                        .attr("style", "stroke:" + connection_stroke_colour.to_rgba_string() + ";fill:" + connection_fill_colour.to_rgba_string() + ";");
-                }
-            }
-        };
-        CompositeLabelEntity.prototype._compute_component_centroids = function () {
-            var component_centroids = [];
-            for (var i = 0; i < this.model.components.length; i++) {
-                var model_id = this.model.components[i];
-                var entity = this.root_view.get_entity_for_model_id(model_id);
-                var centroid = entity.compute_centroid();
-                component_centroids.push(centroid);
-            }
-            return component_centroids;
-        };
-        CompositeLabelEntity.prototype.compute_centroid = function () {
-            return this._centroid;
-        };
-        ;
-        CompositeLabelEntity.prototype.compute_bounding_box = function () {
-            var centre = this.compute_centroid();
-            return new AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
-        };
-        CompositeLabelEntity.prototype.contains_pointer_position = function (point) {
-            return compute_sqr_dist(point, this._centroid) <= (8.0 * 8.0);
-        };
-        CompositeLabelEntity.prototype.notify_model_destroyed = function (model_id) {
-            var index = this.model.components.indexOf(model_id);
-            if (index !== -1) {
-                // Remove the model ID from the components array
-                this.model.components = this.model.components.slice(0, index).concat(this.model.components.slice(index + 1));
-                this.update();
-            }
-        };
-        return CompositeLabelEntity;
-    }(AbstractLabelEntity));
+    labelling_tool.new_GroupLabelModel = new_GroupLabelModel;
     /*
     Group label entity
      */
@@ -892,7 +368,7 @@ var labelling_tool;
                 model_entity.add_event_listener(this._component_event_listener);
                 model_entity.set_parent(this);
             }
-            this._bounding_aabox = AABox_from_aaboxes(component_bboxes);
+            this._bounding_aabox = labelling_tool.AABox_from_aaboxes(component_bboxes);
             this.update();
             this._update_style();
         };
@@ -922,7 +398,7 @@ var labelling_tool;
                 var entity = this._component_entities[i];
                 component_bboxes.push(entity.compute_bounding_box());
             }
-            this._bounding_aabox = AABox_from_aaboxes(component_bboxes);
+            this._bounding_aabox = labelling_tool.AABox_from_aaboxes(component_bboxes);
         };
         GroupLabelEntity.prototype.update = function () {
             var size = this._bounding_aabox.size();
@@ -1021,373 +497,81 @@ var labelling_tool;
             return best_dist;
         };
         return GroupLabelEntity;
-    }(AbstractLabelEntity));
-    /*
-    Map label type to entity constructor
-     */
-    var label_type_to_entity_factory = {
-        'point': function (root_view, model) {
-            return new PointLabelEntity(root_view, model);
-        },
-        'box': function (root_view, model) {
-            return new BoxLabelEntity(root_view, model);
-        },
-        'polygon': function (root_view, model) {
-            return new PolygonalLabelEntity(root_view, model);
-        },
-        'composite': function (root_view, model) {
-            return new CompositeLabelEntity(root_view, model);
-        },
-        'group': function (root_view, model) {
-            return new GroupLabelEntity(root_view, model);
+    }(labelling_tool.AbstractLabelEntity));
+    labelling_tool.GroupLabelEntity = GroupLabelEntity;
+    labelling_tool.register_entity_factory('group', function (root_view, model) {
+        return new GroupLabelEntity(root_view, model);
+    });
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    var LabelClass = (function () {
+        function LabelClass(j) {
+            this.name = j.name;
+            this.human_name = j.human_name;
+            this.colour = labelling_tool.Colour4.from_rgb_a(j.colour, 1.0);
         }
-    };
-    /*
-    Construct entity for given label model.
-    Uses the map above to choose the appropriate constructor
-     */
-    var new_entity_for_model = function (root_view, label_model) {
-        var factory = label_type_to_entity_factory[label_model.label_type];
-        return factory(root_view, label_model);
-    };
-    /*
-    Label view root
-     */
-    var RootLabelView = (function () {
-        function RootLabelView(model, root_listener, entity_listener, ltool, world) {
-            this.model = model;
-            this._all_entities = [];
-            this.root_entities = [];
-            this.selected_entities = [];
-            // Label model object table
-            this._label_model_obj_table = new ObjectIDTable();
-            // Label model object ID to entity
-            this._label_model_id_to_entity = {};
-            this.root_listener = root_listener;
-            this._entity_event_listener = entity_listener;
-            this.view = ltool;
-            this.world = world;
-        }
-        /*
-        Set model
-         */
-        RootLabelView.prototype.set_model = function (model) {
-            // Remove all entities
-            var entites_to_shutdown = this.root_entities.slice();
-            for (var i = 0; i < entites_to_shutdown.length; i++) {
-                this.shutdown_entity(entites_to_shutdown[i]);
-            }
-            // Update the labels
-            this.model = model;
-            var labels = get_label_header_labels(this.model);
-            // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
-            this._label_model_obj_table = new ObjectIDTable();
-            this._label_model_obj_table.register_objects(labels);
-            this._label_model_id_to_entity = {};
-            // Reset the entity lists
-            this._all_entities = [];
-            this.root_entities = [];
-            this.selected_entities = [];
-            for (var i = 0; i < labels.length; i++) {
-                var label = labels[i];
-                var entity = this.get_or_create_entity_for_model(label);
-                this.register_child(entity);
-            }
-        };
-        /*
-        Set complete
-         */
-        RootLabelView.prototype.set_complete = function (complete) {
-            this.model.complete = complete;
-        };
-        RootLabelView.prototype.get_current_image_id = function () {
-            if (this.model !== null && this.model !== undefined) {
-                return this.model.image_id;
-            }
-            else {
-                return null;
-            }
-        };
-        ;
-        /*
-        Set label visibility
-         */
-        RootLabelView.prototype.set_label_visibility = function (visibility) {
-            for (var i = 0; i < this._all_entities.length; i++) {
-                this._all_entities[i].notify_hide_labels_change();
-            }
-        };
-        /*
-        Select an entity
-         */
-        RootLabelView.prototype.select_entity = function (entity, multi_select, invert) {
-            multi_select = multi_select === undefined ? false : multi_select;
-            if (multi_select) {
-                var index = this.selected_entities.indexOf(entity);
-                var changed = false;
-                if (invert) {
-                    if (index === -1) {
-                        // Add
-                        this.selected_entities.push(entity);
-                        entity.select(true);
-                        changed = true;
-                    }
-                    else {
-                        // Remove
-                        this.selected_entities.splice(index, 1);
-                        entity.select(false);
-                        changed = true;
-                    }
-                }
-                else {
-                    if (index === -1) {
-                        // Add
-                        this.selected_entities.push(entity);
-                        entity.select(true);
-                        changed = true;
-                    }
-                }
-                if (changed) {
-                    this.root_listener.on_selection_changed(this);
-                }
-            }
-            else {
-                var prev_entity = this.get_selected_entity();
-                if (prev_entity !== entity) {
-                    for (var i = 0; i < this.selected_entities.length; i++) {
-                        this.selected_entities[i].select(false);
-                    }
-                    this.selected_entities = [entity];
-                    entity.select(true);
-                }
-                this.root_listener.on_selection_changed(this);
-            }
-        };
-        ;
-        /*
-        Unselect all entities
-         */
-        RootLabelView.prototype.unselect_all_entities = function () {
-            for (var i = 0; i < this.selected_entities.length; i++) {
-                this.selected_entities[i].select(false);
-            }
-            this.selected_entities = [];
-            this.root_listener.on_selection_changed(this);
-        };
-        ;
-        /*
-        Get uniquely selected entity
-         */
-        RootLabelView.prototype.get_selected_entity = function () {
-            return this.selected_entities.length == 1 ? this.selected_entities[0] : null;
-        };
-        ;
-        /*
-        Get selected entities
-         */
-        RootLabelView.prototype.get_selection = function () {
-            return this.selected_entities;
-        };
-        ;
-        /*
-        Get all entities
-         */
-        RootLabelView.prototype.get_entities = function () {
-            return this.root_entities;
-        };
-        ;
-        /*
-        Commit model
-        invoke when a model is modified
-        inserts the model into the tool data model and ensures that the relevant change events get send over
-         */
-        RootLabelView.prototype.commit_model = function (model) {
-            var labels = get_label_header_labels(this.model);
-            var index = labels.indexOf(model);
-            if (index !== -1) {
-                this.root_listener.root_list_changed(this);
-            }
-        };
-        ;
-        /*
-        Create composite label
-         */
-        RootLabelView.prototype.create_composite_label_from_selection = function () {
-            var N = this.selected_entities.length;
-            if (N > 0) {
-                var model = new_CompositeLabelModel();
-                for (var i = 0; i < this.selected_entities.length; i++) {
-                    var model_id = ObjectIDTable.get_id(this.selected_entities[i].model);
-                    model.components.push(model_id);
-                }
-                var entity = this.get_or_create_entity_for_model(model);
-                this.add_child(entity);
-                return entity;
-            }
-            else {
-                return null;
-            }
-        };
-        /*
-        Create group label
-         */
-        RootLabelView.prototype.create_group_label_from_selection = function () {
-            var selection = this.selected_entities.slice();
-            var N = selection.length;
-            if (N > 0) {
-                var model = new_GroupLabelModel();
-                for (var i = 0; i < selection.length; i++) {
-                    var entity = selection[i];
-                    model.component_models.push(entity.model);
-                    this.remove_child(entity);
-                }
-                var group_entity = this.get_or_create_entity_for_model(model);
-                this.add_child(group_entity);
-                return group_entity;
-            }
-            else {
-                return null;
-            }
-        };
-        /*
-        Destroy selection
-         */
-        RootLabelView.prototype.delete_selection = function () {
-            var entities_to_remove = this.selected_entities.slice();
-            this.unselect_all_entities();
-            for (var i = 0; i < entities_to_remove.length; i++) {
-                entities_to_remove[i].destroy();
-            }
-        };
-        /*
-        Register and unregister entities
-         */
-        RootLabelView.prototype._register_entity = function (entity) {
-            this._all_entities.push(entity);
-            this._label_model_obj_table.register(entity.model);
-            this._label_model_id_to_entity[entity.model.object_id] = entity;
-        };
-        ;
-        RootLabelView.prototype._unregister_entity = function (entity) {
-            var index = this._all_entities.indexOf(entity);
-            if (index === -1) {
-                throw "Attempting to unregister entity that is not in _all_entities";
-            }
-            // Notify all entities of the destruction of this model
-            for (var i = 0; i < this._all_entities.length; i++) {
-                if (i !== index) {
-                    this._all_entities[i].notify_model_destroyed(entity.model);
-                }
-            }
-            // Unregister in the ID to object table
-            this._label_model_obj_table.unregister(entity.model);
-            delete this._label_model_id_to_entity[entity.model.object_id];
-            // Remove
-            this._all_entities.splice(index, 1);
-        };
-        ;
-        /*
-        Initialise and shutdown entities
-         */
-        RootLabelView.prototype.initialise_entity = function (entity) {
-            entity.attach();
-        };
-        ;
-        RootLabelView.prototype.shutdown_entity = function (entity) {
-            entity.detach();
-        };
-        ;
-        /*
-        Get entity for model ID
-         */
-        RootLabelView.prototype.get_entity_for_model_id = function (model_id) {
-            return this._label_model_id_to_entity[model_id];
-        };
-        ;
-        /*
-        Get entity for model
-         */
-        RootLabelView.prototype.get_entity_for_model = function (model) {
-            var model_id = ObjectIDTable.get_id(model);
-            return this._label_model_id_to_entity[model_id];
-        };
-        ;
-        /*
-        Get or create entity for model
-         */
-        RootLabelView.prototype.get_or_create_entity_for_model = function (model) {
-            var model_id = ObjectIDTable.get_id(model);
-            if (model_id === null ||
-                !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
-                var entity = new_entity_for_model(this, model);
-                this.initialise_entity(entity);
-                return entity;
-            }
-            else {
-                return this._label_model_id_to_entity[model_id];
-            }
-        };
-        ;
-        /*
-        Register and unregister child entities
-         */
-        RootLabelView.prototype.register_child = function (entity) {
-            this.root_entities.push(entity);
-            entity.add_event_listener(this._entity_event_listener);
-            entity.set_parent(this);
-        };
-        ;
-        RootLabelView.prototype.unregister_child = function (entity) {
-            // Remove from list of root entities
-            var index_in_roots = this.root_entities.indexOf(entity);
-            if (index_in_roots === -1) {
-                throw "Attempting to unregister root entity that is not in root_entities";
-            }
-            this.root_entities.splice(index_in_roots, 1);
-            // Remove from selection if present
-            var index_in_selection = this.selected_entities.indexOf(entity);
-            if (index_in_selection !== -1) {
-                entity.select(false);
-                this.selected_entities.splice(index_in_selection, 1);
-            }
-            entity.remove_event_listener(this._entity_event_listener);
-            entity.set_parent(null);
-        };
-        ;
-        /*
-        Add entity:
-        register the entity and add its label to the tool data model
-         */
-        RootLabelView.prototype.add_child = function (child) {
-            this.register_child(child);
-            var labels = get_label_header_labels(this.model);
-            labels = labels.concat([child.model]);
-            this.model = replace_label_header_labels(this.model, labels);
-            this.root_listener.root_list_changed(this);
-        };
-        ;
-        /*
-        Remove entity
-        unregister the entity and remove its label from the tool data model
-         */
-        RootLabelView.prototype.remove_child = function (child) {
-            // Get the label model
-            var labels = get_label_header_labels(this.model);
-            var index = labels.indexOf(child.model);
-            if (index === -1) {
-                throw "Attempting to remove root label that is not present";
-            }
-            // Remove the model from the label model array
-            labels = labels.slice(0, index).concat(labels.slice(index + 1));
-            // Replace the labels in the label header
-            this.model = replace_label_header_labels(this.model, labels);
-            this.unregister_child(child);
-            // Commit changes
-            this.root_listener.root_list_changed(this);
-        };
-        ;
-        return RootLabelView;
+        return LabelClass;
     }());
+    labelling_tool.LabelClass = LabelClass;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+var labelling_tool;
+(function (labelling_tool) {
     /*
     Abstract tool
      */
@@ -1443,6 +627,39 @@ var labelling_tool;
         ;
         return AbstractTool;
     }());
+    labelling_tool.AbstractTool = AbstractTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./abstract_tool.ts" />
+var labelling_tool;
+(function (labelling_tool) {
     /*
     Select entity tool
      */
@@ -1570,7 +787,8 @@ var labelling_tool;
         };
         ;
         return SelectEntityTool;
-    }(AbstractTool));
+    }(labelling_tool.AbstractTool));
+    labelling_tool.SelectEntityTool = SelectEntityTool;
     /*
     Brush select entity tool
      */
@@ -1690,7 +908,129 @@ var labelling_tool;
         };
         ;
         return BrushSelectEntityTool;
-    }(AbstractTool));
+    }(labelling_tool.AbstractTool));
+    labelling_tool.BrushSelectEntityTool = BrushSelectEntityTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./abstract_tool.ts" />
+/// <reference path="./select_tools.ts" />
+/// <reference path="./root_label_view.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    function new_PointLabelModel(position) {
+        return { label_type: 'point', label_class: null, position: position };
+    }
+    /*
+    Point label entity
+     */
+    var PointLabelEntity = (function (_super) {
+        __extends(PointLabelEntity, _super);
+        function PointLabelEntity(view, model) {
+            _super.call(this, view, model);
+        }
+        PointLabelEntity.prototype.attach = function () {
+            _super.prototype.attach.call(this);
+            this.circle = this.root_view.world.append("circle")
+                .attr('r', 4.0);
+            this.update();
+            var self = this;
+            this.circle.on("mouseover", function () {
+                self._on_mouse_over_event();
+            }).on("mouseout", function () {
+                self._on_mouse_out_event();
+            });
+            this._update_style();
+        };
+        PointLabelEntity.prototype.detach = function () {
+            this.circle.remove();
+            this.circle = null;
+            _super.prototype.detach.call(this);
+        };
+        PointLabelEntity.prototype._on_mouse_over_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        };
+        PointLabelEntity.prototype._on_mouse_out_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        };
+        PointLabelEntity.prototype.update = function () {
+            var position = this.model.position;
+            this.circle
+                .attr('cx', position.x)
+                .attr('cy', position.y);
+        };
+        PointLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        PointLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._outline_colour();
+                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                    this.circle.attr("visibility", "hidden");
+                }
+                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.circle.attr("visibility", "visible");
+                }
+                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.circle.attr("visibility", "visible");
+                }
+            }
+        };
+        PointLabelEntity.prototype.compute_centroid = function () {
+            return this.model.position;
+        };
+        PointLabelEntity.prototype.compute_bounding_box = function () {
+            var centre = this.compute_centroid();
+            return new labelling_tool.AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
+        };
+        PointLabelEntity.prototype.contains_pointer_position = function (point) {
+            return labelling_tool.compute_sqr_dist(point, this.model.position) <= (4.0 * 4.0);
+        };
+        return PointLabelEntity;
+    }(labelling_tool.AbstractLabelEntity));
+    labelling_tool.PointLabelEntity = PointLabelEntity;
+    labelling_tool.register_entity_factory('point', function (root_view, model) {
+        return new PointLabelEntity(root_view, model);
+    });
     /*
     Draw point tool
      */
@@ -1720,7 +1060,7 @@ var labelling_tool;
         //
         DrawPointTool.prototype.on_cancel = function (pos) {
             this._view.unselect_all_entities();
-            this._view.view.set_current_tool(new SelectEntityTool(this._view));
+            this._view.view.set_current_tool(new labelling_tool.SelectEntityTool(this._view));
             return true;
         };
         ;
@@ -1750,7 +1090,140 @@ var labelling_tool;
         };
         ;
         return DrawPointTool;
-    }(AbstractTool));
+    }(labelling_tool.AbstractTool));
+    labelling_tool.DrawPointTool = DrawPointTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./abstract_tool.ts" />
+/// <reference path="./select_tools.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    function new_BoxLabelModel(centre, size) {
+        return { label_type: 'box', label_class: null, centre: centre, size: size };
+    }
+    function BoxLabel_box(label) {
+        var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
+        var upper = { x: label.centre.x + label.size.x * 0.5, y: label.centre.y + label.size.y * 0.5 };
+        return new labelling_tool.AABox(lower, upper);
+    }
+    /*
+    Box label entity
+     */
+    var BoxLabelEntity = (function (_super) {
+        __extends(BoxLabelEntity, _super);
+        function BoxLabelEntity(view, model) {
+            _super.call(this, view, model);
+        }
+        BoxLabelEntity.prototype.attach = function () {
+            _super.prototype.attach.call(this);
+            this._rect = this.root_view.world.append("rect")
+                .attr("x", 0).attr("y", 0)
+                .attr("width", 0).attr("height", 0);
+            this.update();
+            var self = this;
+            this._rect.on("mouseover", function () {
+                self._on_mouse_over_event();
+            }).on("mouseout", function () {
+                self._on_mouse_out_event();
+            });
+            this._update_style();
+        };
+        ;
+        BoxLabelEntity.prototype.detach = function () {
+            this._rect.remove();
+            this._rect = null;
+            _super.prototype.detach.call(this);
+        };
+        BoxLabelEntity.prototype._on_mouse_over_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        };
+        BoxLabelEntity.prototype._on_mouse_out_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        };
+        BoxLabelEntity.prototype.update = function () {
+            var box = BoxLabel_box(this.model);
+            var size = box.size();
+            this._rect
+                .attr('x', box.lower.x).attr('y', box.lower.y)
+                .attr('width', size.x).attr('height', size.y);
+        };
+        BoxLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        BoxLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._outline_colour();
+                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                    this._rect.attr("visibility", "hidden");
+                }
+                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this._rect.attr("visibility", "visible");
+                }
+                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                    var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this._rect.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this._rect.attr("visibility", "visible");
+                }
+            }
+        };
+        BoxLabelEntity.prototype.compute_centroid = function () {
+            return this.model.centre;
+        };
+        ;
+        BoxLabelEntity.prototype.compute_bounding_box = function () {
+            return BoxLabel_box(this.model);
+        };
+        ;
+        BoxLabelEntity.prototype.contains_pointer_position = function (point) {
+            return this.compute_bounding_box().contains_point(point);
+        };
+        BoxLabelEntity.prototype.distance_to_point = function (point) {
+            return BoxLabel_box(this.model).distance_to(point);
+        };
+        return BoxLabelEntity;
+    }(labelling_tool.AbstractLabelEntity));
+    labelling_tool.BoxLabelEntity = BoxLabelEntity;
+    labelling_tool.register_entity_factory('box', function (root_view, model) {
+        return new BoxLabelEntity(root_view, model);
+    });
     /*
     Draw box tool
      */
@@ -1791,7 +1264,7 @@ var labelling_tool;
             }
             else {
                 this._view.unselect_all_entities();
-                this._view.view.set_current_tool(new SelectEntityTool(this._view));
+                this._view.view.set_current_tool(new labelling_tool.SelectEntityTool(this._view));
             }
             return true;
         };
@@ -1842,10 +1315,10 @@ var labelling_tool;
                 var box = null;
                 if (this._start_point !== null) {
                     if (this._current_point !== null) {
-                        box = AABox_from_points([this._start_point, this._current_point]);
+                        box = labelling_tool.AABox_from_points([this._start_point, this._current_point]);
                     }
                     else {
-                        box = new AABox(this._start_point, this._start_point);
+                        box = new labelling_tool.AABox(this._start_point, this._start_point);
                     }
                 }
                 this.entity.model.centre = box.centre();
@@ -1855,7 +1328,172 @@ var labelling_tool;
         };
         ;
         return DrawBoxTool;
-    }(AbstractTool));
+    }(labelling_tool.AbstractTool));
+    labelling_tool.DrawBoxTool = DrawBoxTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="../polyk.d.ts" />
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./abstract_tool.ts" />
+/// <reference path="./select_tools.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    function new_PolygonalLabelModel() {
+        return { label_type: 'polygon', label_class: null, vertices: [] };
+    }
+    /*
+    Polygonal label entity
+     */
+    var PolygonalLabelEntity = (function (_super) {
+        __extends(PolygonalLabelEntity, _super);
+        function PolygonalLabelEntity(view, model) {
+            _super.call(this, view, model);
+            this._polyk_poly = [];
+            this._centroid = null;
+            this._bounding_box = null;
+            this.poly = null;
+            this.shape_line = null;
+        }
+        PolygonalLabelEntity.prototype.attach = function () {
+            var _this = this;
+            _super.prototype.attach.call(this);
+            this.shape_line = d3.svg.line()
+                .x(function (d) { return d.x; })
+                .y(function (d) { return d.y; })
+                .interpolate("linear-closed");
+            this.poly = this.root_view.world.append("path");
+            this.poly.data(this.model.vertices).attr("d", this.shape_line(this.model.vertices));
+            this.poly.on("mouseover", function () {
+                for (var i = 0; i < _this._event_listeners.length; i++) {
+                    _this._event_listeners[i].on_mouse_in(_this);
+                }
+            });
+            this.poly.on("mouseout", function () {
+                for (var i = 0; i < _this._event_listeners.length; i++) {
+                    _this._event_listeners[i].on_mouse_out(_this);
+                }
+            });
+            this._update_polyk_poly();
+            this._update_style();
+        };
+        ;
+        PolygonalLabelEntity.prototype.detach = function () {
+            this.poly.remove();
+            this.poly = null;
+            this.shape_line = null;
+            this._polyk_poly = [];
+            _super.prototype.detach.call(this);
+        };
+        ;
+        PolygonalLabelEntity.prototype._update_polyk_poly = function () {
+            this._polyk_poly = [];
+            for (var i = 0; i < this.model.vertices.length; i++) {
+                this._polyk_poly.push(this.model.vertices[i].x);
+                this._polyk_poly.push(this.model.vertices[i].y);
+            }
+        };
+        PolygonalLabelEntity.prototype.update = function () {
+            this.poly.data(this.model.vertices).attr("d", this.shape_line(this.model.vertices));
+            this._update_polyk_poly();
+            this._centroid = null;
+            this._bounding_box = null;
+        };
+        PolygonalLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        PolygonalLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._outline_colour();
+                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                    this.poly.attr("visibility", "hidden");
+                }
+                else {
+                    var fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                        stroke_colour = stroke_colour.with_alpha(0.2);
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new labelling_tool.Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.1);
+                    }
+                    else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                        if (this._hover) {
+                            fill_colour = fill_colour.lighten(0.4);
+                        }
+                        if (this._selected) {
+                            fill_colour = fill_colour.lerp(new labelling_tool.Colour4(255, 128, 0.0, 1.0), 0.2);
+                        }
+                        fill_colour = fill_colour.with_alpha(0.35);
+                    }
+                    this.poly.attr("style", "fill:" + fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1")
+                        .attr("visibility", "visible");
+                }
+            }
+        };
+        PolygonalLabelEntity.prototype.compute_centroid = function () {
+            if (this._centroid === null) {
+                this._centroid = labelling_tool.compute_centroid_of_points(this.model.vertices);
+            }
+            return this._centroid;
+        };
+        PolygonalLabelEntity.prototype.compute_bounding_box = function () {
+            if (this._bounding_box === null) {
+                this._bounding_box = labelling_tool.AABox_from_points(this.model.vertices);
+            }
+            return this._bounding_box;
+        };
+        PolygonalLabelEntity.prototype.contains_pointer_position = function (point) {
+            if (this.compute_bounding_box().contains_point(point)) {
+                return PolyK.ContainsPoint(this._polyk_poly, point.x, point.y);
+            }
+            else {
+                return false;
+            }
+        };
+        PolygonalLabelEntity.prototype.distance_to_point = function (point) {
+            if (PolyK.ContainsPoint(this._polyk_poly, point.x, point.y)) {
+                return 0.0;
+            }
+            else {
+                var e = PolyK.ClosestEdge(this._polyk_poly, point.x, point.y);
+                return e.dist;
+            }
+        };
+        return PolygonalLabelEntity;
+    }(labelling_tool.AbstractLabelEntity));
+    labelling_tool.PolygonalLabelEntity = PolygonalLabelEntity;
+    labelling_tool.register_entity_factory('polygon', function (root_view, model) {
+        return new PolygonalLabelEntity(root_view, model);
+    });
     /*
     Draw polygon tool
      */
@@ -1955,7 +1593,7 @@ var labelling_tool;
             }
             else {
                 this._view.unselect_all_entities();
-                this._view.view.set_current_tool(new SelectEntityTool(this._view));
+                this._view.view.set_current_tool(new labelling_tool.SelectEntityTool(this._view));
             }
             return true;
         };
@@ -2050,10 +1688,68 @@ var labelling_tool;
         };
         ;
         return DrawPolygonTool;
-    }(AbstractTool));
+    }(labelling_tool.AbstractTool));
+    labelling_tool.DrawPolygonTool = DrawPolygonTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="../d3.d.ts" />
+/// <reference path="../jquery.d.ts" />
+/// <reference path="../polyk.d.ts" />
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./object_id_table.ts" />
+/// <reference path="./label_class.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./abstract_tool.ts" />
+/// <reference path="./select_tools.ts" />
+/// <reference path="./point_label.ts" />
+/// <reference path="./box_label.ts" />
+/// <reference path="./polygonal_label.ts" />
+/// <reference path="./composite_label.ts" />
+/// <reference path="./group_label.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    labelling_tool.get_label_header_labels = function (label_header) {
+        var labels = label_header.labels;
+        if (labels === undefined || labels === null) {
+            return [];
+        }
+        else {
+            return labels;
+        }
+    };
+    labelling_tool.replace_label_header_labels = function (label_header, labels) {
+        return { image_id: label_header.image_id,
+            complete: label_header.complete,
+            labels: labels };
+    };
     /*
-    Labelling tool view; links to the server side data structures
-     */
+   Labelling tool view; links to the server side data structures
+    */
     var LabellingTool = (function () {
         function LabellingTool(element, label_classes, tool_width, tool_height, image_ids, initial_image_id, requestImageCallback, sendLabelHeaderFn, config) {
             var _this = this;
@@ -2066,15 +1762,15 @@ var labelling_tool;
             config = config || {};
             this._config = config;
             config.tools = config.tools || {};
-            ensure_flag_exists(config.tools, 'imageSelector', true);
-            ensure_flag_exists(config.tools, 'labelClassSelector', true);
-            ensure_flag_exists(config.tools, 'brushSelect', true);
-            ensure_flag_exists(config.tools, 'drawPointLabel', true);
-            ensure_flag_exists(config.tools, 'drawBoxLabel', true);
-            ensure_flag_exists(config.tools, 'drawPolyLabel', true);
-            ensure_flag_exists(config.tools, 'compositeLabel', true);
-            ensure_flag_exists(config.tools, 'groupLabel', true);
-            ensure_flag_exists(config.tools, 'deleteLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'imageSelector', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'labelClassSelector', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'brushSelect', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'drawPointLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'drawBoxLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'drawPolyLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'compositeLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'groupLabel', true);
+            labelling_tool.ensure_flag_exists(config.tools, 'deleteLabel', true);
             /*
             Entity event listener
              */
@@ -2114,10 +1810,10 @@ var labelling_tool;
             // Classes
             this.label_classes = [];
             for (var i = 0; i < label_classes.length; i++) {
-                this.label_classes.push(new LabelClass(label_classes[i]));
+                this.label_classes.push(new labelling_tool.LabelClass(label_classes[i]));
             }
             // Hide labels
-            this.label_visibility = LabelVisibility.FULL;
+            this.label_visibility = labelling_tool.LabelVisibility.FULL;
             // Button state
             this._button_down = false;
             // Labelling tool dimensions
@@ -2229,17 +1925,17 @@ var labelling_tool;
             this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
             this.label_vis_hidden_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.HIDDEN);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
                 }
             });
             this.label_vis_faint_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FAINT);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
                 }
             });
             this.label_vis_full_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FULL);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL);
                 }
             });
             //
@@ -2249,13 +1945,13 @@ var labelling_tool;
             $('<p style="background: #b0b0b0;">Tools</p>').appendTo(toolbar);
             var select_button = $('<button>Select</button>').appendTo(toolbar);
             select_button.button().click(function (event) {
-                self.set_current_tool(new SelectEntityTool(self.root_view));
+                self.set_current_tool(new labelling_tool.SelectEntityTool(self.root_view));
                 event.preventDefault();
             });
             if (config.tools.brushSelect) {
                 var brush_select_button = $('<button>Brush select</button>').appendTo(toolbar);
                 brush_select_button.button().click(function (event) {
-                    self.set_current_tool(new BrushSelectEntityTool(self.root_view));
+                    self.set_current_tool(new labelling_tool.BrushSelectEntityTool(self.root_view));
                     event.preventDefault();
                 });
             }
@@ -2263,11 +1959,11 @@ var labelling_tool;
                 var draw_point_button = $('<button>Add point</button>').appendTo(toolbar);
                 draw_point_button.button().click(function (event) {
                     var current = self.root_view.get_selected_entity();
-                    if (current instanceof PointLabelEntity) {
-                        self.set_current_tool(new DrawPointTool(self.root_view, current));
+                    if (current instanceof labelling_tool.PointLabelEntity) {
+                        self.set_current_tool(new labelling_tool.DrawPointTool(self.root_view, current));
                     }
                     else {
-                        self.set_current_tool(new DrawPointTool(self.root_view, null));
+                        self.set_current_tool(new labelling_tool.DrawPointTool(self.root_view, null));
                     }
                     event.preventDefault();
                 });
@@ -2276,11 +1972,11 @@ var labelling_tool;
                 var draw_box_button = $('<button>Draw box</button>').appendTo(toolbar);
                 draw_box_button.button().click(function (event) {
                     var current = self.root_view.get_selected_entity();
-                    if (current instanceof BoxLabelEntity) {
-                        self.set_current_tool(new DrawBoxTool(self.root_view, current));
+                    if (current instanceof labelling_tool.BoxLabelEntity) {
+                        self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, current));
                     }
                     else {
-                        self.set_current_tool(new DrawBoxTool(self.root_view, null));
+                        self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, null));
                     }
                     event.preventDefault();
                 });
@@ -2289,11 +1985,11 @@ var labelling_tool;
                 var draw_polygon_button = $('<button>Draw poly</button>').appendTo(toolbar);
                 draw_polygon_button.button().click(function (event) {
                     var current = self.root_view.get_selected_entity();
-                    if (current instanceof PolygonalLabelEntity) {
-                        self.set_current_tool(new DrawPolygonTool(self.root_view, current));
+                    if (current instanceof labelling_tool.PolygonalLabelEntity) {
+                        self.set_current_tool(new labelling_tool.DrawPolygonTool(self.root_view, current));
                     }
                     else {
-                        self.set_current_tool(new DrawPolygonTool(self.root_view, null));
+                        self.set_current_tool(new labelling_tool.DrawPolygonTool(self.root_view, null));
                     }
                     event.preventDefault();
                 });
@@ -2386,7 +2082,7 @@ var labelling_tool;
             this._mouse_within = false;
             this._last_mouse_pos = null;
             // Create the root view
-            this.root_view = new RootLabelView(initial_model, this.root_view_listener, this._entity_event_listener, this, this.world);
+            this.root_view = new labelling_tool.RootLabelView(initial_model, this.root_view_listener, this._entity_event_listener, this, this.world);
             //
             // Set up event handlers
             //
@@ -2525,16 +2221,16 @@ var labelling_tool;
         LabellingTool.prototype.on_key_down = function (event) {
             var handled = false;
             if (event.keyCode === 186) {
-                if (this.label_visibility === LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(LabelVisibility.FULL);
+                if (this.label_visibility === labelling_tool.LabelVisibility.HIDDEN) {
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL);
                     this.label_vis_full_radio[0].checked = true;
                 }
-                else if (this.label_visibility === LabelVisibility.FAINT) {
-                    this.set_label_visibility(LabelVisibility.HIDDEN);
+                else if (this.label_visibility === labelling_tool.LabelVisibility.FAINT) {
+                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
                     this.label_vis_hidden_radio[0].checked = true;
                 }
-                else if (this.label_visibility === LabelVisibility.FULL) {
-                    this.set_label_visibility(LabelVisibility.FAINT);
+                else if (this.label_visibility === labelling_tool.LabelVisibility.FULL) {
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
                     this.label_vis_faint_radio[0].checked = true;
                 }
                 else {
@@ -2579,7 +2275,7 @@ var labelling_tool;
             this.root_view.set_model(image_data.label_header);
             this._complete_checkbox[0].checked = this.root_view.model.complete;
             this._update_image_index_input(this.root_view.model.image_id);
-            this.set_current_tool(new SelectEntityTool(this.root_view));
+            this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
             console.log(this);
         };
         ;
@@ -2606,7 +2302,7 @@ var labelling_tool;
             }
             else {
                 // Default
-                return Colour4.BLACK;
+                return labelling_tool.Colour4.BLACK;
             }
         };
         ;
@@ -2714,5 +2410,733 @@ var labelling_tool;
         return LabellingTool;
     }());
     labelling_tool.LabellingTool = LabellingTool;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./object_id_table.ts" />
+/// <reference path="./abstract_label.ts" />
+/// <reference path="./composite_label.ts" />
+/// <reference path="./group_label.ts" />
+/// <reference path="./main_tool.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    /*
+    Label view root
+     */
+    var RootLabelView = (function () {
+        function RootLabelView(model, root_listener, entity_listener, ltool, world) {
+            this.model = model;
+            this._all_entities = [];
+            this.root_entities = [];
+            this.selected_entities = [];
+            // Label model object table
+            this._label_model_obj_table = new labelling_tool.ObjectIDTable();
+            // Label model object ID to entity
+            this._label_model_id_to_entity = {};
+            this.root_listener = root_listener;
+            this._entity_event_listener = entity_listener;
+            this.view = ltool;
+            this.world = world;
+        }
+        /*
+        Set model
+         */
+        RootLabelView.prototype.set_model = function (model) {
+            // Remove all entities
+            var entites_to_shutdown = this.root_entities.slice();
+            for (var i = 0; i < entites_to_shutdown.length; i++) {
+                this.shutdown_entity(entites_to_shutdown[i]);
+            }
+            // Update the labels
+            this.model = model;
+            var labels = labelling_tool.get_label_header_labels(this.model);
+            // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
+            this._label_model_obj_table = new labelling_tool.ObjectIDTable();
+            this._label_model_obj_table.register_objects(labels);
+            this._label_model_id_to_entity = {};
+            // Reset the entity lists
+            this._all_entities = [];
+            this.root_entities = [];
+            this.selected_entities = [];
+            for (var i = 0; i < labels.length; i++) {
+                var label = labels[i];
+                var entity = this.get_or_create_entity_for_model(label);
+                this.register_child(entity);
+            }
+        };
+        /*
+        Set complete
+         */
+        RootLabelView.prototype.set_complete = function (complete) {
+            this.model.complete = complete;
+        };
+        RootLabelView.prototype.get_current_image_id = function () {
+            if (this.model !== null && this.model !== undefined) {
+                return this.model.image_id;
+            }
+            else {
+                return null;
+            }
+        };
+        ;
+        /*
+        Set label visibility
+         */
+        RootLabelView.prototype.set_label_visibility = function (visibility) {
+            for (var i = 0; i < this._all_entities.length; i++) {
+                this._all_entities[i].notify_hide_labels_change();
+            }
+        };
+        /*
+        Select an entity
+         */
+        RootLabelView.prototype.select_entity = function (entity, multi_select, invert) {
+            multi_select = multi_select === undefined ? false : multi_select;
+            if (multi_select) {
+                var index = this.selected_entities.indexOf(entity);
+                var changed = false;
+                if (invert) {
+                    if (index === -1) {
+                        // Add
+                        this.selected_entities.push(entity);
+                        entity.select(true);
+                        changed = true;
+                    }
+                    else {
+                        // Remove
+                        this.selected_entities.splice(index, 1);
+                        entity.select(false);
+                        changed = true;
+                    }
+                }
+                else {
+                    if (index === -1) {
+                        // Add
+                        this.selected_entities.push(entity);
+                        entity.select(true);
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    this.root_listener.on_selection_changed(this);
+                }
+            }
+            else {
+                var prev_entity = this.get_selected_entity();
+                if (prev_entity !== entity) {
+                    for (var i = 0; i < this.selected_entities.length; i++) {
+                        this.selected_entities[i].select(false);
+                    }
+                    this.selected_entities = [entity];
+                    entity.select(true);
+                }
+                this.root_listener.on_selection_changed(this);
+            }
+        };
+        ;
+        /*
+        Unselect all entities
+         */
+        RootLabelView.prototype.unselect_all_entities = function () {
+            for (var i = 0; i < this.selected_entities.length; i++) {
+                this.selected_entities[i].select(false);
+            }
+            this.selected_entities = [];
+            this.root_listener.on_selection_changed(this);
+        };
+        ;
+        /*
+        Get uniquely selected entity
+         */
+        RootLabelView.prototype.get_selected_entity = function () {
+            return this.selected_entities.length == 1 ? this.selected_entities[0] : null;
+        };
+        ;
+        /*
+        Get selected entities
+         */
+        RootLabelView.prototype.get_selection = function () {
+            return this.selected_entities;
+        };
+        ;
+        /*
+        Get all entities
+         */
+        RootLabelView.prototype.get_entities = function () {
+            return this.root_entities;
+        };
+        ;
+        /*
+        Commit model
+        invoke when a model is modified
+        inserts the model into the tool data model and ensures that the relevant change events get send over
+         */
+        RootLabelView.prototype.commit_model = function (model) {
+            var labels = labelling_tool.get_label_header_labels(this.model);
+            var index = labels.indexOf(model);
+            if (index !== -1) {
+                this.root_listener.root_list_changed(this);
+            }
+        };
+        ;
+        /*
+        Create composite label
+         */
+        RootLabelView.prototype.create_composite_label_from_selection = function () {
+            var N = this.selected_entities.length;
+            if (N > 0) {
+                var model = labelling_tool.new_CompositeLabelModel();
+                for (var i = 0; i < this.selected_entities.length; i++) {
+                    var model_id = labelling_tool.ObjectIDTable.get_id(this.selected_entities[i].model);
+                    model.components.push(model_id);
+                }
+                var entity = this.get_or_create_entity_for_model(model);
+                this.add_child(entity);
+                return entity;
+            }
+            else {
+                return null;
+            }
+        };
+        /*
+        Create group label
+         */
+        RootLabelView.prototype.create_group_label_from_selection = function () {
+            var selection = this.selected_entities.slice();
+            var N = selection.length;
+            if (N > 0) {
+                var model = labelling_tool.new_GroupLabelModel();
+                for (var i = 0; i < selection.length; i++) {
+                    var entity = selection[i];
+                    model.component_models.push(entity.model);
+                    this.remove_child(entity);
+                }
+                var group_entity = this.get_or_create_entity_for_model(model);
+                this.add_child(group_entity);
+                return group_entity;
+            }
+            else {
+                return null;
+            }
+        };
+        /*
+        Destroy selection
+         */
+        RootLabelView.prototype.delete_selection = function () {
+            var entities_to_remove = this.selected_entities.slice();
+            this.unselect_all_entities();
+            for (var i = 0; i < entities_to_remove.length; i++) {
+                entities_to_remove[i].destroy();
+            }
+        };
+        /*
+        Register and unregister entities
+         */
+        RootLabelView.prototype._register_entity = function (entity) {
+            this._all_entities.push(entity);
+            this._label_model_obj_table.register(entity.model);
+            this._label_model_id_to_entity[entity.model.object_id] = entity;
+        };
+        ;
+        RootLabelView.prototype._unregister_entity = function (entity) {
+            var index = this._all_entities.indexOf(entity);
+            if (index === -1) {
+                throw "Attempting to unregister entity that is not in _all_entities";
+            }
+            // Notify all entities of the destruction of this model
+            for (var i = 0; i < this._all_entities.length; i++) {
+                if (i !== index) {
+                    this._all_entities[i].notify_model_destroyed(entity.model);
+                }
+            }
+            // Unregister in the ID to object table
+            this._label_model_obj_table.unregister(entity.model);
+            delete this._label_model_id_to_entity[entity.model.object_id];
+            // Remove
+            this._all_entities.splice(index, 1);
+        };
+        ;
+        /*
+        Initialise and shutdown entities
+         */
+        RootLabelView.prototype.initialise_entity = function (entity) {
+            entity.attach();
+        };
+        ;
+        RootLabelView.prototype.shutdown_entity = function (entity) {
+            entity.detach();
+        };
+        ;
+        /*
+        Get entity for model ID
+         */
+        RootLabelView.prototype.get_entity_for_model_id = function (model_id) {
+            return this._label_model_id_to_entity[model_id];
+        };
+        ;
+        /*
+        Get entity for model
+         */
+        RootLabelView.prototype.get_entity_for_model = function (model) {
+            var model_id = labelling_tool.ObjectIDTable.get_id(model);
+            return this._label_model_id_to_entity[model_id];
+        };
+        ;
+        /*
+        Get or create entity for model
+         */
+        RootLabelView.prototype.get_or_create_entity_for_model = function (model) {
+            var model_id = labelling_tool.ObjectIDTable.get_id(model);
+            if (model_id === null ||
+                !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
+                var entity = labelling_tool.new_entity_for_model(this, model);
+                this.initialise_entity(entity);
+                return entity;
+            }
+            else {
+                return this._label_model_id_to_entity[model_id];
+            }
+        };
+        ;
+        /*
+        Register and unregister child entities
+         */
+        RootLabelView.prototype.register_child = function (entity) {
+            this.root_entities.push(entity);
+            entity.add_event_listener(this._entity_event_listener);
+            entity.set_parent(this);
+        };
+        ;
+        RootLabelView.prototype.unregister_child = function (entity) {
+            // Remove from list of root entities
+            var index_in_roots = this.root_entities.indexOf(entity);
+            if (index_in_roots === -1) {
+                throw "Attempting to unregister root entity that is not in root_entities";
+            }
+            this.root_entities.splice(index_in_roots, 1);
+            // Remove from selection if present
+            var index_in_selection = this.selected_entities.indexOf(entity);
+            if (index_in_selection !== -1) {
+                entity.select(false);
+                this.selected_entities.splice(index_in_selection, 1);
+            }
+            entity.remove_event_listener(this._entity_event_listener);
+            entity.set_parent(null);
+        };
+        ;
+        /*
+        Add entity:
+        register the entity and add its label to the tool data model
+         */
+        RootLabelView.prototype.add_child = function (child) {
+            this.register_child(child);
+            var labels = labelling_tool.get_label_header_labels(this.model);
+            labels = labels.concat([child.model]);
+            this.model = labelling_tool.replace_label_header_labels(this.model, labels);
+            this.root_listener.root_list_changed(this);
+        };
+        ;
+        /*
+        Remove entity
+        unregister the entity and remove its label from the tool data model
+         */
+        RootLabelView.prototype.remove_child = function (child) {
+            // Get the label model
+            var labels = labelling_tool.get_label_header_labels(this.model);
+            var index = labels.indexOf(child.model);
+            if (index === -1) {
+                throw "Attempting to remove root label that is not present";
+            }
+            // Remove the model from the label model array
+            labels = labels.slice(0, index).concat(labels.slice(index + 1));
+            // Replace the labels in the label header
+            this.model = labelling_tool.replace_label_header_labels(this.model, labels);
+            this.unregister_child(child);
+            // Commit changes
+            this.root_listener.root_list_changed(this);
+        };
+        ;
+        return RootLabelView;
+    }());
+    labelling_tool.RootLabelView = RootLabelView;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="../d3.d.ts" />
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./root_label_view.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    /*
+    Label visibility
+     */
+    (function (LabelVisibility) {
+        LabelVisibility[LabelVisibility["HIDDEN"] = 0] = "HIDDEN";
+        LabelVisibility[LabelVisibility["FAINT"] = 1] = "FAINT";
+        LabelVisibility[LabelVisibility["FULL"] = 2] = "FULL";
+    })(labelling_tool.LabelVisibility || (labelling_tool.LabelVisibility = {}));
+    var LabelVisibility = labelling_tool.LabelVisibility;
+    /*
+    Abstract label entity
+     */
+    var AbstractLabelEntity = (function () {
+        function AbstractLabelEntity(view, model) {
+            this.root_view = view;
+            this.model = model;
+            this._attached = this._hover = this._selected = false;
+            this._event_listeners = [];
+            this.parent_entity = null;
+            this.entity_id = AbstractLabelEntity.entity_id_counter++;
+        }
+        AbstractLabelEntity.prototype.add_event_listener = function (listener) {
+            this._event_listeners.push(listener);
+        };
+        AbstractLabelEntity.prototype.remove_event_listener = function (listener) {
+            var i = this._event_listeners.indexOf(listener);
+            if (i !== -1) {
+                this._event_listeners.splice(i, 1);
+            }
+        };
+        AbstractLabelEntity.prototype.set_parent = function (parent) {
+            this.parent_entity = parent;
+        };
+        AbstractLabelEntity.prototype.get_entity_id = function () {
+            return this.entity_id;
+        };
+        AbstractLabelEntity.prototype.attach = function () {
+            this.root_view._register_entity(this);
+            this._attached = true;
+        };
+        AbstractLabelEntity.prototype.detach = function () {
+            this._attached = false;
+            this.root_view._unregister_entity(this);
+        };
+        AbstractLabelEntity.prototype.destroy = function () {
+            if (this.parent_entity !== null) {
+                this.parent_entity.remove_child(this);
+            }
+            this.root_view.shutdown_entity(this);
+        };
+        AbstractLabelEntity.prototype.update = function () {
+        };
+        AbstractLabelEntity.prototype.commit = function () {
+        };
+        AbstractLabelEntity.prototype.hover = function (state) {
+            this._hover = state;
+            this._update_style();
+        };
+        AbstractLabelEntity.prototype.select = function (state) {
+            this._selected = state;
+            this._update_style();
+        };
+        AbstractLabelEntity.prototype.notify_hide_labels_change = function () {
+            this._update_style();
+        };
+        AbstractLabelEntity.prototype.get_label_class = function () {
+            return this.model.label_class;
+        };
+        AbstractLabelEntity.prototype.set_label_class = function (label_class) {
+            this.model.label_class = label_class;
+            this._update_style();
+            this.commit();
+        };
+        AbstractLabelEntity.prototype._update_style = function () {
+        };
+        ;
+        AbstractLabelEntity.prototype._outline_colour = function () {
+            if (this._selected) {
+                if (this._hover) {
+                    return new labelling_tool.Colour4(255, 0, 128, 1.0);
+                }
+                else {
+                    return new labelling_tool.Colour4(255, 0, 0, 1.0);
+                }
+            }
+            else {
+                if (this._hover) {
+                    return new labelling_tool.Colour4(0, 255, 128, 1.0);
+                }
+                else {
+                    return new labelling_tool.Colour4(255, 255, 0, 1.0);
+                }
+            }
+        };
+        AbstractLabelEntity.prototype.compute_centroid = function () {
+            return null;
+        };
+        AbstractLabelEntity.prototype.compute_bounding_box = function () {
+            return null;
+        };
+        ;
+        AbstractLabelEntity.prototype.contains_pointer_position = function (point) {
+            return false;
+        };
+        AbstractLabelEntity.prototype.distance_to_point = function (point) {
+            return null;
+        };
+        ;
+        AbstractLabelEntity.prototype.notify_model_destroyed = function (model_id) {
+        };
+        ;
+        AbstractLabelEntity.entity_id_counter = 0;
+        return AbstractLabelEntity;
+    }());
+    labelling_tool.AbstractLabelEntity = AbstractLabelEntity;
+    /*
+    Map label type to entity constructor
+     */
+    var label_type_to_entity_factory = {};
+    /*
+    Register label entity factory
+     */
+    function register_entity_factory(label_type_name, factory) {
+        label_type_to_entity_factory[label_type_name] = factory;
+    }
+    labelling_tool.register_entity_factory = register_entity_factory;
+    /*
+    Construct entity for given label model.
+    Uses the map above to choose the appropriate constructor
+     */
+    function new_entity_for_model(root_view, label_model) {
+        var factory = label_type_to_entity_factory[label_model.label_type];
+        return factory(root_view, label_model);
+    }
+    labelling_tool.new_entity_for_model = new_entity_for_model;
+})(labelling_tool || (labelling_tool = {}));
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 University of East Anglia, Norwich, UK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Developed by Geoffrey French in collaboration with Dr. M. Fisher and
+Dr. M. Mackiewicz.
+ */
+/// <reference path="./math_primitives.ts" />
+/// <reference path="./abstract_label.ts" />
+var labelling_tool;
+(function (labelling_tool) {
+    function new_CompositeLabelModel() {
+        return { label_type: 'composite', label_class: null, components: [] };
+    }
+    labelling_tool.new_CompositeLabelModel = new_CompositeLabelModel;
+    /*
+    Composite label entity
+     */
+    var CompositeLabelEntity = (function (_super) {
+        __extends(CompositeLabelEntity, _super);
+        function CompositeLabelEntity(view, model) {
+            _super.call(this, view, model);
+            this._centroid = null;
+        }
+        CompositeLabelEntity.prototype.attach = function () {
+            _super.prototype.attach.call(this);
+            this.circle = this.root_view.world.append("circle")
+                .attr('r', 8.0);
+            this.central_circle = this.root_view.world.append("circle")
+                .attr("pointer-events", "none")
+                .attr('r', 4.0);
+            this.shape_line = d3.svg.line()
+                .x(function (d) { return d.x; })
+                .y(function (d) { return d.y; })
+                .interpolate("linear-closed");
+            this.connections_group = null;
+            this.update();
+            var self = this;
+            this.circle.on("mouseover", function () {
+                self._on_mouse_over_event();
+            }).on("mouseout", function () {
+                self._on_mouse_out_event();
+            });
+            this._update_style();
+        };
+        CompositeLabelEntity.prototype.detach = function () {
+            this.circle.remove();
+            this.central_circle.remove();
+            this.connections_group.remove();
+            this.circle = null;
+            this.central_circle = null;
+            this.shape_line = null;
+            this.connections_group = null;
+            _super.prototype.detach.call(this);
+        };
+        CompositeLabelEntity.prototype._on_mouse_over_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_in(this);
+            }
+        };
+        CompositeLabelEntity.prototype._on_mouse_out_event = function () {
+            for (var i = 0; i < this._event_listeners.length; i++) {
+                this._event_listeners[i].on_mouse_out(this);
+            }
+        };
+        CompositeLabelEntity.prototype.update = function () {
+            var component_centroids = this._compute_component_centroids();
+            this._centroid = labelling_tool.compute_centroid_of_points(component_centroids);
+            this.circle
+                .attr('cx', this._centroid.x)
+                .attr('cy', this._centroid.y);
+            this.central_circle
+                .attr('cx', this._centroid.x)
+                .attr('cy', this._centroid.y);
+            if (this.connections_group !== null) {
+                this.connections_group.remove();
+                this.connections_group = null;
+            }
+            this.connections_group = this.root_view.world.append("g");
+            for (var i = 0; i < component_centroids.length; i++) {
+                this.connections_group.append("path")
+                    .attr("d", this.shape_line([this._centroid, component_centroids[i]]))
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "3, 3")
+                    .attr("style", "stroke:rgba(255,0,255,0.6);");
+                this.connections_group.append("circle")
+                    .attr("cx", component_centroids[i].x)
+                    .attr("cy", component_centroids[i].y)
+                    .attr("r", 3)
+                    .attr("stroke-width", 1)
+                    .attr("style", "stroke:rgba(255,0,255,0.6);fill: rgba(255,0,255,0.25);");
+            }
+        };
+        CompositeLabelEntity.prototype.commit = function () {
+            this.root_view.commit_model(this.model);
+        };
+        CompositeLabelEntity.prototype._update_style = function () {
+            if (this._attached) {
+                var stroke_colour = this._outline_colour();
+                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                    stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.connections_group.selectAll("path")
+                        .attr("style", "stroke:rgba(255,0,255,0.2);");
+                    this.connections_group.selectAll("circle")
+                        .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");
+                }
+                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                    var circle_fill_colour = new labelling_tool.Colour4(255, 128, 255, 1.0);
+                    var central_circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
+                    var connection_fill_colour = new labelling_tool.Colour4(255, 0, 255, 1.0);
+                    var connection_stroke_colour = new labelling_tool.Colour4(255, 0, 255, 1.0);
+                    if (this._hover) {
+                        circle_fill_colour = circle_fill_colour.lighten(0.4);
+                        central_circle_fill_colour = central_circle_fill_colour.lighten(0.4);
+                        connection_fill_colour = connection_fill_colour.lighten(0.4);
+                        connection_stroke_colour = connection_stroke_colour.lighten(0.4);
+                    }
+                    circle_fill_colour = circle_fill_colour.with_alpha(0.35);
+                    central_circle_fill_colour = central_circle_fill_colour.with_alpha(0.35);
+                    connection_fill_colour = connection_fill_colour.with_alpha(0.25);
+                    connection_stroke_colour = connection_stroke_colour.with_alpha(0.6);
+                    stroke_colour = stroke_colour.with_alpha(0.5);
+                    this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + connection_stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.central_circle.attr("style", "fill:" + central_circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.connections_group.selectAll("path")
+                        .attr("style", "stroke:rgba(255,0,255,0.6);");
+                    this.connections_group.selectAll("circle")
+                        .attr("style", "stroke:" + connection_stroke_colour.to_rgba_string() + ";fill:" + connection_fill_colour.to_rgba_string() + ";");
+                }
+            }
+        };
+        CompositeLabelEntity.prototype._compute_component_centroids = function () {
+            var component_centroids = [];
+            for (var i = 0; i < this.model.components.length; i++) {
+                var model_id = this.model.components[i];
+                var entity = this.root_view.get_entity_for_model_id(model_id);
+                var centroid = entity.compute_centroid();
+                component_centroids.push(centroid);
+            }
+            return component_centroids;
+        };
+        CompositeLabelEntity.prototype.compute_centroid = function () {
+            return this._centroid;
+        };
+        ;
+        CompositeLabelEntity.prototype.compute_bounding_box = function () {
+            var centre = this.compute_centroid();
+            return new labelling_tool.AABox({ x: centre.x - 1, y: centre.y - 1 }, { x: centre.x + 1, y: centre.y + 1 });
+        };
+        CompositeLabelEntity.prototype.contains_pointer_position = function (point) {
+            return labelling_tool.compute_sqr_dist(point, this._centroid) <= (8.0 * 8.0);
+        };
+        CompositeLabelEntity.prototype.notify_model_destroyed = function (model_id) {
+            var index = this.model.components.indexOf(model_id);
+            if (index !== -1) {
+                // Remove the model ID from the components array
+                this.model.components = this.model.components.slice(0, index).concat(this.model.components.slice(index + 1));
+                this.update();
+            }
+        };
+        return CompositeLabelEntity;
+    }(labelling_tool.AbstractLabelEntity));
+    labelling_tool.CompositeLabelEntity = CompositeLabelEntity;
+    labelling_tool.register_entity_factory('composite', function (root_view, model) {
+        return new CompositeLabelEntity(root_view, model);
+    });
 })(labelling_tool || (labelling_tool = {}));
 //# sourceMappingURL=labelling_tool.js.map

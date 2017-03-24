@@ -52,8 +52,8 @@
 
 
         // CSRF Token setup
-{#        var csrftoken = Cookies.get('csrftoken');#}
-        var csrftoken = '{{ csrf_token }}'
+        var csrftoken = Cookies.get('csrftoken');
+{#        var csrftoken = '{{ csrf_token }}';#}
         if (csrftoken != null) {
             // Adapted from Django DOCS
             function csrfSafeMethod(method) {

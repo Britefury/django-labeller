@@ -5,6 +5,10 @@ from django import template
 register = template.Library()
 
 
+@register.inclusion_tag('inline/labelling_tool_scripts.html')
+def labelling_tool_scripts():
+    return {}
+
 @register.inclusion_tag('inline/labelling_tool.html')
 def labelling_tool(width, height, label_classes, image_ids, initial_image_id,
                    get_image_descriptor_url, update_labels_url, config=None):

@@ -1,4 +1,4 @@
-import json
+import os
 
 from django.http import HttpResponse
 from django.template import RequestContext, loader
@@ -15,7 +15,9 @@ label_classes = [labelling_tool.LabelClass('tree', 'Trees', [0, 255, 192]),
 
 
 # Load in .JPG images from the 'images' directory.
-labelled_images = labelling_tool.PersistentLabelledImage.for_directory('images', image_filename_pattern='*.jpg')
+labelled_images = labelling_tool.PersistentLabelledImage.for_directory(
+    os.path.join('..', 'images'), image_filename_pattern='*.jpg'
+)
 print 'Loaded {0} images'.format(len(labelled_images))
 
 

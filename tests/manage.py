@@ -3,7 +3,7 @@ import os
 import sys
 
 if __name__ == "__main__":
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "django_image_labelling_tool.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "example_labeller_app.settings")
 
     from django.core.management import execute_from_command_line
 

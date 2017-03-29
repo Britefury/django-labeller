@@ -88,12 +88,7 @@ class ImageLabellingTool (widgets.DOMWidget):
 
         image_descriptors = []
         for image_id, img in zip(image_ids, labelled_images):
-            image_descriptors.append({
-                'image_id': image_id,
-                'img_url': None,
-                'width': None,
-                'height': None,
-            })
+            image_descriptors.append(labelling_tool.image_descriptor(image_id=image_id))
 
 
         super(ImageLabellingTool, self).__init__(tool_width_=tool_width, tool_height_=tool_height,

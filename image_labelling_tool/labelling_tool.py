@@ -87,6 +87,12 @@ def label_class(name, human_name, rgb):
             'human_name': human_name,
             'colour': rgb}
 
+def image_descriptor(image_id, url=None, width=None, height=None):
+    return {'image_id': image_id,
+            'img_url': url,
+            'width': width,
+            'height': height,}
+
 
 def _next_wrapped_array(xs):
     return np.append(xs[1:], xs[:1], axis=0)

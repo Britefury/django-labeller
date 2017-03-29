@@ -21,18 +21,19 @@ labelled_images = labelling_tool.PersistentLabelledImage.for_directory(
 print 'Loaded {0} images'.format(len(labelled_images))
 
 
-# Generate image IDs list and images table mapping image ID to image
+# Generate image IDs list
 image_ids = [str(i)   for i in xrange(len(labelled_images))]
+# Generate images table mapping image ID to image so we can get an image by ID
 images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
+# Generate image descriptors list to hand over to the labelling tool
+# Each descriptor provides the image ID, the URL and the size
 image_descriptors = []
 for image_id, img in zip(image_ids, labelled_images):
     data, mimetype, width, height = img.data_and_mime_type_and_size()
-    image_descriptors.append({
-        'image_id': image_id,
-        'img_url': '/example_labeller/image/{}'.format(image_id),
-        'width': width,
-        'height': height,
-    })
+    image_descriptors.append(labelling_tool.image_descriptor(
+        image_id=image_id, url='/example_labeller/image/{}'.format(image_id),
+        width=width, height=height
+    ))
 
 
 # Configuration

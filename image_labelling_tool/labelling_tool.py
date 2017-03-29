@@ -88,8 +88,8 @@ def label_class(name, human_name, rgb):
             'colour': rgb}
 
 def image_descriptor(image_id, url=None, width=None, height=None):
-    return {'image_id': image_id,
-            'img_url': url,
+    return {'image_id': str(image_id),
+            'img_url': str(url),
             'width': width,
             'height': height,}
 
@@ -748,7 +748,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
                     except ValueError:
                         pass
                     else:
-                        self.__labels, self.__complete = self.__unwrap_labels(self.image_path, wrapped)
+                        self.__labels, self.__complete = self._unwrap_labels(self.image_path, wrapped)
         return self.__labels, self.__complete
 
     def __set_label_data(self, labels, complete):
@@ -774,7 +774,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
                 'complete': complete}
 
     @staticmethod
-    def __unwrap_labels(image_path, wrapped_labels):
+    def _unwrap_labels(image_path, wrapped_labels):
         if isinstance(wrapped_labels, dict):
             return ImageLabels(wrapped_labels['labels']), wrapped_labels.get('complete', False)
         elif isinstance(wrapped_labels, list):

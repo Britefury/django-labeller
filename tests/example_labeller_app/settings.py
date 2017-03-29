@@ -65,6 +65,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.static',
             ],
         },
     },
@@ -104,7 +105,36 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'ext_static'),
+    os.path.join(BASE_DIR, '..', 'ext_static'),
 )
 
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = '/media/'
+
 CSRF_COOKIE_SECURE = False
+
+
+
+# Labelling tool configuration, used in `example_labeller.views`
+
+# Label classes
+# Tuple entries arameters are: symbolic name, human readable name for UI, and RGB colour as list
+LABEL_CLASSES = [
+    ('tree', 'Trees', [0, 255, 192]),
+    ('building', 'Buldings', [255, 128, 0]),
+    ('lake', 'Lake', [0, 128, 255]),
+]
+
+
+# Configuration
+LABELLING_TOOL_CONFIG = {
+    'tools': {
+        'imageSelector': True,
+        'labelClassSelector': True,
+        'drawPolyLabel': True,
+        'compositeLabel': True,
+        'deleteLabel': True,
+    }
+}
+
+

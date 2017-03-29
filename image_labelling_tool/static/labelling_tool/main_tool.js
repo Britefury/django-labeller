@@ -171,14 +171,19 @@ var labelling_tool;
                 var _increment_image_index = function (offset) {
                     var image_id = self._get_current_image_id();
                     var index = self._image_id_to_index(image_id) + offset;
-                    index = Math.min(Math.max(index, 0), self._images.length - 1);
-                    self.loadImage(self._images[index]);
+                    index = Math.max(Math.min(index, self._images.length - 1), 0);
+                    if (index < self._images.length) {
+                        self.loadImage(self._images[index]);
+                    }
                 };
                 this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
                 this._image_index_input.on('change', function () {
                     var index_str = self._image_index_input.val();
                     var index = parseInt(index_str) - 1;
-                    self.loadImage(self._images[index]);
+                    index = Math.max(Math.min(index, self._images.length - 1), 0);
+                    if (index < self._images.length) {
+                        self.loadImage(self._images[index]);
+                    }
                 });
                 $('<span>' + '/' + this._num_images + '</span>').appendTo(toolbar);
                 $('<br/>').appendTo(toolbar);
@@ -548,7 +553,9 @@ var labelling_tool;
                 LabellingTool._global_key_handler_connected = true;
             }
             // Create entities for the pre-existing labels
-            this.loadImage(this._images[initial_image_index]);
+            if (initial_image_index < this._images.length) {
+                this.loadImage(this._images[initial_image_index]);
+            }
         }
         ;
         LabellingTool.prototype.on_key_down = function (event) {

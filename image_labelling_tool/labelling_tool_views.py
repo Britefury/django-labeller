@@ -1,7 +1,9 @@
 import json
 
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.views.decorators.cache import never_cache
+
+from . import models
 
 # Create your views here.
 
@@ -14,7 +16,7 @@ def label_accessor_view(fn):
     as a JSON object
 
     :param fn: image descriptor accessor function of the form `fn(image_id_string) -> labels_metadata`
-    where `labels_metadata` is a dictionary of the form:
+    where `labels_metadata` is either a `models.Labels` instance or a dictionary of the form:
     `{
         'complete': complete,
         'labels': labels
@@ -28,25 +30,47 @@ def label_accessor_view(fn):
 
     Example usage:
     >>> @label_accessor_view
-    ... def get_image_descriptor(image_id_string):
+    ... def get_image_descriptor(request, image_id_string):
     ...     image = models.Image.get(id=int(image_id_string))
-    ...     labels = models.ImageLabels.get(image=image)
+    ...     # Assume `image.labels` is a field that refers to the `Labels` instance
+    ...     return image.labels
+
+    >>> @label_accessor_view
+    ... def get_image_descriptor(request, image_id_string):
+    ...     image = models.Image.get(id=int(image_id_string))
+    ...     labels = image.labels
     ...     labels_metadata = {
     ...         'complete': labels.complete,
-    ...         'labels': json.loads(labels.label_json_str)),
+    ...         'labels': labels.labels_json,
     ...     }
     ...     return labels_metadata
     """
+    @never_cache
     def get_labels(request, **kwargs):
         image_id_str = request.GET.get('image_id')
 
         labels_metadata = fn(request, image_id_str, **kwargs)
-
-        labels_header = {
-            'image_id': image_id_str,
-            'complete': labels_metadata['complete'],
-            'labels': labels_metadata['labels'],
-        }
+        if labels_metadata is None:
+            labels_header = {
+                'image_id': image_id_str,
+                'complete': False,
+                'labels': [],
+            }
+        elif isinstance(labels_metadata, models.Labels):
+            labels_header = {
+                'image_id': image_id_str,
+                'complete': labels_metadata.complete,
+                'labels': labels_metadata.labels_json,
+            }
+        elif isinstance(labels_metadata, dict):
+            labels_header = {
+                'image_id': image_id_str,
+                'complete': labels_metadata['complete'],
+                'labels': labels_metadata['labels'],
+            }
+        else:
+            raise TypeError('labels_metadata returned by label accessor function should either be a Labels model '
+                            'or a dictionary, not a {}'.format(type(labels_metadata)))
 
         return JsonResponse(labels_header)
 
@@ -70,13 +94,11 @@ def label_update_view(fn):
     :return: the view function
 
     Example usage:
-    @label_update_view
-    def update_labels(image_id_string, labels, complete):
-        image = models.Image.get(id=int(image_id_string))
-        labels = models.ImageLabels.get(image=image)
-        labels.complete = complete
-        labels.label_json_str = json.dumps(labels)
-        labels.save()
+    >>> @label_update_view
+    ... def update_labels(request, image_id_string, labels, complete):
+    ...     image = models.Image.get(id=int(image_id_string))
+    ...     # Assume `image.labels` is a field that refers to the `Labels` instance
+    ...     image.labels.update_labels(labels, request.user, complete, save=True)
     """
     def update_labels(request, **kwargs):
         labels = json.loads(request.POST['labels'])

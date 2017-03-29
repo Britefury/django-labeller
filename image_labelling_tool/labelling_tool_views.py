@@ -7,55 +7,52 @@ from django.shortcuts import render
 
 
 
-def image_descriptor_accessor_view(fn):
+def label_accessor_view(fn):
     """
-    Decorator for making an image descriptor accessor view.
-    The decorated function takes the image ID in string form as a parameter and should return a dictionary
-    that provides the image metadata.
+    Decorator for making a label accessor view
+    The decorated function takes the image ID in string form as a parameter and should return the labels
+    as a JSON object
 
-    :param fn: image descriptor accessor function of the form fn(image_id_string) -> image_metadata
-    where image_metadata is a dictionary of the form
-        {'width': <image width as integer>,
-         'height': <image height as integer>,
-         'href': <image URL or image encoded as a URL>,
-         'labels': label JSON data from label storage e.g. database/files/etc
-         'complete': boolean indicating if the label data is complete
-    :return: a view function
+    :param fn: image descriptor accessor function of the form `fn(image_id_string) -> labels_metadata`
+    where `labels_metadata` is a dictionary of the form:
+    `{
+        'complete': complete,
+        'labels': labels
+    }`
+
+    where:
+        `complete` is a boolean indicating if labelling is finished
+        `labels` is the labels in JSON form, retrieved from label storage e.g. database/files/etc
+
+    :return: a Django view function
 
     Example usage:
-    @image_descriptor_accessor_view
-    def get_image_descriptor(image_id_string):
-        image = models.Image.get(id=int(image_id_string))
-        labels = models.ImageLabels.get(image=image)
-        return {
-            'width': image.width,
-            'height': image.height,
-            'href': '/image/{0}'.format(image_id_string),
-            'labels': json.loads(labels.label_json_str),
-            'complete': labels.complete
-        }
+    >>> @label_accessor_view
+    ... def get_image_descriptor(image_id_string):
+    ...     image = models.Image.get(id=int(image_id_string))
+    ...     labels = models.ImageLabels.get(image=image)
+    ...     labels_metadata = {
+    ...         'complete': labels.complete,
+    ...         'labels': json.loads(labels.label_json_str)),
+    ...     }
+    ...     return labels_metadata
     """
-    def get_image_descriptor_view(request, **kwargs):
+    def get_labels(request, **kwargs):
         image_id_str = request.GET.get('image_id')
 
-        image_metadata = fn(request, image_id_str, **kwargs)
+        labels_metadata = fn(request, image_id_str, **kwargs)
 
-        descriptor = {
-            'width': image_metadata['width'],
-            'height': image_metadata['height'],
-            'href': image_metadata['href'],
-            'label_header': {
-                'labels': image_metadata['labels'],
-                'image_id': image_id_str,
-                'complete': image_metadata['complete']
-            }
+        labels_header = {
+            'image_id': image_id_str,
+            'complete': labels_metadata['complete'],
+            'labels': labels_metadata['labels'],
         }
 
-        return JsonResponse(descriptor)
+        return JsonResponse(labels_header)
 
-    get_image_descriptor_view.__name__ = fn.__name__
+    get_labels.__name__ = fn.__name__
 
-    return get_image_descriptor_view
+    return get_labels
 
 
 
@@ -64,39 +61,33 @@ def label_update_view(fn):
     Decorator for making a label update view.
     The decorated function takes the image ID in string form, the labels and a completeness flag as parameters.
     It should update the labels stored that are associated
-    :param fn: image update function of the form fn(image_id_string, labels, complete)
-    where image_data is a dictionary of the form
-        {'width': <image width as integer>,
-         'height': <image height as integer>,
-         'href': <image URL or image encoded as a URL>,
-         'labels': label JSON data from label storage e.g. database/files/etc
-         'complete': boolean indicating if the label data is complete
+    :param fn: image update function of the form `fn(image_id_string, labels, complete)`
+    where:
+        `image_id_string` is the ID of the image whose labels are to be updated
+        `labels` is the label data in JSON form
+        `complete` is a flag indicating if labelling is complete or not
 
     :return: the view function
 
     Example usage:
-    @image_descriptor_accessor_view
-    def get_image_descriptor(image_id_string):
+    @label_update_view
+    def update_labels(image_id_string, labels, complete):
         image = models.Image.get(id=int(image_id_string))
         labels = models.ImageLabels.get(image=image)
-        return {
-            'width': image.width,
-            'height': image.height,
-            'href': '/image/{0}'.format(image_id_string),
-            'labels': json.loads(labels.label_json_str),
-            'complete': labels.complete
-        }
+        labels.complete = complete
+        labels.label_json_str = json.dumps(labels)
+        labels.save()
     """
-    def set_labels_view(request, **kwargs):
+    def update_labels(request, **kwargs):
         labels = json.loads(request.POST['labels'])
         image_id = labels['image_id']
         complete = labels['complete']
         label_data = labels['labels']
 
-        fn(request, image_id, label_data, complete, **kwargs)
+        fn(request, str(image_id), label_data, complete, **kwargs)
 
         return HttpResponse('null', content_type="application/json")
 
-    set_labels_view.__name__ = fn.__name__
+    update_labels.__name__ = fn.__name__
 
-    return set_labels_view
+    return update_labels

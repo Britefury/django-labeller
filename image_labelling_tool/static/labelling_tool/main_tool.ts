@@ -42,6 +42,16 @@ Dr. M. Mackiewicz.
 
 module labelling_tool {
     /*
+    Image model
+     */
+    export interface ImageModel {
+        image_id: string,
+        img_url: string,
+        width: number,
+        height: number
+    }
+
+    /*
     Label header model
 
     This is the model that gets send back and forth between the frontend and the backend.
@@ -54,7 +64,7 @@ module labelling_tool {
     export interface LabelHeaderModel {
         image_id: string,
         complete: boolean,
-        labels: any[]
+        labels: any[],
     }
 
     export var get_label_header_labels = function(label_header: LabelHeaderModel) {
@@ -97,10 +107,14 @@ module labelling_tool {
         private _image_width: number;
         private _image_height: number;
         private _labelling_area_width: number;
-        private _image_ids: string[];
+        private _images: ImageModel[];
         private _num_images: number;
-        private _requestImageCallback: any;
+        private _requestLabelsCallback: any;
         private _sendLabelHeaderFn: any;
+        private _image_initialised: boolean;
+        private _image_loaded: boolean;
+        private _labels_loaded: boolean;
+
 
         private _pushDataTimeout: any;
         private frozen: boolean;
@@ -112,6 +126,8 @@ module labelling_tool {
         private _confirm_delete: JQuery;
         private _confirm_delete_visible: boolean;
         private _svg: d3.Selection<any>;
+        private _loading_notification: d3.Selection<any>;
+        private _loading_notification_text: d3.Selection<any>;
         world: any;
         private _image: d3.Selection<any>;
         private _image_index_input: JQuery;
@@ -127,8 +143,8 @@ module labelling_tool {
 
 
         constructor(element: Element, label_classes: LabelClassJSON[], tool_width: number, tool_height: number,
-                    image_ids: string[], initial_image_id: string,
-                    requestImageCallback: any, sendLabelHeaderFn: any, config: any) {
+                    images: ImageModel[], initial_image_index: number,
+                    requestLabelsCallback: any, sendLabelHeaderFn: any, config: any) {
             var self = this;
 
             if (LabellingTool._global_key_handler === undefined ||
@@ -206,18 +222,23 @@ module labelling_tool {
             this._tool_width = tool_width;
             this._tool_height = tool_height;
 
-            // List of Image IDs
-            this._image_ids = image_ids;
+            // List of Image descriptors
+            this._images = images;
 
             // Number of images in dataset
-            this._num_images = image_ids.length;
+            this._num_images = images.length;
 
             // Image dimensions
             this._image_width = 0;
             this._image_height = 0;
 
+            // Loaded flags
+            this._image_loaded = false;
+            this._labels_loaded = false;
+            this._image_initialised = false;
+
             // Data request callback; labelling tool will call this when it needs a new image to show
-            this._requestImageCallback = requestImageCallback;
+            this._requestLabelsCallback = requestLabelsCallback;
             // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
             // to user action
             this._sendLabelHeaderFn = sendLabelHeaderFn;
@@ -260,22 +281,18 @@ module labelling_tool {
             $('<p style="background: #b0b0b0;">Current image</p>').appendTo(toolbar);
 
             if (config.tools.imageSelector) {
-                var _change_image = function (image_id: string) {
-                    self._requestImageCallback(image_id);
-                };
-
                 var _increment_image_index = function (offset: number) {
                     var image_id = self._get_current_image_id();
                     var index = self._image_id_to_index(image_id) + offset;
-                    _change_image(self._image_index_to_id(index));
+                    index = Math.min(Math.max(index, 0), self._images.length - 1);
+                    self.loadImage(self._images[index]);
                 };
 
                 this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
                 this._image_index_input.on('change', function () {
                     var index_str = self._image_index_input.val();
                     var index = parseInt(index_str) - 1;
-                    var image_id = self._image_index_to_id(index);
-                    _change_image(image_id);
+                    self.loadImage(self._images[index]);
                 });
                 $('<span>' + '/' + this._num_images + '</span>').appendTo(toolbar);
 
@@ -516,6 +533,25 @@ module labelling_tool {
                     .attr("width", this._labelling_area_width)
                     .attr("height", this._tool_height)
                     .call(zoom_behaviour);
+            this._loading_notification = d3.select(labelling_area[0])
+                    .append("svg:svg")
+                    .attr("width", this._labelling_area_width)
+                    .attr("height", this._tool_height)
+                    .attr("style", "display: none");
+            this._loading_notification.append("rect")
+                    .attr("x", "0px")
+                    .attr("y", "0px")
+                    .attr("width", "" + this._labelling_area_width + "px")
+                    .attr("height", "" + this._tool_height + "px")
+                    .attr("fill", "#404040");
+            this._loading_notification_text = this._loading_notification.append("text")
+                    .attr("x", "50%")
+                    .attr("y", "50%")
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#e0e0e0")
+                    .attr("font-family", "serif")
+                    .attr("font-size", "20px")
+                    .text("Loading...");
             var svg = this._svg;
 
             // Add the zoom transformation <g> element
@@ -530,6 +566,15 @@ module labelling_tool {
             this._image = this.world.append("image")
                     .attr("x", 0)
                     .attr("y", 0);
+
+            $(this._image[0]).bind("load", function() {
+                self._notify_image_loaded();
+            });
+
+            $(this._image[0]).bind("error", function() {
+                self._notify_image_error();
+            });
+
 
 
             // Flag that indicates if the mouse pointer is within the tool area
@@ -692,7 +737,7 @@ module labelling_tool {
 
 
             // Create entities for the pre-existing labels
-            this._requestImageCallback(initial_image_id)
+            this.loadImage(this._images[initial_image_index]);
         };
 
 
@@ -720,18 +765,13 @@ module labelling_tool {
         };
 
         _image_id_to_index(image_id: string) {
-            var image_index = this._image_ids.indexOf(image_id);
-            if (image_index === -1) {
-                console.log("Image ID " + image_id + " not found");
-                image_index = 0;
+            for (var i = 0; i < this._images.length; i++) {
+                if (this._images[i].image_id === image_id) {
+                    return i;
+                }
             }
-            return image_index;
-        };
-
-        _image_index_to_id(index: number) {
-            var clampedIndex = Math.max(Math.min(index, this._image_ids.length - 1), 0);
-            console.log("index=" + index + ", clampedIndex="+clampedIndex);
-            return this._image_ids[clampedIndex];
+            console.log("Image ID " + image_id + " not found");
+            return 0;
         };
 
         _update_image_index_input(image_id: string) {
@@ -740,19 +780,60 @@ module labelling_tool {
             this._image_index_input.val((image_index+1).toString());
         };
 
+        _update_image_index_input_by_index(index: number) {
+            this._image_index_input.val(index.toString());
+        };
+
         _get_current_image_id(): string {
             return this.root_view.get_current_image_id();
         };
 
-        setImage(image_data: any) {
-            // Update the image SVG element
-            this._image.attr("width", image_data.width + 'px');
-            this._image.attr("height", image_data.height + 'px');
-            this._image.attr('xlink:href', image_data.href);
-            this._image_width = image_data.width;
-            this._image_height = image_data.height;
+        loadImage(image: ImageModel) {
+            var self = this;
 
-            this.root_view.set_model(image_data.label_header);
+            // Update the image SVG element if the image URL is available
+            if (image.img_url !== null) {
+                this._image.attr("width", image.width + 'px');
+                this._image.attr("height", image.height + 'px');
+                this._image.attr('xlink:href', image.img_url);
+                this._image_width = image.width;
+                this._image_height = image.height;
+                this._image_initialised = true;
+            }
+            else {
+                this._image_initialised = false;
+            }
+
+            this.root_view.set_model({image_id: "", complete: false, labels: []});
+            (this._complete_checkbox[0] as any).checked = false;
+            this._update_image_index_input_by_index(0);
+            this.set_current_tool(null);
+
+            this._requestLabelsCallback(image.image_id);
+
+            this._image_loaded = false;
+            this._labels_loaded = false;
+            this._show_loading_notification();
+        }
+
+        loadLabels(label_header: LabelHeaderModel, image: ImageModel) {
+            if (!this._image_initialised) {
+                if (image !== null && image !== undefined) {
+                    this._image.attr("width", image.width + 'px');
+                    this._image.attr("height", image.height + 'px');
+                    this._image.attr('xlink:href', image.img_url);
+                    this._image_width = image.width;
+                    this._image_height = image.height;
+                    this._image_initialised = true;
+                }
+                else {
+                    console.log("Labelling tool: Image URL was unavailable to loadImage and has not been " +
+                                "provided by loadLabels");
+                }
+            }
+
+            // Update the image SVG element
+            this.root_view.set_model(label_header);
 
             (this._complete_checkbox[0] as any).checked = this.root_view.model.complete;
 
@@ -761,8 +842,34 @@ module labelling_tool {
 
             this.set_current_tool(new SelectEntityTool(this.root_view));
 
-            console.log(this);
+            this._labels_loaded = true;
+            this._hide_loading_notification_if_ready();
         };
+
+        _notify_image_loaded() {
+            this._image_loaded = true;
+            this._hide_loading_notification_if_ready();
+        }
+
+        _notify_image_error() {
+            var src = this._image.attr('xlink:href');
+            console.log("Error loading image " + src);
+            this._show_loading_notification();
+            this._loading_notification_text.text("Error loading " + src);
+        }
+
+        _show_loading_notification() {
+            this._svg.attr("style", "display: none");
+            this._loading_notification.attr("style", "");
+            this._loading_notification_text.text("Loading...");
+        }
+
+        _hide_loading_notification_if_ready() {
+            if (this._image_loaded && this._labels_loaded) {
+                this._svg.attr("style", "");
+                this._loading_notification.attr("style", "display: none");
+            }
+        }
 
 
 

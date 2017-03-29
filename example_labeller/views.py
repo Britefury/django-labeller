@@ -1,10 +1,10 @@
-from django.shortcuts import render
-from django.template import RequestContext, loader
+import json
+
 from django.http import HttpResponse
-from image_labelling_tool.labelling_tool_views import image_descriptor_accessor_view, label_update_view
+from django.template import RequestContext, loader
 
-import labelling_tool
-
+from image_labelling_tool import labelling_tool
+from image_labelling_tool.labelling_tool_views import label_accessor_view, label_update_view
 
 # Specify our 3 label classes.
 # `LabelClass` parameters are: symbolic name, human readable name for UI, and RGB colour as list
@@ -22,6 +22,15 @@ print 'Loaded {0} images'.format(len(labelled_images))
 # Generate image IDs list and images table mapping image ID to image
 image_ids = [str(i)   for i in xrange(len(labelled_images))]
 images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
+image_descriptors = []
+for image_id, img in zip(image_ids, labelled_images):
+    data, mimetype, width, height = img.data_and_mime_type_and_size()
+    image_descriptors.append({
+        'image_id': image_id,
+        'img_url': '/example_labeller/image/{}'.format(image_id),
+        'width': width,
+        'height': height,
+    })
 
 
 # Configuration
@@ -42,30 +51,27 @@ def home(request):
     template = loader.get_template('index.html')
     context = RequestContext(request, {
         'label_classes': [c.to_json()   for c in label_classes],
-        'image_ids': image_ids,
-        'initial_image_id': image_ids[0],
+        'image_descriptors': image_descriptors,
+        'initial_image_index': 0,
         'labelling_tool_config': config,
     })
     return HttpResponse(template.render(context))
 
 
 
-@image_descriptor_accessor_view
-def get_image_desctriptor(request, image_id_str):
+@label_accessor_view
+def get_labels(request, image_id_str):
     image = images_table[image_id_str]
 
     labels = image.labels_json
     complete = False
 
-    data, mimetype, width, height = image.data_and_mime_type_and_size()
-
-    return {
-        'width': width,
-        'height': height,
-        'href': '/example_labeller/image/{0}'.format(image_id_str),
+    labels_metadata = {
+        'complete': complete,
         'labels': labels,
-        'complete': complete
     }
+
+    return labels_metadata
 
 
 @label_update_view

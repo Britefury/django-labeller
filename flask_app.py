@@ -22,11 +22,12 @@
 #
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
-import json, argparse
+import argparse
+import json
 
 from flask import Flask, render_template, request, make_response, send_from_directory
 
-import labelling_tool
+from image_labelling_tool import labelling_tool
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Image labelling tool - Flask app')
@@ -42,11 +43,8 @@ if __name__ == '__main__':
                      ]
     if args.slic:
         import glob
-        import numpy as np
         from matplotlib import pyplot as plt
         from skimage.segmentation import slic
-        from skimage.util import pad
-        from skimage.measure import find_contours
 
         labelled_images = []
         for path in glob.glob('images/*.jpg'):
@@ -74,6 +72,15 @@ if __name__ == '__main__':
     # Generate image IDs list and images table mapping image ID to image
     image_ids = [str(i)   for i in xrange(len(labelled_images))]
     images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
+    image_descriptors = []
+    for image_id, img in zip(image_ids, labelled_images):
+        data, mimetype, width, height = img.data_and_mime_type_and_size()
+        image_descriptors.append({
+            'image_id': image_id,
+            'img_url': '/image/{}'.format(image_id),
+            'width': width,
+            'height': height,
+        })
 
 
     app = Flask(__name__, static_folder='image_labelling_tool/static')
@@ -94,34 +101,28 @@ if __name__ == '__main__':
     def index():
         label_classes_json = [{'name': cls.name, 'human_name': cls.human_name, 'colour': cls.colour}   for cls in label_classes]
         return render_template('labeller_page.jinja2',
+                               tool_js_urls=labelling_tool.js_file_urls('/static/labelling_tool/'),
                                label_classes=json.dumps(label_classes_json),
-                               image_ids=json.dumps(image_ids),
-                               initial_image_id=image_ids[0],
+                               image_descriptors=json.dumps(image_descriptors),
+                               initial_image_index=0,
                                config=json.dumps(config))
 
 
-    @app.route('/labelling/get_image_descriptor/<image_id>')
-    def get_image_descriptor(image_id):
+    @app.route('/labelling/get_labels/<image_id>')
+    def get_labels(image_id):
         image = images_table[image_id]
 
         labels = image.labels_json
         complete = False
 
-        data, mimetype, width, height = image.data_and_mime_type_and_size()
 
-
-        descriptor = {
-            'width': width,
-            'height': height,
-            'href': '/image/{0}'.format(image_id),
-            'label_header': {
-                'labels': labels,
-                'image_id': image_id,
-                'complete': complete
-            }
+        label_header = {
+            'labels': labels,
+            'image_id': image_id,
+            'complete': complete
         }
 
-        r = make_response(json.dumps(descriptor))
+        r = make_response(json.dumps(label_header))
         r.mimetype = 'application/json'
         return r
 

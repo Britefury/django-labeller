@@ -40,6 +40,27 @@ from skimage.util import pad
 from skimage.measure import find_contours
 
 
+LABELLING_TOOL_JS_FILES = [
+    'math_primitives.js',
+    'object_id_table.js',
+    'label_class.js',
+    'abstract_label.js',
+    'abstract_tool.js',
+    'select_tools.js',
+    'point_label.js',
+    'box_label.js',
+    'composite_label.js',
+    'polygonal_label.js',
+    'group_label.js',
+    'main_tool.js',
+    'root_label_view.js',
+]
+
+def js_file_urls(url_prefix):
+    if not url_prefix.endswith('/'):
+        url_prefix = url_prefix + '/'
+    return ['{}{}'.format(url_prefix, filename) for filename in LABELLING_TOOL_JS_FILES]
+
 class LabelClass (object):
     def __init__(self, name, human_name, colour):
         """

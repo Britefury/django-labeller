@@ -1,4 +1,4 @@
-{% load labelling_tool %}
+{% load labelling_tool_tags %}
 
 <html>
     <head>
@@ -20,7 +20,7 @@
 
     <h1>UEA Computer Vision - Labelling Tool example Django App</h1>
 
-    {% labelling_tool 1280 720 label_classes image_ids initial_image_id '/example_labeller/get_image_descriptor' '/example_labeller/update_labels' labelling_tool_config %}
+    {% labelling_tool 1280 720 label_classes image_descriptors initial_image_index '/example_labeller/get_labels' '/example_labeller/update_labels' labelling_tool_config %}
 
 
 

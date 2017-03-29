@@ -3,25 +3,18 @@
 
 <script>
     (function () {
-        var request_image = function(image_id) {
+        var get_labels = function(image_id) {
             $.ajax({
                 type: 'GET',
-                url: '{{ get_image_descriptor_url }}' + '?image_id=' + image_id,
-                success: function(msg) {
-                    var in_image = msg;
-                    var image = {
-                        width: in_image.width,
-                        height: in_image.height,
-                        href: in_image.href,
-                        label_header: in_image.label_header
-                    };
-                    tool.setImage(image);
+                url: '{{ get_labels_url }}' + '?image_id=' + image_id,
+                success: function(label_header) {
+                    tool.loadLabels(label_header, null);
                 },
                 dataType: 'json'
             });
         };
 
-        var send_label_header = function(label_header) {
+        var update_labels = function(label_header) {
             var labels_json_str = JSON.stringify(label_header);
 
             // Create the POST data
@@ -43,10 +36,10 @@
                 {{ label_classes | safe }},
                 {{ width }},
                 {{ height }},
-                {{ image_ids | safe }},
-                {{ initial_image_id | safe }},
-                request_image,
-                send_label_header,
+                {{ image_descriptors | safe }},
+                {{ initial_image_index | safe }},
+                get_labels,
+                update_labels,
                 {{ config | safe }}
         );
 

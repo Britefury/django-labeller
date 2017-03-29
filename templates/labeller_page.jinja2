@@ -10,19 +10,9 @@
         <script src="/static/d3.min.js"></script>
         <script src="/static/json2.js"></script>
         <script src="/static/polyk.js"></script>
-        <script src="/static/labelling_tool/math_primitives.js"></script>
-        <script src="/static/labelling_tool/object_id_table.js"></script>
-        <script src="/static/labelling_tool/label_class.js"></script>
-        <script src="/static/labelling_tool/abstract_label.js"></script>
-        <script src="/static/labelling_tool/abstract_tool.js"></script>
-        <script src="/static/labelling_tool/select_tools.js"></script>
-        <script src="/static/labelling_tool/point_label.js"></script>
-        <script src="/static/labelling_tool/box_label.js"></script>
-        <script src="/static/labelling_tool/composite_label.js"></script>
-        <script src="/static/labelling_tool/polygonal_label.js"></script>
-        <script src="/static/labelling_tool/group_label.js"></script>
-        <script src="/static/labelling_tool/main_tool.js"></script>
-        <script src="/static/labelling_tool/root_label_view.js"></script>
+        {% for js_url in tool_js_urls %}
+            <script src="{{ js_url }}"></script>
+        {% endfor %}
     </head>
 
     <body>
@@ -126,20 +116,12 @@
 
     <script>
         // get image descriptor callback function
-        var get_image_descriptor = function(image_id) {
+        var get_labels = function(image_id) {
             $.ajax({
                 type: 'GET',
-                url: '/labelling/get_image_descriptor/' + image_id,
-                success: function(msg) {
-                    var in_image = msg;
-                    // Build an image descriptor and pass to the labelling tool
-                    var image = {
-                        width: in_image.width,
-                        height: in_image.height,
-                        href: in_image.href,
-                        label_header: in_image.label_header
-                    };
-                    tool.setImage(image);
+                url: '/labelling/get_labels/' + image_id,
+                success: function(label_header) {
+                    tool.loadLabels(label_header, null);
                 },
                 dataType: 'json'
             });
@@ -165,39 +147,17 @@
         };
 
         // Create the labelling tool
-        // Give it: label classes, dimensions, image IDs, initial image ID and the callbacks above
+        // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
         var tool = new labelling_tool.LabellingTool($("#labelling_tool")[0],
                 {{ label_classes }},
                 1280,
                 720,
-                {{ image_ids }},
-                {{ initial_image_id }},
-                get_image_descriptor,
+                {{ image_descriptors }},
+                {{ initial_image_index }},
+                get_labels,
                 set_labels,
                 {{ config }});
 
-
-
-
-        // CSRF Token setup for Django; uncomment if you use Django
-        /*
-        var csrf = $.cookie('csrftoken');
-        if (csrf != null) {
-            // Adapted from Django DOCS
-            var csrfSafeMethod = function(method) {
-                // these HTTP methods do not require CSRF protection
-                return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
-            };
-
-            $.ajaxSetup({
-                crossDomain: false,
-                beforeSend: function(xhr, settings) {
-                    if (!csrfSafeMethod(settings.type)) {
-                        xhr.setRequestHeader('X-CSRFToken', csrf);
-                    }
-                }
-            });
-        }*/
     </script>
 
     </body>

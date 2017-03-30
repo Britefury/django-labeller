@@ -149,10 +149,10 @@ class LabellingToolViewWithLocking (LabellingToolView):
     def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def update_labels(self, request, image_id_str, labels, complete, *args, **kwargs):
+    def update_labels(self, request, image_id_str, labels_js, complete, *args, **kwargs):
         expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
         labels = self.get_labels(request, image_id_str, *args, **kwargs)
-        labels.update_labels(labels, complete, request.user, check_lock=True, save=False)
+        labels.update_labels(labels_js, complete, request.user, check_lock=True, save=False)
         if request.user.is_authenticated():
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)
         labels.save()

@@ -229,7 +229,7 @@ var labelling_tool;
             }
             this._lockNotification = $('<div style="display: none;"><p style="font-size: 0.75em; color: #c00000">' +
                 'These labels are locked and cannot be edited. Someone else got there first :). ' +
-                'Please choose another image.</p></div>');
+                'Please choose another image (click the unlock button above to find the next unlocked image).</p></div>');
             this._lockNotification.appendTo(toolbar);
             $('<br/>').appendTo(toolbar);
             this._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(toolbar);

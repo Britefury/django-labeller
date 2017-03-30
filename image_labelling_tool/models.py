@@ -69,7 +69,7 @@ class Labels (models.Model):
             return lock_active and user != self.locked_by
 
     def lock(self, to_user, expire_after, save=False):
-        if self.is_locked_to():
+        if self.is_locked_to(to_user):
             raise ValueError('Cannot lock Labels(id={}) to user {}; is already locked'.format(
                 self.id, to_user.username
             ))
@@ -91,7 +91,7 @@ class Labels (models.Model):
             self.save()
 
     def unlock(self, from_user, save=False):
-        if self.is_locked_to():
+        if self.is_lock_active():
             if from_user != self.locked_by:
                 raise ValueError('Cannot unlock Labels(id={}) from user {}, it is locked by {}'.format(
                     self.id, from_user.username, self.locked_by.username

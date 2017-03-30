@@ -39,7 +39,8 @@ class Command(BaseCommand):
                 labels_model.save()
             else:
                 self.stdout.write('Adding image {}'.format(image_path))
-                labels_model = None
+                labels_model = lt_models.Labels(creation_date=datetime.date.today())
+                labels_model.save()
 
             image_model = models.ImageWithLabels(labels=labels_model)
             image_model.image.save(os.path.basename(image_path),

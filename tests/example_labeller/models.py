@@ -8,4 +8,4 @@ class ImageWithLabels (models.Model):
     image = models.ImageField(blank=True)
 
     # labels
-    labels = models.OneToOneField(lt_models.Labels, null=True, default=None, related_name='image')
+    labels = models.OneToOneField(lt_models.Labels, related_name='image')

@@ -44,8 +44,8 @@
                             <li>The previous vertex is highlighted with a small pink circle. To delete it, press the
                                 '<code>/</code>' key.
                             </li>
-                            <li>To insert vertices at a different point in the polygon, press the '<code>[</code>'
-                                and '<code>]</code>' keys to cycle through. This also cycles the vertex that is
+                            <li>To insert vertices at a different point in the polygon, press the '<code>,</code>'
+                                and '<code>.</code>' keys to cycle through. This also cycles the vertex that is
                                 highlighted as the previous vertex (above), allowing you to select vertices to
                                 delete.</li>
                         </ul>
@@ -141,6 +141,7 @@
                 url: '/labelling/set_labels',
                 data: post_data,
                 success: function(msg) {
+                    tool.notifyLabelUpdateResponse(msg);
                 },
                 dataType: 'json'
             });
@@ -156,6 +157,7 @@
                 {{ initial_image_index }},
                 get_labels,
                 set_labels,
+                null,
                 {{ config }});
 
     </script>

@@ -5,7 +5,8 @@ from django.shortcuts import render, get_object_or_404
 from django.conf import settings
 
 from image_labelling_tool import labelling_tool
-from image_labelling_tool.labelling_tool_views import label_accessor_view, label_update_view
+from image_labelling_tool import models as lt_models
+from image_labelling_tool import labelling_tool_views
 
 from . import models
 
@@ -26,13 +27,21 @@ def home(request):
     return render(request, 'index.html', context)
 
 
-@label_accessor_view
-def get_labels(request, image_id_str):
-    image = get_object_or_404(models.ImageWithLabels, id=image_id_str)
-    return image.labels
+class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
+    def get_labels(self, request, image_id_str, *args, **kwargs):
+        image = get_object_or_404(models.ImageWithLabels, id=image_id_str)
+        return image.labels
 
-
-@label_update_view
-def set_labels(request, image_id_str, labels, complete):
-    image = get_object_or_404(models.ImageWithLabels, id=image_id_str)
-    image.labels.update_labels(labels, complete, request.user, save=True)
+    def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
+        unlocked_labels = lt_models.Labels.objects.unlocked()
+        unlocked_imgs = models.ImageWithLabels.objects.filter(labels__in=unlocked_labels)
+        unlocked_img_ids = [img.id for img in unlocked_imgs]
+        try:
+            index = unlocked_img_ids.index(int(current_image_id_str))
+        except ValueError:
+            return None
+        index += 1
+        if index < len(unlocked_img_ids):
+            return unlocked_img_ids[index]
+        else:
+            return None

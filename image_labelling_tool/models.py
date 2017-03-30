@@ -1,12 +1,16 @@
 import json, datetime
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from . import managers
+
+class LabelsLockedError (Exception):
+    pass
 
 # Create your models here.
 class Labels (models.Model):
     # Label data
-    labels_json_str = models.TextField()
+    labels_json_str = models.TextField(default='[]')
     complete = models.BooleanField(default=False)
 
     # Creation date
@@ -38,30 +42,68 @@ class Labels (models.Model):
         label_classes = [x['label_class']   for x in self.labels_json]
         return set(label_classes)
 
-    @property
-    def is_locked(self, user=None):
-        lock_active = datetime.datetime.now() < self.lock_expiry_datetime
-        if user is not None and not user.is_authenticated():
-            user = None
-        if user is None:
-            return lock_active
-        else:
-            return lock_active and user == self.locked_by
-
-    def update_labels(self, labels_json, complete, user, save=False):
-        print('Updating labels from {} to {}'.format(len(self.labels_json), len(labels_json)))
+    def update_labels(self, labels_json, complete, user, save=False, check_lock=False):
+        if check_lock:
+            if self.is_locked_to(user):
+                raise LabelsLockedError
         self.labels_json = labels_json
         self.complete = complete
         if user.is_authenticated():
             self.last_modified_by = user
         else:
             self.last_modified_by = None
-        self.last_modified_datetime = datetime.datetime.now()
+        self.last_modified_datetime = timezone.now()
         if save:
             self.save()
 
-        print('Updated labels to {}'.format(len(self.labels_json)))
+    def is_lock_active(self):
+        return timezone.now() < self.lock_expiry_datetime and self.locked_by is not None
+
+    def is_locked_to(self, user=None):
+        lock_active = self.is_lock_active()
+        if user is not None and not user.is_authenticated():
+            user = None
+        if user is None:
+            return lock_active
+        else:
+            return lock_active and user != self.locked_by
+
+    def lock(self, to_user, expire_after, save=False):
+        if self.is_locked_to():
+            raise ValueError('Cannot lock Labels(id={}) to user {}; is already locked'.format(
+                self.id, to_user.username
+            ))
+        self.locked_by = to_user
+        expiry = timezone.now() + expire_after
+        self.lock_expiry_datetime = expiry
+        if save:
+            self.save()
+
+    def refresh_lock(self, to_user, expire_after, save=False):
+        if self.is_lock_active():
+            if self.locked_by != to_user:
+                raise ValueError('Cannot refresh lock Labels(id={}) for user {}; is already locked by {}'.format(
+                    self.id, to_user.username, self.locked_by.username
+                ))
+        expiry = timezone.now() + expire_after
+        self.lock_expiry_datetime = expiry
+        if save:
+            self.save()
+
+    def unlock(self, from_user, save=False):
+        if self.is_locked_to():
+            if from_user != self.locked_by:
+                raise ValueError('Cannot unlock Labels(id={}) from user {}, it is locked by {}'.format(
+                    self.id, from_user.username, self.locked_by.username
+                ))
+            self.locked_by = None
+            self.lock_expiry_datetime = timezone.now()
+            if save:
+                self.save()
 
     def __unicode__(self):
-        return 'Labels (last modified by {} at {})'.format(
-            self.last_modified_by.username, self.last_modified_datetime)
+        if self.last_modified_by is not None:
+            return 'Labels {} (last modified by {} at {})'.format(
+                self.id, self.last_modified_by.username, self.last_modified_datetime)
+        else:
+            return 'Labels {}'.format(self.id)

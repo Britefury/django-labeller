@@ -16,7 +16,7 @@ def labelling_tool_scripts():
 
 @register.inclusion_tag('inline/labelling_tool.html')
 def labelling_tool(width, height, label_classes, image_descriptors, initial_image_index,
-                   get_labels_url, update_labels_url, config=None):
+                   labelling_tool_url, enable_locking, config=None):
     tool_id = uuid.uuid4()
     if config is None:
         config = {}
@@ -26,7 +26,11 @@ def labelling_tool(width, height, label_classes, image_descriptors, initial_imag
             'label_classes': json.dumps(label_classes),
             'image_descriptors': json.dumps(image_descriptors),
             'initial_image_index': str(initial_image_index),
-            'get_labels_url': get_labels_url,
-            'update_labels_url': update_labels_url,
+            'labelling_tool_url': labelling_tool_url,
+            'enable_locking': enable_locking,
             'config': json.dumps(config),
             }
+
+@register.inclusion_tag('inline/instructions.html')
+def labelling_tool_instructions():
+    return {}

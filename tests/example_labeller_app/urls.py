@@ -22,7 +22,8 @@ from django.views.static import serve
 urlpatterns = [
     url(r'^admin/', include(admin.site.urls)),
 
-    url(r'^example_labeller/', include('example_labeller.urls')),
+    url(r'^example_labeller/', include('example_labeller.urls', namespace='example_labeller',
+                                       app_name='example_labeller')),
 
     url(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 

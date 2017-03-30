@@ -219,7 +219,7 @@ define('image-labelling-tool',
             // Also give it the label classes, tool dimensions, image ID set, initial image ID and the callbacks above
             self._labeling_tool = new labelling_tool.LabellingTool(this.$el, label_classes, tool_width, tool_height,
                                                                    images, initial_image_index,
-                                                                   get_labels, update_labels,
+                                                                   get_labels, update_labels, null,
                                                                    config);
         },
 

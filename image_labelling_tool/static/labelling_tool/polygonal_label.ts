@@ -250,7 +250,7 @@ module labelling_tool {
 
         on_key_press(event: any) {
             var key: string = event.key;
-            if (key === '[') {
+            if (key === ',') {
                 // Shift vertices back
                 var vertices = this.get_vertices();
                 if (vertices !== null && vertices.length >= 3) {
@@ -264,7 +264,7 @@ module labelling_tool {
                     this.entity.commit();
                 }
             }
-            else if (key == ']') {
+            else if (key == '.') {
                 // Shift vertices forward
                 var vertices = this.get_vertices();
                 if (vertices !== null && vertices.length >= 3) {

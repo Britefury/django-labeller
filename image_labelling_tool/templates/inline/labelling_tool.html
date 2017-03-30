@@ -3,16 +3,39 @@
 
 <script>
     (function () {
+        // The Django based web API uses a class-based view at a single URL for all interaction with
+        // the client side tool.
+        // Here we define the callbacks that connect the `LabellingTool` instance with the
+        // server side API.
         var get_labels = function(image_id) {
             $.ajax({
                 type: 'GET',
-                url: '{{ get_labels_url }}' + '?image_id=' + image_id,
-                success: function(label_header) {
-                    tool.loadLabels(label_header, null);
+                url: '{{ labelling_tool_url }}' + '?labels_for_image_id=' + image_id,
+                success: function(response) {
+                    if (response.error === undefined) {
+                        tool.loadLabels(response, null);
+                    }
                 },
                 dataType: 'json'
             });
         };
+
+        {% if enable_locking %}
+            var get_next_unlocked_image_id = function(current_image_id) {
+                $.ajax({
+                    type: 'GET',
+                    url: '{{ labelling_tool_url }}' + '?next_unlocked_image_id_after=' + current_image_id,
+                    success: function(response) {
+                        if (response.error === undefined) {
+                            tool.goToImageById(response.next_unlocked_image_id);
+                        }
+                    },
+                    dataType: 'json'
+                });
+            };
+        {% else %}
+            var get_next_unlocked_image_id = null;
+        {% endif %}
 
         var update_labels = function(label_header) {
             var labels_json_str = JSON.stringify(label_header);
@@ -24,9 +47,10 @@
 
             $.ajax({
                 type: 'POST',
-                url: '{{ update_labels_url }}',
+                url: '{{ labelling_tool_url }}',
                 data: post_data,
                 success: function(msg) {
+                    tool.notifyLabelUpdateResponse(msg);
                 },
                 dataType: 'json'
             });
@@ -40,6 +64,7 @@
                 {{ initial_image_index | safe }},
                 get_labels,
                 update_labels,
+                get_next_unlocked_image_id,
                 {{ config | safe }}
         );
 

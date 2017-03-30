@@ -52,13 +52,14 @@ var labelling_tool;
     labelling_tool.replace_label_header_labels = function (label_header, labels) {
         return { image_id: label_header.image_id,
             complete: label_header.complete,
+            state: label_header.state,
             labels: labels };
     };
     /*
    Labelling tool view; links to the server side data structures
     */
     var LabellingTool = (function () {
-        function LabellingTool(element, label_classes, tool_width, tool_height, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, config) {
+        function LabellingTool(element, label_classes, tool_width, tool_height, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, config) {
             var _this = this;
             var self = this;
             if (LabellingTool._global_key_handler === undefined ||
@@ -110,6 +111,7 @@ var labelling_tool;
             var initial_model = {
                 image_id: '',
                 complete: false,
+                state: 'editable',
                 labels: []
             };
             // Active tool
@@ -142,6 +144,10 @@ var labelling_tool;
             // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
             // to user action
             this._sendLabelHeaderFn = sendLabelHeaderFn;
+            // Get unlocked image IDs callback: labelling tool will call this when the user wants to move to the
+            // next available image that is not locked. If it is `null` or `undefined` then the button will not
+            // be displayed to the user
+            this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
             // Send data interval for storing interval ID for queued label send
             this._pushDataTimeout = null;
             // Frozen flag; while frozen, data will not be sent to backend
@@ -149,12 +155,13 @@ var labelling_tool;
             var toolbar_width = 220;
             this._labelling_area_width = this._tool_width - toolbar_width;
             var labelling_area_x_pos = toolbar_width + 10;
+            this._lockableControls = $();
             // A <div> element that surrounds the labelling tool
             var overall_border = $('<div style="border: 1px solid gray; width: ' + this._tool_width + 'px;"/>')
                 .appendTo(element);
             var toolbar_container = $('<div style="position: relative;">').appendTo(overall_border);
             var toolbar = $('<div style="position: absolute; width: ' + toolbar_width +
-                'px; padding: 4px; display: inline-block; background: #d0d0d0; border: 1px solid #a0a0a0;"/>').appendTo(toolbar_container);
+                'px; padding: 4px; display: inline-block; background: #d0d0d0; border: 1px solid #a0a0a0; font-family: sans-serif;"/>').appendTo(toolbar_container);
             var labelling_area = $('<div style="width:' + this._labelling_area_width + 'px; margin-left: ' + labelling_area_x_pos + 'px"/>').appendTo(overall_border);
             /*
              *
@@ -170,11 +177,17 @@ var labelling_tool;
             if (config.tools.imageSelector) {
                 var _increment_image_index = function (offset) {
                     var image_id = self._get_current_image_id();
-                    var index = self._image_id_to_index(image_id) + offset;
-                    index = Math.max(Math.min(index, self._images.length - 1), 0);
-                    if (index < self._images.length) {
-                        self.loadImage(self._images[index]);
+                    var index = self._image_id_to_index(image_id);
+                    var new_index = index + offset;
+                    new_index = Math.max(Math.min(new_index, self._images.length - 1), 0);
+                    // Only trigger an image load if the index has changed and it is valid
+                    if (new_index !== index && new_index < self._images.length) {
+                        self.loadImage(self._images[new_index]);
                     }
+                };
+                var _next_unlocked_image = function () {
+                    var image_id = self._get_current_image_id();
+                    self._getNextUnlockedImageIDCallback(image_id);
                 };
                 this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
                 this._image_index_input.on('change', function () {
@@ -203,13 +216,28 @@ var labelling_tool;
                     _increment_image_index(1);
                     event.preventDefault();
                 });
+                if (this._getNextUnlockedImageIDCallback !== null && this._getNextUnlockedImageIDCallback !== undefined) {
+                    var next_unlocked_image_button = $('<button>Next unlocked image</button>').appendTo(toolbar);
+                    next_unlocked_image_button.button({
+                        text: false,
+                        icons: { primary: "ui-icon-unlocked" }
+                    }).click(function (event) {
+                        _next_unlocked_image();
+                        event.preventDefault();
+                    });
+                }
             }
+            this._lockNotification = $('<div style="display: none;"><p style="font-size: 0.75em; color: #c00000">' +
+                'These labels are locked and cannot be edited. Someone else got there first :). ' +
+                'Please choose another image.</p></div>');
+            this._lockNotification.appendTo(toolbar);
             $('<br/>').appendTo(toolbar);
             this._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(toolbar);
             this._complete_checkbox.change(function (event, ui) {
                 self.root_view.set_complete(event.target.checked);
                 self.queue_push_label_data();
             });
+            this._lockableControls = this._lockableControls.add(this._complete_checkbox);
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
@@ -231,6 +259,7 @@ var labelling_tool;
                         selection[i].set_label_class(label_class_name);
                     }
                 });
+                this._lockableControls = this._lockableControls.add(this._label_class_selector_menu);
             }
             $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
             this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
@@ -261,12 +290,14 @@ var labelling_tool;
                 self.set_current_tool(new labelling_tool.SelectEntityTool(self.root_view));
                 event.preventDefault();
             });
+            this._lockableControls = this._lockableControls.add(select_button);
             if (config.tools.brushSelect) {
                 var brush_select_button = $('<button>Brush select</button>').appendTo(toolbar);
                 brush_select_button.button().click(function (event) {
                     self.set_current_tool(new labelling_tool.BrushSelectEntityTool(self.root_view));
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(brush_select_button);
             }
             if (config.tools.drawPointLabel) {
                 var draw_point_button = $('<button>Add point</button>').appendTo(toolbar);
@@ -280,6 +311,7 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(draw_point_button);
             }
             if (config.tools.drawBoxLabel) {
                 var draw_box_button = $('<button>Draw box</button>').appendTo(toolbar);
@@ -293,6 +325,7 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(draw_box_button);
             }
             if (config.tools.drawPolyLabel) {
                 var draw_polygon_button = $('<button>Draw poly</button>').appendTo(toolbar);
@@ -306,6 +339,7 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(draw_polygon_button);
             }
             if (config.tools.compositeLabel) {
                 var composite_button = $('<button>Composite</button>').appendTo(toolbar);
@@ -313,6 +347,7 @@ var labelling_tool;
                     self.root_view.create_composite_label_from_selection();
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(composite_button);
             }
             if (config.tools.groupLabel) {
                 var group_button = $('<button>Group</button>').appendTo(toolbar);
@@ -323,6 +358,7 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
+                this._lockableControls = this._lockableControls.add(group_button);
             }
             if (config.tools.deleteLabel) {
                 var delete_label_button = $('<button>Delete</button>').appendTo(toolbar);
@@ -353,6 +389,7 @@ var labelling_tool;
                 });
                 this._confirm_delete = $('<span/>').appendTo(toolbar);
                 this._confirm_delete_visible = false;
+                this._lockableControls = this._lockableControls.add(delete_label_button);
             }
             /*
              *
@@ -410,12 +447,6 @@ var labelling_tool;
             this._image = this.world.append("image")
                 .attr("x", 0)
                 .attr("y", 0);
-            $(this._image[0]).bind("load", function () {
-                self._notify_image_loaded();
-            });
-            $(this._image[0]).bind("error", function () {
-                self._notify_image_error();
-            });
             // Flag that indicates if the mouse pointer is within the tool area
             this._mouse_within = false;
             this._last_mouse_pos = null;
@@ -591,26 +622,37 @@ var labelling_tool;
             return 0;
         };
         ;
-        LabellingTool.prototype._update_image_index_input = function (image_id) {
+        LabellingTool.prototype._update_image_index_input_by_id = function (image_id) {
             var image_index = this._image_id_to_index(image_id);
             this._image_index_input.val((image_index + 1).toString());
-        };
-        ;
-        LabellingTool.prototype._update_image_index_input_by_index = function (index) {
-            this._image_index_input.val(index.toString());
         };
         ;
         LabellingTool.prototype._get_current_image_id = function () {
             return this.root_view.get_current_image_id();
         };
         ;
+        LabellingTool.prototype.loadImageUrl = function (url) {
+            var self = this;
+            var img = new Image();
+            var onload = function () {
+                self._notify_image_loaded();
+            };
+            var onerror = function () {
+                self._notify_image_error();
+            };
+            img.addEventListener('load', onload, false);
+            img.addEventListener('error', onerror, false);
+            img.src = url;
+            return img;
+        };
         LabellingTool.prototype.loadImage = function (image) {
             var self = this;
             // Update the image SVG element if the image URL is available
             if (image.img_url !== null) {
+                var img = self.loadImageUrl(image.img_url);
                 this._image.attr("width", image.width + 'px');
                 this._image.attr("height", image.height + 'px');
-                this._image.attr('xlink:href', image.img_url);
+                this._image.attr('xlink:href', img.src);
                 this._image_width = image.width;
                 this._image_height = image.height;
                 this._image_initialised = true;
@@ -618,9 +660,9 @@ var labelling_tool;
             else {
                 this._image_initialised = false;
             }
-            this.root_view.set_model({ image_id: "", complete: false, labels: [] });
+            this.root_view.set_model({ image_id: "", complete: false, state: 'editable', labels: [] });
             this._complete_checkbox[0].checked = false;
-            this._update_image_index_input_by_index(0);
+            this._image_index_input.val("");
             this.set_current_tool(null);
             this._requestLabelsCallback(image.image_id);
             this._image_loaded = false;
@@ -628,11 +670,13 @@ var labelling_tool;
             this._show_loading_notification();
         };
         LabellingTool.prototype.loadLabels = function (label_header, image) {
+            var self = this;
             if (!this._image_initialised) {
                 if (image !== null && image !== undefined) {
+                    var img = self.loadImageUrl(image.img_url);
                     this._image.attr("width", image.width + 'px');
                     this._image.attr("height", image.height + 'px');
-                    this._image.attr('xlink:href', image.img_url);
+                    this._image.attr('xlink:href', img.src);
                     this._image_width = image.width;
                     this._image_height = image.height;
                     this._image_initialised = true;
@@ -644,8 +688,14 @@ var labelling_tool;
             }
             // Update the image SVG element
             this.root_view.set_model(label_header);
+            this._update_image_index_input_by_id(this.root_view.model.image_id);
+            if (this.root_view.model.state === 'locked') {
+                this.lockLabels();
+            }
+            else {
+                this.unlockLabels();
+            }
             this._complete_checkbox[0].checked = this.root_view.model.complete;
-            this._update_image_index_input(this.root_view.model.image_id);
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
@@ -671,6 +721,35 @@ var labelling_tool;
                 this._svg.attr("style", "");
                 this._loading_notification.attr("style", "display: none");
             }
+        };
+        LabellingTool.prototype.goToImageById = function (image_id) {
+            if (image_id !== null && image_id !== undefined) {
+                // Convert to string in case we go something else
+                image_id = image_id.toString();
+                for (var i = 0; i < this._images.length; i++) {
+                    if (this._images[i].image_id === image_id) {
+                        this.loadImage(this._images[i]);
+                    }
+                }
+            }
+        };
+        LabellingTool.prototype.notifyLabelUpdateResponse = function (msg) {
+            if (msg.error === undefined) {
+            }
+            else if (msg.error === 'locked') {
+                // Lock controls
+                this.lockLabels();
+            }
+        };
+        LabellingTool.prototype.lockLabels = function () {
+            this._lockableControls.attr('disabled', 'disable');
+            this._lockNotification.removeAttr('style');
+            this.set_current_tool(null);
+        };
+        LabellingTool.prototype.unlockLabels = function () {
+            this._lockableControls.removeAttr('disabled');
+            this._lockNotification.attr('style', 'display: none;');
+            this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
         };
         /*
         Get colour for a given label class

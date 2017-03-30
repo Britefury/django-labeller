@@ -214,7 +214,7 @@ var labelling_tool;
         ;
         DrawPolygonTool.prototype.on_key_press = function (event) {
             var key = event.key;
-            if (key === '[') {
+            if (key === ',') {
                 // Shift vertices back
                 var vertices = this.get_vertices();
                 if (vertices !== null && vertices.length >= 3) {
@@ -227,7 +227,7 @@ var labelling_tool;
                     this.entity.commit();
                 }
             }
-            else if (key == ']') {
+            else if (key == '.') {
                 // Shift vertices forward
                 var vertices = this.get_vertices();
                 if (vertices !== null && vertices.length >= 3) {

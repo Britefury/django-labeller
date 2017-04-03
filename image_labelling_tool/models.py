@@ -38,6 +38,10 @@ class Labels (models.Model):
         self.labels_json_str = json.dumps(label_js)
 
     @property
+    def is_empty(self):
+        return self.labels_json_str == '[]'
+
+    @property
     def label_classes(self):
         label_classes = [x['label_class']   for x in self.labels_json]
         return set(label_classes)

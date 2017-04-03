@@ -4,6 +4,12 @@ from django.utils import timezone
 
 
 class LabelsManager (models.Manager):
+    def empty(self):
+        return self.filter(labels_json_str='[]')
+
+    def not_empty(self):
+        return self.exclude(labels_json_str='[]')
+
     def modified_by_user(self, user):
         return self.filter(last_modified_by=user)
 

@@ -131,10 +131,12 @@ LABELLING_TOOL_CONFIG = {
     'tools': {
         'imageSelector': True,
         'labelClassSelector': True,
+        'brushSelect': True,
+        'drawPointLabel': True,
+        'drawBoxLabel': True,
         'drawPolyLabel': True,
         'compositeLabel': True,
+        'groupLabel': True,
         'deleteLabel': True,
     }
 }
-
-

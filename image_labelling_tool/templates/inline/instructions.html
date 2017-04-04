@@ -6,43 +6,49 @@
 
 <p>To label regions of the image:</p>
     <ul>
-        <li><strong>Drawing polygonal regions onto the image:</strong>
-            <ul>
-                <li>Click the <em>Draw poly</em> button</li>
-                <li>Within the image pane, left-click to draw polygonal corners of your region</li>
-                <li>When you have finished the region, right-click to stop</li>
-                <li>You are still in <em>draw poly</em> mode, so you can start left-clicking again to draw the next region</li>
-                <li>To exit <em>draw poly</em> mode, right-click a second time.</li>
-                <li>Fixing mistakes while in drawing mode:
-                    <ul>
-                        <li>The previous vertex is highlighted with a small pink circle. To delete it, press the
-                            '<code>/</code>' key.
-                        </li>
-                        <li>To insert vertices at a different point in the polygon, press the '<code>[</code>'
-                            and '<code>]</code>' keys to cycle through. This also cycles the vertex that is
-                            highlighted as the previous vertex (above), allowing you to select vertices to
-                            delete.</li>
-                    </ul>
-                </li>
-            </ul>
-        </li>
+        {% if drawPolyLabel %}
+            <li><strong>Drawing polygonal regions onto the image:</strong>
+                <ul>
+                    <li>Click the <em>Draw poly</em> button</li>
+                    <li>Within the image pane, left-click to draw polygonal corners of your region</li>
+                    <li>When you have finished the region, right-click to stop</li>
+                    <li>You are still in <em>draw poly</em> mode, so you can start left-clicking again to draw the next region</li>
+                    <li>To exit <em>draw poly</em> mode, right-click a second time.</li>
+                    <li>Fixing mistakes while in drawing mode:
+                        <ul>
+                            <li>The previous vertex is highlighted with a small pink circle. To delete it, press the
+                                '<code>/</code>' key.
+                            </li>
+                            <li>To insert vertices at a different point in the polygon, press the '<code>[</code>'
+                                and '<code>]</code>' keys to cycle through. This also cycles the vertex that is
+                                highlighted as the previous vertex (above), allowing you to select vertices to
+                                delete.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+        {% endif %}
 
-        <li><strong>Drawing rectangular regions onto the image:</strong>
-            <ul>
-                <li>Click the <em>Draw box</em> button</li>
-                <li>Within the image pane, left-click to place one corner and left click again to place another
-                    corner; the tool will create a box between the two</li>
-                <li>Repeat the above for each box that you want to create</li>
-            </ul>
-        </li>
+        {% if drawBoxLabel %}
+            <li><strong>Drawing rectangular regions onto the image:</strong>
+                <ul>
+                    <li>Click the <em>Draw box</em> button</li>
+                    <li>Within the image pane, left-click to place one corner and left click again to place another
+                        corner; the tool will create a box between the two</li>
+                    <li>Repeat the above for each box that you want to create</li>
+                </ul>
+            </li>
+        {% endif %}
 
-        <li><strong>Highlighting points of interest in the image:</strong>
-            <ul>
-                <li>Click the <em>Add point</em> button</li>
-                <li>Within the image pane, left-click to place a point marker in the image</li>
-                <li>Repeat the above for each point that you want to create</li>
-            </ul>
-        </li>
+        {% if drawPointLabel %}
+            <li><strong>Highlighting points of interest in the image:</strong>
+                <ul>
+                    <li>Click the <em>Add point</em> button</li>
+                    <li>Within the image pane, left-click to place a point marker in the image</li>
+                    <li>Repeat the above for each point that you want to create</li>
+                </ul>
+            </li>
+        {% endif %}
 
         <li><strong>Selecting regions:</strong>
             <ul>
@@ -57,20 +63,24 @@
             </ul>
         </li>
 
-        <li><strong>Deleting regions:</strong>
-            <ul>
-                <li>Select regions using the select tool (see above)</li>
-                <li>Click the wastebin button to delete them; you will be asked for confirmation</li>
-            </ul>
-        </li>
+        {% if deleteLabel %}
+            <li><strong>Deleting regions:</strong>
+                <ul>
+                    <li>Select regions using the select tool (see above)</li>
+                    <li>Click the wastebin button to delete them; you will be asked for confirmation</li>
+                </ul>
+            </li>
+        {% endif %}
 
-        <li><strong>Changing the label of a region:</strong>
-            <ul>
-                <li>Select regions using the select tool (see above)</li>
-                <li>Use the drop-down (normally reads <em>UNCLASSIFIED</em>) within the <em>Labels</em> section to change the label</li>
-                <li><strong>Please note:</strong> for regions for which you <em>cannot</em> identify the content, use the <em>Excluded</em> label, this indicates to the system that it should not consider these parts of the image</li>
-            </ul>
-        </li>
+        {% if labelClassSelector %}
+            <li><strong>Changing the label of a region:</strong>
+                <ul>
+                    <li>Select regions using the select tool (see above)</li>
+                    <li>Use the drop-down (normally reads <em>UNCLASSIFIED</em>) within the <em>Labels</em> section to change the label</li>
+                    <li><strong>Please note:</strong> for regions for which you <em>cannot</em> identify the content, use the <em>Excluded</em> label, this indicates to the system that it should not consider these parts of the image</li>
+                </ul>
+            </li>
+        {% endif %}
 
         <li><strong>If the coloured regions are obscuring parts of the image that you need to see:</strong>
             <ul>

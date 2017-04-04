@@ -32,5 +32,18 @@ def labelling_tool(width, height, label_classes, image_descriptors, initial_imag
             }
 
 @register.inclusion_tag('inline/instructions.html')
-def labelling_tool_instructions():
-    return {}
+def labelling_tool_instructions(config=None):
+    tools = {
+        'imageSelector': True,
+        'labelClassSelector': True,
+        'brushSelect': True,
+        'drawPointLabel': True,
+        'drawBoxLabel': True,
+        'drawPolyLabel': True,
+        'compositeLabel': True,
+        'groupLabel': True,
+        'deleteLabel': True,
+    }
+    if config is not None:
+        tools.update(config.get('tools'))
+    return tools

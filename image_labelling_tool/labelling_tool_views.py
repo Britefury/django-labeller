@@ -39,14 +39,16 @@ class LabellingToolView (View):
     ...         # Lets assume that the label data has been incorporated into the `Image` class:
     ...         labels_metadata = {
     ...             'complete': image.complete,
+    ...             'timeElapsed': image.edit_time_elapsed,
     ...             'labels': image.labels_json,
     ...             'state': ('locked' if image.in_use else 'editable')
     ...         }
     ...         return labels_metadata
     ...
-    ...     def update_labels(self, request, image_id_str, labels, complete, *args, **kwargs):
+    ...     def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
     ...         image = models.Image.get(id=int(image_id_string))
     ...         image.complete = complete
+    ...         image.edit_time_elapsed = time_elapsed
     ...         image.labels_json = labels
     ...         image.save()
     """
@@ -77,7 +79,7 @@ class LabellingToolView (View):
                 labels_header = {
                     'image_id': image_id_str,
                     'complete': labels.complete,
-                    'timeElapsed': 0.0,
+                    'timeElapsed': labels.edit_time_elapsed,
                     'state': 'editable',
                     'labels': labels.labels_json,
                 }
@@ -85,7 +87,7 @@ class LabellingToolView (View):
                 labels_header = {
                     'image_id': image_id_str,
                     'complete': labels['complete'],
-                    'timeElapsed': 0.0,
+                    'timeElapsed': labels.get('edit_time_elapsed', 0.0),
                     'state': labels.get('state', 'editable'),
                     'labels': labels['labels'],
                 }
@@ -187,7 +189,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
             labels_header = {
                 'image_id': image_id_str,
                 'complete': labels.complete,
-                'timeElapsed': 0.0,
+                'timeElapsed': labels.edit_time_elapsed,
                 'state': state,
                 'labels': labels.labels_json,
             }

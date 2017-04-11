@@ -50,12 +50,26 @@ class Labels (models.Model):
         return set(label_classes)
 
     def update_labels(self, labels_json, complete, time_elapsed, user, save=False, check_lock=False):
+        # Verify time elapsed is within the bounds of possibility
+        current_time = timezone.now()
+        dt_since_last_mod = (current_time - self.last_modified_datetime).total_seconds()
+        # Allow to either double the time since last modification or time since last modification plus 1 minute
+        # to account for potential latency in delivery of last edit
+        permitted_dt = max(dt_since_last_mod * 2.0, dt_since_last_mod + 60.0)
+        permitted_time = self.edit_time_elapsed + permitted_dt
+        if time_elapsed > permitted_time:
+            print('WARNING: rejecting time_elapsed: '
+                  'self.edit_time_elapsed={}, time_elapsed={}, permitted_time={}'.format(
+                        self.edit_time_elapsed, time_elapsed, permitted_time
+            ))
+        elif time_elapsed >= self.edit_time_elapsed:
+            self.edit_time_elapsed = time_elapsed
+
         if check_lock:
             if self.is_locked_to(user):
                 raise LabelsLockedError
         self.labels_json = labels_json
         self.complete = complete
-        self.edit_time_elapsed += time_elapsed
         if user.is_authenticated():
             self.last_modified_by = user
         else:

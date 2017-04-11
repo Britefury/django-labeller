@@ -16,6 +16,9 @@ class Labels (models.Model):
     # Creation date
     creation_date = models.DateField()
 
+    # Time elapsed during editing, in seconds
+    edit_time_elapsed = models.FloatField(default=0.0, blank=True)
+
     # Last modification user and datetime
     last_modified_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name='modified_labels', null=True, default=None)
@@ -46,12 +49,13 @@ class Labels (models.Model):
         label_classes = [x['label_class']   for x in self.labels_json]
         return set(label_classes)
 
-    def update_labels(self, labels_json, complete, user, save=False, check_lock=False):
+    def update_labels(self, labels_json, complete, time_elapsed, user, save=False, check_lock=False):
         if check_lock:
             if self.is_locked_to(user):
                 raise LabelsLockedError
         self.labels_json = labels_json
         self.complete = complete
+        self.edit_time_elapsed += time_elapsed
         if user.is_authenticated():
             self.last_modified_by = user
         else:

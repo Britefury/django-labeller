@@ -53,9 +53,9 @@ class LabellingToolView (View):
     def get_labels(self, request, image_id_str, *args, **kwargs):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def update_labels(self, request, image_id_str, labels, complete, *args, **kwargs):
+    def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
         labels = self.get_labels(request, image_id_str, *args, **kwargs)
-        labels.update_labels(labels, complete, request.user, save=True, check_lock=False)
+        labels.update_labels(labels, complete, time_elapsed, request.user, save=True, check_lock=False)
 
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):
@@ -68,6 +68,7 @@ class LabellingToolView (View):
                 labels_header = {
                     'image_id': image_id_str,
                     'complete': False,
+                    'timeElapsed': 0.0,
                     'state': 'editable',
                     'labels': [],
                 }
@@ -76,6 +77,7 @@ class LabellingToolView (View):
                 labels_header = {
                     'image_id': image_id_str,
                     'complete': labels.complete,
+                    'timeElapsed': 0.0,
                     'state': 'editable',
                     'labels': labels.labels_json,
                 }
@@ -83,6 +85,7 @@ class LabellingToolView (View):
                 labels_header = {
                     'image_id': image_id_str,
                     'complete': labels['complete'],
+                    'timeElapsed': 0.0,
                     'state': labels.get('state', 'editable'),
                     'labels': labels['labels'],
                 }
@@ -100,10 +103,11 @@ class LabellingToolView (View):
         labels = json.loads(request.POST['labels'])
         image_id = labels['image_id']
         complete = labels['complete']
+        time_elapsed = labels['timeElapsed']
         label_data = labels['labels']
 
         try:
-            self.update_labels(request, str(image_id), label_data, complete, *args, **kwargs)
+            self.update_labels(request, str(image_id), label_data, complete, time_elapsed, *args, **kwargs)
         except models.LabelsLockedError:
             return JsonResponse({'error': 'locked'})
         else:
@@ -149,10 +153,10 @@ class LabellingToolViewWithLocking (LabellingToolView):
     def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def update_labels(self, request, image_id_str, labels_js, complete, *args, **kwargs):
+    def update_labels(self, request, image_id_str, labels_js, complete, time_elapsed, *args, **kwargs):
         expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
         labels = self.get_labels(request, image_id_str, *args, **kwargs)
-        labels.update_labels(labels_js, complete, request.user, check_lock=True, save=False)
+        labels.update_labels(labels_js, complete, time_elapsed, request.user, check_lock=True, save=False)
         if request.user.is_authenticated():
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)
         labels.save()
@@ -183,6 +187,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
             labels_header = {
                 'image_id': image_id_str,
                 'complete': labels.complete,
+                'timeElapsed': 0.0,
                 'state': state,
                 'labels': labels.labels_json,
             }

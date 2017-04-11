@@ -52,6 +52,7 @@ var labelling_tool;
     labelling_tool.replace_label_header_labels = function (label_header, labels) {
         return { image_id: label_header.image_id,
             complete: label_header.complete,
+            timeElapsed: label_header.timeElapsed,
             state: label_header.state,
             labels: labels };
     };
@@ -70,15 +71,17 @@ var labelling_tool;
             config = config || {};
             this._config = config;
             config.tools = config.tools || {};
-            labelling_tool.ensure_flag_exists(config.tools, 'imageSelector', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'labelClassSelector', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'brushSelect', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'drawPointLabel', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'drawBoxLabel', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'drawPolyLabel', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'compositeLabel', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'groupLabel', true);
-            labelling_tool.ensure_flag_exists(config.tools, 'deleteLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'labelClassSelector', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'brushSelect', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'drawPointLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
+            config.settings = config.settings || {};
+            labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             /*
             Entity event listener
              */
@@ -104,6 +107,7 @@ var labelling_tool;
                 },
                 // Root list changed; queue push
                 root_list_changed: function (root_view) {
+                    _this._commitStopwatch();
                     _this.queue_push_label_data();
                 }
             };
@@ -111,6 +115,7 @@ var labelling_tool;
             var initial_model = {
                 image_id: '',
                 complete: false,
+                timeElapsed: 0.0,
                 state: 'editable',
                 labels: []
             };
@@ -139,6 +144,10 @@ var labelling_tool;
             this._image_loaded = false;
             this._labels_loaded = false;
             this._image_initialised = false;
+            // Stopwatch
+            this._stopwatchStart = null;
+            this._stopwatchCurrent = null;
+            this._stopwatchHandle = null;
             // Data request callback; labelling tool will call this when it needs a new image to show
             this._requestLabelsCallback = requestLabelsCallback;
             // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
@@ -457,6 +466,7 @@ var labelling_tool;
             //
             // Click
             this.world.on("click", function () {
+                self.notifyStopwatchChanges();
                 var click_event = d3.event;
                 if (click_event.button === 0) {
                     // Left click; send to tool
@@ -470,6 +480,7 @@ var labelling_tool;
             });
             // Button press
             this.world.on("mousedown", function () {
+                self.notifyStopwatchChanges();
                 var button_event = d3.event;
                 if (button_event.button === 0) {
                     // Left button down
@@ -493,6 +504,7 @@ var labelling_tool;
             });
             // Button press
             this.world.on("mouseup", function () {
+                self.notifyStopwatchChanges();
                 var button_event = d3.event;
                 if (button_event.button === 0) {
                     // Left buton up
@@ -507,6 +519,7 @@ var labelling_tool;
             });
             // Mouse on_move
             this.world.on("mousemove", function () {
+                self.notifyStopwatchChanges();
                 var move_event = d3.event;
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
                 if (self._button_down) {
@@ -534,6 +547,7 @@ var labelling_tool;
             });
             // Mouse wheel
             this.world.on("mousewheel", function () {
+                self.notifyStopwatchChanges();
                 var wheel_event = d3.event;
                 var handled = false;
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
@@ -547,6 +561,7 @@ var labelling_tool;
                 }
             });
             var on_mouse_out = function (pos, width, height) {
+                self.notifyStopwatchChanges();
                 var mouse_event = d3.event;
                 if (self._mouse_within) {
                     if (pos.x < 0.0 || pos.x > width || pos.y < 0.0 || pos.y > height) {
@@ -573,6 +588,7 @@ var labelling_tool;
             // Global key handler
             if (!LabellingTool._global_key_handler_connected) {
                 d3.select("body").on("keydown", function () {
+                    self.notifyStopwatchChanges();
                     if (LabellingTool._global_key_handler !== null) {
                         var key_event = d3.event;
                         var handled = LabellingTool._global_key_handler(key_event);
@@ -660,7 +676,13 @@ var labelling_tool;
             else {
                 this._image_initialised = false;
             }
-            this.root_view.set_model({ image_id: "", complete: false, state: 'editable', labels: [] });
+            this.root_view.set_model({
+                image_id: "",
+                complete: false,
+                timeElapsed: 0.0,
+                state: 'editable',
+                labels: []
+            });
             this._complete_checkbox[0].checked = false;
             this._image_index_input.val("");
             this.set_current_tool(null);
@@ -739,6 +761,47 @@ var labelling_tool;
             else if (msg.error === 'locked') {
                 // Lock controls
                 this.lockLabels();
+            }
+        };
+        LabellingTool.prototype.notifyStopwatchChanges = function () {
+            var self = this;
+            var current = new Date().getTime();
+            // Start the stopwatch if its not going
+            if (this._stopwatchStart === null) {
+                this._stopwatchStart = current;
+            }
+            this._stopwatchCurrent = current;
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
+            this._stopwatchHandle = setTimeout(function () {
+                self._onStopwatchInactivity();
+            }, this._config.settings.inactivityTimeoutMS);
+        };
+        LabellingTool.prototype._onStopwatchInactivity = function () {
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
+            var elapsed = this._stopwatchCurrent - this._stopwatchStart;
+            this._stopwatchStart = this._stopwatchCurrent = null;
+            this._notifyStopwatchElapsed(elapsed);
+        };
+        LabellingTool.prototype._notifyStopwatchElapsed = function (elapsed) {
+            var t = this.root_view.model.timeElapsed;
+            if (t === undefined || t === null) {
+                t = 0.0;
+            }
+            t += (elapsed * 0.001);
+            this.root_view.model.timeElapsed = t;
+        };
+        LabellingTool.prototype._commitStopwatch = function () {
+            if (this._stopwatchStart !== null) {
+                var current = new Date().getTime();
+                var elapsed = current - this._stopwatchStart;
+                this._notifyStopwatchElapsed(elapsed);
+                this._stopwatchStart = this._stopwatchCurrent = current;
             }
         };
         LabellingTool.prototype.lockLabels = function () {

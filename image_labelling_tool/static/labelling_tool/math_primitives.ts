@@ -34,7 +34,7 @@ module labelling_tool {
         y: number;
     }
 
-    export function ensure_flag_exists(x: any, flag_name: string, default_value: any) {
+    export function ensure_config_option_exists(x: any, flag_name: string, default_value: any) {
         var v = x[flag_name];
         if (v === undefined) {
             x[flag_name] = default_value;

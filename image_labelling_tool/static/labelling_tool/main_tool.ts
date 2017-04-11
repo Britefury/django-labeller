@@ -64,6 +64,7 @@ module labelling_tool {
     export interface LabelHeaderModel {
         image_id: string,
         complete: boolean,
+        timeElapsed: number,
         state: string,
         labels: any[],
     }
@@ -81,6 +82,7 @@ module labelling_tool {
     export var replace_label_header_labels = function(label_header: LabelHeaderModel, labels: any[]): LabelHeaderModel {
         return {image_id: label_header.image_id,
                 complete: label_header.complete,
+                timeElapsed: label_header.timeElapsed,
                 state: label_header.state,
                 labels: labels};
     };
@@ -117,6 +119,9 @@ module labelling_tool {
         private _image_initialised: boolean;
         private _image_loaded: boolean;
         private _labels_loaded: boolean;
+        private _stopwatchStart: number;
+        private _stopwatchCurrent: number;
+        private _stopwatchHandle: any;
 
 
         private _pushDataTimeout: any;
@@ -164,15 +169,18 @@ module labelling_tool {
             this._config = config;
 
             config.tools = config.tools || {};
-            ensure_flag_exists(config.tools, 'imageSelector', true);
-            ensure_flag_exists(config.tools, 'labelClassSelector', true);
-            ensure_flag_exists(config.tools, 'brushSelect', true);
-            ensure_flag_exists(config.tools, 'drawPointLabel', true);
-            ensure_flag_exists(config.tools, 'drawBoxLabel', true);
-            ensure_flag_exists(config.tools, 'drawPolyLabel', true);
-            ensure_flag_exists(config.tools, 'compositeLabel', true);
-            ensure_flag_exists(config.tools, 'groupLabel', true);
-            ensure_flag_exists(config.tools, 'deleteLabel', true);
+            ensure_config_option_exists(config.tools, 'imageSelector', true);
+            ensure_config_option_exists(config.tools, 'labelClassSelector', true);
+            ensure_config_option_exists(config.tools, 'brushSelect', true);
+            ensure_config_option_exists(config.tools, 'drawPointLabel', true);
+            ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
+            ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
+            ensure_config_option_exists(config.tools, 'compositeLabel', true);
+            ensure_config_option_exists(config.tools, 'groupLabel', true);
+            ensure_config_option_exists(config.tools, 'deleteLabel', true);
+
+            config.settings = config.settings || {};
+            ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
 
 
             /*
@@ -202,6 +210,7 @@ module labelling_tool {
                 },
                 // Root list changed; queue push
                 root_list_changed: (root_view: RootLabelView): void => {
+                    this._commitStopwatch();
                     this.queue_push_label_data();
                 }
             };
@@ -211,6 +220,7 @@ module labelling_tool {
             var initial_model: LabelHeaderModel = {
                 image_id: '',
                 complete: false,
+                timeElapsed: 0.0,
                 state: 'editable',
                 labels: []
             };
@@ -244,6 +254,11 @@ module labelling_tool {
             this._image_loaded = false;
             this._labels_loaded = false;
             this._image_initialised = false;
+
+            // Stopwatch
+            this._stopwatchStart = null;
+            this._stopwatchCurrent = null;
+            this._stopwatchHandle = null;
 
             // Data request callback; labelling tool will call this when it needs a new image to show
             this._requestLabelsCallback = requestLabelsCallback;
@@ -639,6 +654,7 @@ module labelling_tool {
 
             // Click
             this.world.on("click", () => {
+                self.notifyStopwatchChanges();
                 var click_event: any = d3.event;
                 if (click_event.button === 0) {
                     // Left click; send to tool
@@ -654,6 +670,7 @@ module labelling_tool {
 
             // Button press
             this.world.on("mousedown", () => {
+                self.notifyStopwatchChanges();
                 var button_event: any = d3.event;
                 if (button_event.button === 0) {
                     // Left button down
@@ -678,6 +695,7 @@ module labelling_tool {
 
             // Button press
             this.world.on("mouseup", () => {
+                self.notifyStopwatchChanges();
                 var button_event: any = d3.event;
                 if (button_event.button === 0) {
                     // Left buton up
@@ -693,6 +711,7 @@ module labelling_tool {
 
             // Mouse on_move
             this.world.on("mousemove", () => {
+                self.notifyStopwatchChanges();
                 var move_event: any = d3.event;
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
                 if (self._button_down) {
@@ -723,6 +742,7 @@ module labelling_tool {
 
             // Mouse wheel
             this.world.on("mousewheel", () => {
+                self.notifyStopwatchChanges();
                 var wheel_event: any = d3.event;
                 var handled = false;
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
@@ -739,6 +759,7 @@ module labelling_tool {
 
 
             var on_mouse_out = (pos: Vector2, width: number, height: number) => {
+                self.notifyStopwatchChanges();
                 var mouse_event: any = d3.event;
                 if (self._mouse_within) {
                     if (pos.x < 0.0 || pos.x > width || pos.y < 0.0 || pos.y > height) {
@@ -770,6 +791,7 @@ module labelling_tool {
             // Global key handler
             if (!LabellingTool._global_key_handler_connected) {
                 d3.select("body").on("keydown", function () {
+                    self.notifyStopwatchChanges();
                     if (LabellingTool._global_key_handler !== null) {
                         var key_event: any = d3.event;
                         var handled = LabellingTool._global_key_handler(key_event);
@@ -864,7 +886,13 @@ module labelling_tool {
                 this._image_initialised = false;
             }
 
-            this.root_view.set_model({image_id: "", complete: false, state: 'editable', labels: []});
+            this.root_view.set_model({
+                image_id: "",
+                complete: false,
+                timeElapsed: 0.0,
+                state: 'editable',
+                labels: []
+            });
             (this._complete_checkbox[0] as any).checked = false;
             this._image_index_input.val("");
             this.set_current_tool(null);
@@ -957,6 +985,54 @@ module labelling_tool {
             else if (msg.error === 'locked') {
                 // Lock controls
                 this.lockLabels();
+            }
+        }
+
+        notifyStopwatchChanges() {
+            var self = this;
+            var current = new Date().getTime();
+
+            // Start the stopwatch if its not going
+            if (this._stopwatchStart === null) {
+                this._stopwatchStart = current;
+            }
+            this._stopwatchCurrent = current;
+
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
+            this._stopwatchHandle = setTimeout(function() {
+                self._onStopwatchInactivity();
+            }, this._config.settings.inactivityTimeoutMS);
+        }
+
+        _onStopwatchInactivity() {
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
+
+            var elapsed: number = this._stopwatchCurrent - this._stopwatchStart;
+            this._stopwatchStart = this._stopwatchCurrent = null;
+            this._notifyStopwatchElapsed(elapsed);
+        }
+
+        _notifyStopwatchElapsed(elapsed: number) {
+            var t = this.root_view.model.timeElapsed;
+            if (t === undefined || t === null) {
+                t = 0.0;
+            }
+            t += (elapsed * 0.001);
+            this.root_view.model.timeElapsed = t;
+        }
+
+        _commitStopwatch() {
+            if (this._stopwatchStart !== null) {
+                var current = new Date().getTime();
+                var elapsed = current - this._stopwatchStart;
+                this._notifyStopwatchElapsed(elapsed);
+                this._stopwatchStart = this._stopwatchCurrent = current;
             }
         }
 

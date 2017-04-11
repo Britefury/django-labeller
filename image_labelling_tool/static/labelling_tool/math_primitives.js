@@ -26,14 +26,14 @@ Dr. M. Mackiewicz.
  */
 var labelling_tool;
 (function (labelling_tool) {
-    function ensure_flag_exists(x, flag_name, default_value) {
+    function ensure_config_option_exists(x, flag_name, default_value) {
         var v = x[flag_name];
         if (v === undefined) {
             x[flag_name] = default_value;
         }
         return x[flag_name];
     }
-    labelling_tool.ensure_flag_exists = ensure_flag_exists;
+    labelling_tool.ensure_config_option_exists = ensure_config_option_exists;
     function compute_centroid_of_points(vertices) {
         var sum = [0.0, 0.0];
         var N = vertices.length;

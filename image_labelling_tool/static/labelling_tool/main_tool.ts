@@ -893,6 +893,7 @@ module labelling_tool {
                 state: 'editable',
                 labels: []
             });
+            this._resetStopwatch();
             (this._complete_checkbox[0] as any).checked = false;
             this._image_index_input.val("");
             this.set_current_tool(null);
@@ -924,6 +925,7 @@ module labelling_tool {
 
             // Update the image SVG element
             this.root_view.set_model(label_header);
+            this._resetStopwatch();
 
             this._update_image_index_input_by_id(this.root_view.model.image_id);
 
@@ -1016,6 +1018,15 @@ module labelling_tool {
             var elapsed: number = this._stopwatchCurrent - this._stopwatchStart;
             this._stopwatchStart = this._stopwatchCurrent = null;
             this._notifyStopwatchElapsed(elapsed);
+        }
+
+        _resetStopwatch() {
+            this._stopwatchStart = this._stopwatchCurrent = null;
+
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
         }
 
         _notifyStopwatchElapsed(elapsed: number) {

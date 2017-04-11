@@ -683,6 +683,7 @@ var labelling_tool;
                 state: 'editable',
                 labels: []
             });
+            this._resetStopwatch();
             this._complete_checkbox[0].checked = false;
             this._image_index_input.val("");
             this.set_current_tool(null);
@@ -710,6 +711,7 @@ var labelling_tool;
             }
             // Update the image SVG element
             this.root_view.set_model(label_header);
+            this._resetStopwatch();
             this._update_image_index_input_by_id(this.root_view.model.image_id);
             if (this.root_view.model.state === 'locked') {
                 this.lockLabels();
@@ -787,6 +789,13 @@ var labelling_tool;
             var elapsed = this._stopwatchCurrent - this._stopwatchStart;
             this._stopwatchStart = this._stopwatchCurrent = null;
             this._notifyStopwatchElapsed(elapsed);
+        };
+        LabellingTool.prototype._resetStopwatch = function () {
+            this._stopwatchStart = this._stopwatchCurrent = null;
+            if (this._stopwatchHandle !== null) {
+                clearTimeout(this._stopwatchHandle);
+                this._stopwatchHandle = null;
+            }
         };
         LabellingTool.prototype._notifyStopwatchElapsed = function (elapsed) {
             var t = this.root_view.model.timeElapsed;

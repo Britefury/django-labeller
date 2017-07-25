@@ -675,10 +675,10 @@ class InMemoryLabelledImage (AbsractLabelledImage):
 
 
 class PersistentLabelledImage (AbsractLabelledImage):
-    def __init__(self, path, labels_dir=None, readonly=False):
+    def __init__(self, image_path, labels_path, readonly=False):
         super(PersistentLabelledImage, self).__init__()
-        self.__labels_path = self.__compute_labels_path(path, labels_dir=labels_dir)
-        self.__image_path = path
+        self.__image_path = image_path
+        self.__labels_path = labels_path
         self.__pixels = None
 
         self.__labels = None
@@ -794,11 +794,12 @@ class PersistentLabelledImage (AbsractLabelledImage):
     @classmethod
     def for_directory(cls, dir_path, image_filename_pattern='*.png', with_labels_only=False, labels_dir=None, readonly=False):
         image_paths = glob.glob(os.path.join(dir_path, image_filename_pattern))
-        if with_labels_only:
-            return [PersistentLabelledImage(img_path, labels_dir=labels_dir, readonly=readonly)   for img_path in image_paths   if os.path.exists(cls.__compute_labels_path(img_path))]
-        else:
-            return [PersistentLabelledImage(img_path, labels_dir=labels_dir, readonly=readonly)   for img_path in image_paths]
-
+        limgs = []
+        for img_path in image_paths:
+            labels_path = cls.__compute_labels_path(img_path, labels_dir=labels_dir)
+            if not with_labels_only or os.path.exists(labels_path):
+                limgs.append(PersistentLabelledImage(img_path, labels_path, readonly=readonly))
+        return limgs
 
 
 class LabelledImageFile (AbsractLabelledImage):

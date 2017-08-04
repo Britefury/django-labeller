@@ -89,7 +89,7 @@ def label_class(name, human_name, rgb):
 
 def image_descriptor(image_id, url=None, width=None, height=None):
     return {'image_id': str(image_id),
-            'img_url': str(url),
+            'img_url': str(url) if url is not None else None,
             'width': width,
             'height': height,}
 

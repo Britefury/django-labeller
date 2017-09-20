@@ -1,3 +1,4 @@
+six
 numpy>=1.9
 scikit-image>=0.10
 pillow>=2.7

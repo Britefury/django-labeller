@@ -18,6 +18,31 @@ API usage is demonstrated further down.
 An example Flask-based web app is provided that displays the labelling tool within a web page. To start it,
 run `python flask_app.py` and open `127.0.0.1:5000` within a browser.
 
+### Django web app example
+
+The example Django-based web app provides a little more functionality than the Flask app. It stores the label
+data in a database (only SQLite in the example) and does basic image locking so that multiple users cannot work
+on the same image at the same time.
+
+To initialise, first perform migrations:
+
+```
+> python tests/manage.py migrate
+```
+
+Then populate the database with the example images in the `images` directory (replace `images` with something
+else if you wish to use different images):
+
+```
+> python tests/manage.py populate images
+```
+
+Then run the app:
+
+```
+> python tests/manage.py runserver
+```
+
 
 ### Libraries, Credits and License
 

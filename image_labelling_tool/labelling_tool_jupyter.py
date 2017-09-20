@@ -25,7 +25,7 @@
 
 
 
-import base64, json, sys
+import base64, json, sys, six
 
 from ipywidgets import widgets
 
@@ -82,7 +82,7 @@ class ImageLabellingTool (widgets.DOMWidget):
         if labelling_tool_config is None:
             labelling_tool_config = {}
 
-        image_ids = [str(i)   for i in xrange(len(labelled_images))]
+        image_ids = [str(i)   for i in range(len(labelled_images))]
         self.__images = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
         self.__changing = False
 
@@ -116,6 +116,9 @@ class ImageLabellingTool (widgets.DOMWidget):
             data, mimetype, width, height = image.data_and_mime_type_and_size()
 
             data_b64 = base64.b64encode(data)
+
+            if sys.version_info[0] == 3:
+                data_b64 = data_b64.decode('us-ascii')
 
             self.label_data = image.labels_json
 

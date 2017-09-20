@@ -24,7 +24,7 @@
 # Dr. M. Mackiewicz.
 
 
-import mimetypes, json, os, glob, copy, io, math
+import mimetypes, json, os, glob, copy, io, math, six
 
 import numpy as np
 
@@ -74,7 +74,7 @@ class LabelClass (object):
         self.human_name = human_name
         colour = list(colour)
         if len(colour) != 3:
-            raise TypeError, 'colour must be a tuple or list of length 3'
+            raise TypeError('colour must be a tuple or list of length 3')
         self.colour = colour
 
 
@@ -166,7 +166,7 @@ class ImageLabels (object):
             polygon = [[v['x'], v['y']] for v in vertices]
             polygon = xform_fn(np.array(polygon))
             transformed_verts = [{'x': polygon[i, 0], 'y': polygon[i, 1]}
-                                 for i in xrange(len(polygon))]
+                                 for i in range(len(polygon))]
             label['vertices'] = transformed_verts
         elif label_type == 'composite':
             # Nothing to do
@@ -176,7 +176,7 @@ class ImageLabels (object):
             for model in label['component_models']:
                 self._warp_label(model, xform_fn)
         else:
-            raise TypeError, 'Unknown label type {0}'.format(label_type)
+            raise TypeError('Unknown label type {0}'.format(label_type))
 
     def warp(self, xform_fn):
         """
@@ -257,7 +257,7 @@ class ImageLabels (object):
         elif label_type == 'composite':
             pass
         else:
-            raise TypeError, 'Unknown label type {0}'.format(label_type)
+            raise TypeError('Unknown label type {0}'.format(label_type))
 
         if img is not None:
             # Convert to NumPy array
@@ -305,7 +305,7 @@ class ImageLabels (object):
         elif label_type == 'composite':
             return None
         else:
-            raise TypeError, 'Unknown label type {0}'.format(label_type)
+            raise TypeError('Unknown label type {0}'.format(label_type))
 
 
     def render_labels(self, label_classes, image_shape, pixels_as_vectors=False, fill=True, point_radius=4.0):
@@ -327,20 +327,23 @@ class ImageLabels (object):
             for i, cls in enumerate(label_classes):
                 if isinstance(cls, LabelClass):
                     cls_to_index[cls.name] = i
-                elif isinstance(cls, str)  or  isinstance(cls, unicode)  or  cls is None:
+                elif isinstance(cls, six.string_types)  or  cls is None:
                     cls_to_index[cls] = i
                 elif isinstance(cls, list)  or  isinstance(cls, tuple):
                     for c in cls:
                         if isinstance(c, LabelClass):
                             cls_to_index[c.name] = i
-                        elif isinstance(c, str)  or  isinstance(c, unicode)  or  c is None:
+                        elif isinstance(c, six.string_types)  or  c is None:
                             cls_to_index[c] = i
                         else:
-                            raise TypeError, 'Item {0} in label_classes is a list that contains an item that is not a LabelClass or a string but a {1}'.format(i, type(c).__name__)
+                            raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
+                                            'LabelClass or a string but a {1}'.format(i, type(c).__name__))
                 else:
-                    raise TypeError, 'Item {0} in label_classes is not a LabelClass, string or list, but a {1}'.format(i, type(cls).__name__)
+                    raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
+                                    'but a {1}'.format(i, type(cls).__name__))
         else:
-            raise TypeError, 'label_classes must be a sequence that can contain LabelClass instances, strings or sub-sequences of the former'
+            raise TypeError('label_classes must be a sequence that can contain LabelClass instances, strings or '
+                            'sub-sequences of the former')
 
 
         height, width = image_shape
@@ -388,20 +391,23 @@ class ImageLabels (object):
             for i, cls in enumerate(label_classes):
                 if isinstance(cls, LabelClass):
                     cls_to_channel[cls.name] = i
-                elif isinstance(cls, str)  or  isinstance(cls, unicode)  or  cls is None:
+                elif isinstance(cls, six.string_types)  or  cls is None:
                     cls_to_channel[cls] = i
                 elif isinstance(cls, list)  or  isinstance(cls, tuple):
                     for c in cls:
                         if isinstance(c, LabelClass):
                             cls_to_channel[c.name] = i
-                        elif isinstance(c, str)  or  isinstance(c, unicode):
+                        elif isinstance(c, six.string_types):
                             cls_to_channel[c] = i
                         else:
-                            raise TypeError, 'Item {0} in label_classes is a list that contains an item that is not a LabelClass or a string but a {1}'.format(i, type(c).__name__)
+                            raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
+                                            'LabelClass or a string but a {1}'.format(i, type(c).__name__))
                 else:
-                    raise TypeError, 'Item {0} in label_classes is not a LabelClass, string or list, but a {1}'.format(i, type(cls).__name__)
+                    raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
+                                    'but a {1}'.format(i, type(cls).__name__))
         else:
-            raise TypeError, 'label_classes must be a sequence that can contain LabelClass instances, strings or sub-sequences of the former'
+            raise TypeError('label_classes must be a sequence that can contain LabelClass instances, strings or '
+                            'sub-sequences of the former')
 
 
         height, width = image_shape
@@ -487,7 +493,7 @@ class ImageLabels (object):
         if not isinstance(label_classes, list):
             label_classes = [label_classes] * len(list_of_contours)
         for contour, lcls in zip(list_of_contours, label_classes):
-            vertices = [{'x': contour[i][1], 'y': contour[i][0]}   for i in xrange(contour.shape[0])]
+            vertices = [{'x': contour[i][1], 'y': contour[i][0]}   for i in range(len(contour))]
             label = {
                 'label_type': 'polygon',
                 'label_class': lcls,
@@ -508,7 +514,7 @@ class ImageLabels (object):
         :return: an `ImageLabels` instance containing the labels extracted from the label mask image
         """
         contours = []
-        for i in xrange(1, labels.max()+1):
+        for i in range(1, labels.max()+1):
             lmask = labels == i
 
             if lmask.sum() > 0:
@@ -780,7 +786,8 @@ class PersistentLabelledImage (AbsractLabelledImage):
         elif isinstance(wrapped_labels, list):
             return ImageLabels(wrapped_labels), False
         else:
-            raise TypeError, 'Labels loaded from file must either be a dict or a list, not a {0}'.format(type(wrapped_labels))
+            raise TypeError('Labels loaded from file must either be a dict or a list, '
+                            'not a {0}'.format(type(wrapped_labels)))
 
 
     @staticmethod

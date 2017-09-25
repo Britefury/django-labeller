@@ -8,6 +8,9 @@
         <script src="/ext_static/jquery/jquery-ui.min.js"></script>
 
         <script src="/static/d3.min.js"></script>
+        {% if use_websockets %}
+            <script src="/static/socket.io.min.js"></script>
+        {% endif %}
         <script src="/static/json2.js"></script>
         <script src="/static/polyk.js"></script>
         {% for js_url in tool_js_urls %}
@@ -114,38 +117,70 @@
         </ul>
 
 
+    {% if use_websockets %}
+        <h3>Using websockets</h3>
+    {% else %}
+        <h3>Not using websockets</h3>
+    {% endif %}
+
+
+
+
     <script>
         // get image descriptor callback function
-        var get_labels = function(image_id) {
-            $.ajax({
-                type: 'GET',
-                url: '/labelling/get_labels/' + image_id,
-                success: function(label_header) {
-                    tool.loadLabels(label_header, null);
-                },
-                dataType: 'json'
+        {% if use_websockets %}
+            var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+            socket.on('get_labels_reply', function(label_header) {
+                tool.loadLabels(label_header, null);
             });
-        };
 
-        // set labels callback function
-        var set_labels = function(label_header) {
-            var labels_json_str = JSON.stringify(label_header);
+            socket.on('set_labels_reply', function(msg) {
+                tool.notifyLabelUpdateResponse(msg);
+            });
 
-            // Create the POST data
-            var post_data = {
-                labels: labels_json_str
+            var get_labels = function(image_id) {
+                socket.emit('get_labels', {image_id: image_id});
             };
 
-            $.ajax({
-                type: 'POST',
-                url: '/labelling/set_labels',
-                data: post_data,
-                success: function(msg) {
-                    tool.notifyLabelUpdateResponse(msg);
-                },
-                dataType: 'json'
-            });
-        };
+            // set labels callback function
+            var set_labels = function(label_header) {
+                socket.emit('set_labels', {label_header: label_header});
+            };
+
+
+        {% else %}
+            var get_labels = function(image_id) {
+                $.ajax({
+                    type: 'GET',
+                    url: '/labelling/get_labels/' + image_id,
+                    success: function(label_header) {
+                        tool.loadLabels(label_header, null);
+                    },
+                    dataType: 'json'
+                });
+            };
+
+            // set labels callback function
+            var set_labels = function(label_header) {
+                var labels_json_str = JSON.stringify(label_header);
+
+                // Create the POST data
+                var post_data = {
+                    labels: labels_json_str
+                };
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/labelling/set_labels',
+                    data: post_data,
+                    success: function(msg) {
+                        tool.notifyLabelUpdateResponse(msg);
+                    },
+                    dataType: 'json'
+                });
+            };
+        {% endif %}
 
         // Create the labelling tool
         // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above

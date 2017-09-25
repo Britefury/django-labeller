@@ -22,18 +22,22 @@
 #
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
-import argparse
-import json
+import click
 
-from flask import Flask, render_template, request, make_response, send_from_directory
+@click.command()
+@click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
+@click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
+def run_app(slic, readonly):
+    import json
 
-from image_labelling_tool import labelling_tool
+    from flask import Flask, render_template, request, make_response, send_from_directory
+    try:
+        from flask_socketio import SocketIO, emit as socketio_emit
+    except ImportError:
+        SocketIO = None
+        socketio_emit = None
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Image labelling tool - Flask app')
-    parser.add_argument('--slic', action='store_true', help='Use SLIC segmentation to generate initial labels')
-    parser.add_argument('--readonly', action='store_true', help='Don\'t persist changes to disk')
-    args = parser.parse_args()
+    from image_labelling_tool import labelling_tool
 
     # Specify our 3 label classes.
     # `LabelClass` parameters are: symbolic name, human readable name for UI, and RGB colour as list
@@ -41,17 +45,17 @@ if __name__ == '__main__':
                      labelling_tool.LabelClass('building', 'Buldings', [255, 128, 0]),
                      labelling_tool.LabelClass('lake', 'Lake', [0, 128, 255]),
                      ]
-    if args.slic:
+    if slic:
         import glob
         from matplotlib import pyplot as plt
-        from skimage.segmentation import slic
+        from skimage.segmentation import slic as slic_segment
 
         labelled_images = []
         for path in glob.glob('images/*.jpg'):
             print('Segmenting {0}'.format(path))
             img = plt.imread(path)
-            # slic_labels = slic(img, 1000, compactness=20.0)
-            slic_labels = slic(img, 1000, slic_zero=True) + 1
+            # slic_labels = slic_segment(img, 1000, compactness=20.0)
+            slic_labels = slic_segment(img, 1000, slic_zero=True) + 1
 
             print('Converting SLIC labels to vector labels...')
             labels = labelling_tool.ImageLabels.from_label_image(slic_labels)
@@ -61,7 +65,7 @@ if __name__ == '__main__':
 
         print('Segmented {0} images'.format(len(labelled_images)))
     else:
-        readonly = args.readonly
+        readonly = readonly
         # Load in .JPG images from the 'images' directory.
         labelled_images = labelling_tool.PersistentLabelledImage.for_directory('images', image_filename_pattern='*.jpg',
                                                                                readonly=readonly)
@@ -85,6 +89,11 @@ if __name__ == '__main__':
 
 
     app = Flask(__name__, static_folder='image_labelling_tool/static')
+    if SocketIO is not None:
+        print('Using web sockets')
+        socketio = SocketIO(app)
+    else:
+        socketio = None
 
 
     config = {
@@ -106,39 +115,75 @@ if __name__ == '__main__':
                                label_classes=json.dumps(label_classes_json),
                                image_descriptors=json.dumps(image_descriptors),
                                initial_image_index=0,
-                               config=json.dumps(config))
+                               config=json.dumps(config),
+                               use_websockets=socketio is not None)
 
 
-    @app.route('/labelling/get_labels/<image_id>')
-    def get_labels(image_id):
-        image = images_table[image_id]
+    if socketio is not None:
+        @socketio.on('get_labels')
+        def handle_get_labels(arg_js):
+            image_id = arg_js['image_id']
 
-        labels = image.labels_json
-        complete = False
+            image = images_table[image_id]
 
-
-        label_header = {
-            'labels': labels,
-            'image_id': image_id,
-            'complete': complete
-        }
-
-        r = make_response(json.dumps(label_header))
-        r.mimetype = 'application/json'
-        return r
+            labels = image.labels_json
+            complete = False
 
 
-    @app.route('/labelling/set_labels', methods=['POST'])
-    def set_labels():
-        label_header = json.loads(request.form['labels'])
-        image_id = label_header['image_id']
-        complete = label_header['complete']
-        labels = label_header['labels']
+            label_header = {
+                'labels': labels,
+                'image_id': image_id,
+                'complete': complete
+            }
 
-        image = images_table[image_id]
-        image.labels_json = labels
+            socketio_emit('get_labels_reply', label_header)
 
-        return make_response('')
+
+        @socketio.on('set_labels')
+        def handle_set_labels(arg_js):
+            label_header = arg_js['label_header']
+
+            image_id = label_header['image_id']
+            complete = label_header['complete']
+            labels = label_header['labels']
+
+            image = images_table[image_id]
+            image.labels_json = labels
+
+            socketio_emit('set_labels_reply', '')
+
+
+    else:
+        @app.route('/labelling/get_labels/<image_id>')
+        def get_labels(image_id):
+            image = images_table[image_id]
+
+            labels = image.labels_json
+            complete = False
+
+
+            label_header = {
+                'labels': labels,
+                'image_id': image_id,
+                'complete': complete
+            }
+
+            r = make_response(json.dumps(label_header))
+            r.mimetype = 'application/json'
+            return r
+
+
+        @app.route('/labelling/set_labels', methods=['POST'])
+        def set_labels():
+            label_header = json.loads(request.form['labels'])
+            image_id = label_header['image_id']
+            complete = label_header['complete']
+            labels = label_header['labels']
+
+            image = images_table[image_id]
+            image.labels_json = labels
+
+            return make_response('')
 
 
     @app.route('/image/<image_id>')
@@ -156,4 +201,11 @@ if __name__ == '__main__':
         return send_from_directory(app.root_path + '/ext_static/', filename)
 
 
-    app.run(debug=True)
+    if socketio is not None:
+        socketio.run(app, debug=True)
+    else:
+        app.run(debug=True)
+
+
+if __name__ == '__main__':
+    run_app()

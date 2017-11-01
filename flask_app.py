@@ -37,7 +37,7 @@ def run_app(slic, readonly):
         SocketIO = None
         socketio_emit = None
 
-    from image_labelling_tool import labelling_tool
+    from image_labelling_tool import labelling_tool, flask_labeller
 
     # Specify our 3 label classes.
     # `LabelClass` parameters are: symbolic name, human readable name for UI, and RGB colour as list
@@ -72,139 +72,7 @@ def run_app(slic, readonly):
         print('Loaded {0} images'.format(len(labelled_images)))
 
 
-
-    # Generate image IDs list
-    image_ids = [str(i)   for i in range(len(labelled_images))]
-    # Generate images table mapping image ID to image so we can get an image by ID
-    images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
-    # Generate image descriptors list to hand over to the labelling tool
-    # Each descriptor provides the image ID, the URL and the size
-    image_descriptors = []
-    for image_id, img in zip(image_ids, labelled_images):
-        data, mimetype, width, height = img.data_and_mime_type_and_size()
-        image_descriptors.append(labelling_tool.image_descriptor(
-            image_id=image_id, url='/image/{}'.format(image_id),
-            width=width, height=height
-        ))
-
-
-    app = Flask(__name__, static_folder='image_labelling_tool/static')
-    if SocketIO is not None:
-        print('Using web sockets')
-        socketio = SocketIO(app)
-    else:
-        socketio = None
-
-
-    config = {
-        'tools': {
-            'imageSelector': True,
-            'labelClassSelector': True,
-            'drawPolyLabel': True,
-            'compositeLabel': True,
-            'deleteLabel': True,
-        }
-    }
-
-
-    @app.route('/')
-    def index():
-        label_classes_json = [{'name': cls.name, 'human_name': cls.human_name, 'colour': cls.colour}   for cls in label_classes]
-        return render_template('labeller_page.jinja2',
-                               tool_js_urls=labelling_tool.js_file_urls('/static/labelling_tool/'),
-                               label_classes=json.dumps(label_classes_json),
-                               image_descriptors=json.dumps(image_descriptors),
-                               initial_image_index=0,
-                               config=json.dumps(config),
-                               use_websockets=socketio is not None)
-
-
-    if socketio is not None:
-        @socketio.on('get_labels')
-        def handle_get_labels(arg_js):
-            image_id = arg_js['image_id']
-
-            image = images_table[image_id]
-
-            labels = image.labels_json
-            complete = False
-
-
-            label_header = {
-                'labels': labels,
-                'image_id': image_id,
-                'complete': complete
-            }
-
-            socketio_emit('get_labels_reply', label_header)
-
-
-        @socketio.on('set_labels')
-        def handle_set_labels(arg_js):
-            label_header = arg_js['label_header']
-
-            image_id = label_header['image_id']
-            complete = label_header['complete']
-            labels = label_header['labels']
-
-            image = images_table[image_id]
-            image.labels_json = labels
-
-            socketio_emit('set_labels_reply', '')
-
-
-    else:
-        @app.route('/labelling/get_labels/<image_id>')
-        def get_labels(image_id):
-            image = images_table[image_id]
-
-            labels = image.labels_json
-            complete = False
-
-
-            label_header = {
-                'labels': labels,
-                'image_id': image_id,
-                'complete': complete
-            }
-
-            r = make_response(json.dumps(label_header))
-            r.mimetype = 'application/json'
-            return r
-
-
-        @app.route('/labelling/set_labels', methods=['POST'])
-        def set_labels():
-            label_header = json.loads(request.form['labels'])
-            image_id = label_header['image_id']
-            complete = label_header['complete']
-            labels = label_header['labels']
-
-            image = images_table[image_id]
-            image.labels_json = labels
-
-            return make_response('')
-
-
-    @app.route('/image/<image_id>')
-    def get_image(image_id):
-        image = images_table[image_id]
-        data, mimetype, width, height = image.data_and_mime_type_and_size()
-        r = make_response(data)
-        r.mimetype = mimetype
-        return r
-
-
-
-    @app.route('/ext_static/<path:filename>')
-    def base_static(filename):
-        return send_from_directory(app.root_path + '/ext_static/', filename)
-
-
-    if socketio is not None:
-        socketio.run(app, debug=True)
-    else:
-        app.run(debug=True)
+    flask_labeller.flask_labeller(labelled_images, label_classes)
 
 
 if __name__ == '__main__':

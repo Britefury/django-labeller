@@ -43,10 +43,10 @@ def flask_labeller(labelled_images, label_classes):
     # Each descriptor provides the image ID, the URL and the size
     image_descriptors = []
     for image_id, img in zip(image_ids, labelled_images):
-        data, mimetype, width, height = img.data_and_mime_type_and_size()
+        image_shape = img.image_shape
         image_descriptors.append(labelling_tool.image_descriptor(
             image_id=image_id, url='/image/{}'.format(image_id),
-            width=width, height=height
+            width=image_shape[1], height=image_shape[0]
         ))
 
 

@@ -28,15 +28,6 @@ import click
 @click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
 @click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
 def run_app(slic, readonly):
-    import json
-
-    from flask import Flask, render_template, request, make_response, send_from_directory
-    try:
-        from flask_socketio import SocketIO, emit as socketio_emit
-    except ImportError:
-        SocketIO = None
-        socketio_emit = None
-
     from image_labelling_tool import labelling_tool, flask_labeller
 
     # Specify our 3 label classes.
@@ -65,7 +56,6 @@ def run_app(slic, readonly):
 
         print('Segmented {0} images'.format(len(labelled_images)))
     else:
-        readonly = readonly
         # Load in .JPG images from the 'images' directory.
         labelled_images = labelling_tool.PersistentLabelledImage.for_directory('images', image_filename_pattern='*.jpg',
                                                                                readonly=readonly)

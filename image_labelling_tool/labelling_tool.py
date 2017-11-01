@@ -543,8 +543,8 @@ class AbsractLabelledImage (object):
         raise NotImplementedError
 
     @property
-    def image_shape(self):
-        return self.pixels.shape[:2]
+    def image_size(self):
+        raise NotImplementedError
 
     def data_and_mime_type_and_size(self):
         raise NotImplementedError
@@ -649,6 +649,9 @@ class InMemoryLabelledImage (AbsractLabelledImage):
     def pixels(self):
         return self.__pixels
 
+    def image_size(self):
+        return self.__pixels.shape[:2]
+
     def data_and_mime_type_and_size(self):
         buf = io.BytesIO()
         imsave(buf, self.__pixels, format='png')
@@ -699,10 +702,18 @@ class PersistentLabelledImage (AbsractLabelledImage):
             self.__pixels = img_as_float(imread(self.__image_path))
         return self.__pixels
 
+    @property
+    def image_size(self):
+        if self.__pixels is not None:
+            return self.__pixels.shape[:2]
+        else:
+            i = Image.open(self.__image_path)
+            return i.size[1], i.size[0]
+
     def data_and_mime_type_and_size(self):
         if os.path.exists(self.__image_path):
             with open(self.__image_path, 'rb') as img:
-                shape = self.image_shape
+                shape = self.image_size
                 return img.read(), mimetypes.guess_type(self.__image_path)[0], int(shape[1]), int(shape[0])
 
 
@@ -828,10 +839,18 @@ class LabelledImageFile (AbsractLabelledImage):
             self.__pixels = img_as_float(imread(self.__image_path))
         return self.__pixels
 
+    @property
+    def image_size(self):
+        if self.__pixels is not None:
+            return self.__pixels.shape[:2]
+        else:
+            i = Image.open(self.__image_path)
+            return i.size[1], i.size[0]
+
     def data_and_mime_type_and_size(self):
         if os.path.exists(self.__image_path):
             with open(self.__image_path, 'rb') as img:
-                shape = self.image_shape
+                shape = self.image_size
                 return img.read(), mimetypes.guess_type(self.__image_path)[0], int(shape[1]), int(shape[0])
 
 
@@ -874,18 +893,9 @@ class LabelledImageFile (AbsractLabelledImage):
 
 
 
-
-
 def shuffle_images_without_labels(labelled_images):
     with_labels = [img   for img in labelled_images   if img.has_labels()]
     without_labels = [img   for img in labelled_images   if not img.has_labels()]
     random.shuffle(without_labels)
     return with_labels + without_labels
-
-
-
-
-
-
-
 

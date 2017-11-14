@@ -138,5 +138,14 @@ LABELLING_TOOL_CONFIG = {
         'compositeLabel': True,
         'groupLabel': True,
         'deleteLabel': True,
+        'deleteConfig': {
+            'typePermissions': {
+                'point': True,
+                'box': True,
+                'polygon': True,
+                'composite': True,
+                'group': True,
+            }
+        }
     }
 }

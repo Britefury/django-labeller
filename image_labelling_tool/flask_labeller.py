@@ -23,7 +23,7 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(labelled_images, label_classes):
+def flask_labeller(labelled_images, label_classes, config=None):
     import json
 
     from flask import Flask, render_template, request, make_response, send_from_directory
@@ -58,15 +58,25 @@ def flask_labeller(labelled_images, label_classes):
         socketio = None
 
 
-    config = {
-        'tools': {
-            'imageSelector': True,
-            'labelClassSelector': True,
-            'drawPolyLabel': True,
-            'compositeLabel': True,
-            'deleteLabel': True,
+    if config is None:
+        config = {
+            'tools': {
+                'imageSelector': True,
+                'labelClassSelector': True,
+                'drawPolyLabel': True,
+                'compositeLabel': True,
+                'deleteLabel': True,
+                'deleteConfig': {
+                    'typePermissions': {
+                        'point': True,
+                        'box': True,
+                        'polygon': True,
+                        'composite': True,
+                        'group': True,
+                    }
+                }
+            }
         }
-    }
 
 
     @app.route('/')

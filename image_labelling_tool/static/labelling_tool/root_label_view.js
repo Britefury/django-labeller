@@ -234,11 +234,19 @@ var labelling_tool;
         /*
         Destroy selection
          */
-        RootLabelView.prototype.delete_selection = function () {
+        RootLabelView.prototype.delete_selection = function (delete_filter_fn) {
             var entities_to_remove = this.selected_entities.slice();
+            var can_delete;
             this.unselect_all_entities();
             for (var i = 0; i < entities_to_remove.length; i++) {
-                entities_to_remove[i].destroy();
+                if (delete_filter_fn !== undefined && delete_filter_fn !== null) {
+                    if (delete_filter_fn(entities_to_remove[i])) {
+                        entities_to_remove[i].destroy();
+                    }
+                }
+                else {
+                    entities_to_remove[i].destroy();
+                }
             }
         };
         /*
@@ -369,7 +377,6 @@ var labelling_tool;
         };
         ;
         return RootLabelView;
-    })();
+    }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=root_label_view.js.map

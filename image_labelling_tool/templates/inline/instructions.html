@@ -74,6 +74,17 @@
                 <ul>
                     <li>Select regions using the select tool (see above)</li>
                     <li>Click the wastebin button to delete them; you will be asked for confirmation</li>
+                    {% if not deleteConfig.typePermissions.point or not deleteConfig.typePermissions.box or not deleteConfig.typePermissions.polygon or not deleteConfig.typePermissions.composite or not deleteConfig.typePermissions.group %}
+                        <li>Please note that you will be unable to delete:
+                            <ul>
+                                {% if not deleteConfig.typePermissions.point %}<li>point labels</li>{% endif %}
+                                {% if not deleteConfig.typePermissions.box %}<li>box labels</li>{% endif %}
+                                {% if not deleteConfig.typePermissions.polygon %}<li>polygonal labels</li>{% endif %}
+                                {% if not deleteConfig.typePermissions.composite %}<li>composite labels</li>{% endif %}
+                                {% if not deleteConfig.typePermissions.group %}<li>group labels</li>{% endif %}
+                            </ul>
+                        </li>
+                    {% endif %}
                 </ul>
             </li>
         {% endif %}

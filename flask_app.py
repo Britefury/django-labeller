@@ -62,7 +62,26 @@ def run_app(slic, readonly):
         print('Loaded {0} images'.format(len(labelled_images)))
 
 
-    flask_labeller.flask_labeller(labelled_images, label_classes)
+    config = {
+        'tools': {
+            'imageSelector': True,
+            'labelClassSelector': True,
+            'drawPolyLabel': True,
+            'compositeLabel': True,
+            'deleteLabel': True,
+            'deleteConfig': {
+                'typePermissions': {
+                    'point': True,
+                    'box': True,
+                    'polygon': True,
+                    'composite': True,
+                    'group': True,
+                }
+            }
+        }
+    }
+
+    flask_labeller.flask_labeller(labelled_images, label_classes, config=config)
 
 
 if __name__ == '__main__':

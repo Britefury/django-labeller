@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
@@ -40,14 +45,15 @@ var labelling_tool;
     var SelectEntityTool = (function (_super) {
         __extends(SelectEntityTool, _super);
         function SelectEntityTool(view) {
-            _super.call(this, view);
-            var self = this;
-            this._entities_under_pointer = [];
-            this._current_entity = null;
-            this._current_entity_index = null;
-            this._key_event_listener = function (event) {
+            var _this = _super.call(this, view) || this;
+            var self = _this;
+            _this._entities_under_pointer = [];
+            _this._current_entity = null;
+            _this._current_entity_index = null;
+            _this._key_event_listener = function (event) {
                 self.on_key_press(event);
             };
+            return _this;
         }
         SelectEntityTool.prototype.on_init = function () {
             this._entities_under_pointer = [];
@@ -161,7 +167,7 @@ var labelling_tool;
         };
         ;
         return SelectEntityTool;
-    })(labelling_tool.AbstractTool);
+    }(labelling_tool.AbstractTool));
     labelling_tool.SelectEntityTool = SelectEntityTool;
     /*
     Brush select entity tool
@@ -169,10 +175,11 @@ var labelling_tool;
     var BrushSelectEntityTool = (function (_super) {
         __extends(BrushSelectEntityTool, _super);
         function BrushSelectEntityTool(view) {
-            _super.call(this, view);
-            this._highlighted_entities = [];
-            this._brush_radius = 10.0;
-            this._brush_circle = null;
+            var _this = _super.call(this, view) || this;
+            _this._highlighted_entities = [];
+            _this._brush_radius = 10.0;
+            _this._brush_circle = null;
+            return _this;
         }
         BrushSelectEntityTool.prototype.on_init = function () {
             this._highlighted_entities = [];
@@ -282,7 +289,6 @@ var labelling_tool;
         };
         ;
         return BrushSelectEntityTool;
-    })(labelling_tool.AbstractTool);
+    }(labelling_tool.AbstractTool));
     labelling_tool.BrushSelectEntityTool = BrushSelectEntityTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=select_tools.js.map

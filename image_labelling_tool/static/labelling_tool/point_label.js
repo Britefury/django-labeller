@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
@@ -45,7 +50,7 @@ var labelling_tool;
     var PointLabelEntity = (function (_super) {
         __extends(PointLabelEntity, _super);
         function PointLabelEntity(view, model) {
-            _super.call(this, view, model);
+            return _super.call(this, view, model) || this;
         }
         PointLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
@@ -118,7 +123,7 @@ var labelling_tool;
             return labelling_tool.compute_sqr_dist(point, this.model.position) <= (4.0 * 4.0);
         };
         return PointLabelEntity;
-    })(labelling_tool.AbstractLabelEntity);
+    }(labelling_tool.AbstractLabelEntity));
     labelling_tool.PointLabelEntity = PointLabelEntity;
     labelling_tool.register_entity_factory('point', function (root_view, model) {
         return new PointLabelEntity(root_view, model);
@@ -129,8 +134,9 @@ var labelling_tool;
     var DrawPointTool = (function (_super) {
         __extends(DrawPointTool, _super);
         function DrawPointTool(view, entity) {
-            _super.call(this, view);
-            this.entity = entity;
+            var _this = _super.call(this, view) || this;
+            _this.entity = entity;
+            return _this;
         }
         DrawPointTool.prototype.on_init = function () {
         };
@@ -182,7 +188,6 @@ var labelling_tool;
         };
         ;
         return DrawPointTool;
-    })(labelling_tool.AbstractTool);
+    }(labelling_tool.AbstractTool));
     labelling_tool.DrawPointTool = DrawPointTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=point_label.js.map

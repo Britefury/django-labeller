@@ -32,12 +32,12 @@ var labelling_tool;
     /*
     Label visibility
      */
+    var LabelVisibility;
     (function (LabelVisibility) {
         LabelVisibility[LabelVisibility["HIDDEN"] = 0] = "HIDDEN";
         LabelVisibility[LabelVisibility["FAINT"] = 1] = "FAINT";
         LabelVisibility[LabelVisibility["FULL"] = 2] = "FULL";
-    })(labelling_tool.LabelVisibility || (labelling_tool.LabelVisibility = {}));
-    var LabelVisibility = labelling_tool.LabelVisibility;
+    })(LabelVisibility = labelling_tool.LabelVisibility || (labelling_tool.LabelVisibility = {}));
     /*
     Abstract label entity
      */
@@ -94,6 +94,9 @@ var labelling_tool;
         AbstractLabelEntity.prototype.notify_hide_labels_change = function () {
             this._update_style();
         };
+        AbstractLabelEntity.prototype.get_label_type_name = function () {
+            return this.model.label_type;
+        };
         AbstractLabelEntity.prototype.get_label_class = function () {
             return this.model.label_class;
         };
@@ -142,7 +145,7 @@ var labelling_tool;
         ;
         AbstractLabelEntity.entity_id_counter = 0;
         return AbstractLabelEntity;
-    })();
+    }());
     labelling_tool.AbstractLabelEntity = AbstractLabelEntity;
     /*
     Map label type to entity constructor
@@ -165,4 +168,3 @@ var labelling_tool;
     }
     labelling_tool.new_entity_for_model = new_entity_for_model;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_label.js.map

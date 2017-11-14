@@ -34,7 +34,6 @@ var labelling_tool;
             this.colour = labelling_tool.Colour4.from_rgb_a(j.colour, 1.0);
         }
         return LabelClass;
-    })();
+    }());
     labelling_tool.LabelClass = LabelClass;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=label_class.js.map

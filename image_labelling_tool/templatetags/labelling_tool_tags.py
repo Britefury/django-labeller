@@ -8,6 +8,16 @@ from image_labelling_tool import labelling_tool as lt
 register = template.Library()
 
 
+def _update_config(dest, src):
+    if isinstance(src, dict):
+        for key, value in src.items():
+            if isinstance(value, dict) and isinstance(dest.get(key), dict):
+                print('Updating {}...'.format(key))
+                _update_config(dest[key], src[key])
+            else:
+                dest[key] = value
+
+
 @register.simple_tag
 def labelling_tool_scripts():
     script_urls = lt.js_file_urls('/static/labelling_tool/')
@@ -33,6 +43,7 @@ def labelling_tool(width, height, label_classes, image_descriptors, initial_imag
 
 @register.inclusion_tag('inline/instructions.html')
 def labelling_tool_instructions(config=None):
+    print('labelling_tool_instructions: {}'.format(config))
     tools = {
         'imageSelector': True,
         'labelClassSelector': True,
@@ -43,7 +54,17 @@ def labelling_tool_instructions(config=None):
         'compositeLabel': True,
         'groupLabel': True,
         'deleteLabel': True,
+        'deleteConfig': {
+            'typePermissions': {
+                'point': True,
+                'box': True,
+                'polygon': True,
+                'composite': True,
+                'group': True,
+            }
+        }
     }
     if config is not None:
-        tools.update(config.get('tools'))
+        _update_config(tools, config.get('tools'))
+
     return tools

@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="../polyk.d.ts" />
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
@@ -45,12 +50,13 @@ var labelling_tool;
     var PolygonalLabelEntity = (function (_super) {
         __extends(PolygonalLabelEntity, _super);
         function PolygonalLabelEntity(view, model) {
-            _super.call(this, view, model);
-            this._polyk_poly = [];
-            this._centroid = null;
-            this._bounding_box = null;
-            this.poly = null;
-            this.shape_line = null;
+            var _this = _super.call(this, view, model) || this;
+            _this._polyk_poly = [];
+            _this._centroid = null;
+            _this._bounding_box = null;
+            _this.poly = null;
+            _this.shape_line = null;
+            return _this;
         }
         PolygonalLabelEntity.prototype.attach = function () {
             var _this = this;
@@ -161,7 +167,7 @@ var labelling_tool;
             }
         };
         return PolygonalLabelEntity;
-    })(labelling_tool.AbstractLabelEntity);
+    }(labelling_tool.AbstractLabelEntity));
     labelling_tool.PolygonalLabelEntity = PolygonalLabelEntity;
     labelling_tool.register_entity_factory('polygon', function (root_view, model) {
         return new PolygonalLabelEntity(root_view, model);
@@ -172,13 +178,14 @@ var labelling_tool;
     var DrawPolygonTool = (function (_super) {
         __extends(DrawPolygonTool, _super);
         function DrawPolygonTool(view, entity) {
-            _super.call(this, view);
-            var self = this;
-            this.entity = entity;
-            this._last_vertex_marker = null;
-            this._key_event_listener = function (event) {
+            var _this = _super.call(this, view) || this;
+            var self = _this;
+            _this.entity = entity;
+            _this._last_vertex_marker = null;
+            _this._key_event_listener = function (event) {
                 self.on_key_press(event);
             };
+            return _this;
         }
         DrawPolygonTool.prototype.on_init = function () {
             this._last_vertex_marker = this._view.world.append("circle");
@@ -360,7 +367,6 @@ var labelling_tool;
         };
         ;
         return DrawPolygonTool;
-    })(labelling_tool.AbstractTool);
+    }(labelling_tool.AbstractTool));
     labelling_tool.DrawPolygonTool = DrawPolygonTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=polygonal_label.js.map

@@ -82,6 +82,13 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
             config.settings = config.settings || {};
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
+            config.tools.deleteConfig = config.tools.deleteConfig || {};
+            config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
             /*
             Entity event listener
              */
@@ -369,6 +376,16 @@ var labelling_tool;
                 });
                 this._lockableControls = this._lockableControls.add(group_button);
             }
+            var canDelete = function (entity) {
+                var typeName = entity.get_label_type_name();
+                var delPerm = config.tools.deleteConfig.typePermissions[typeName];
+                if (delPerm === undefined) {
+                    return true;
+                }
+                else {
+                    return delPerm;
+                }
+            };
             if (config.tools.deleteLabel) {
                 var delete_label_button = $('<button>Delete</button>').appendTo(toolbar);
                 delete_label_button.button({
@@ -388,7 +405,7 @@ var labelling_tool;
                             event.preventDefault();
                         });
                         confirm_button.button().click(function (event) {
-                            self.root_view.delete_selection();
+                            self.root_view.delete_selection(canDelete);
                             remove_confirm_ui();
                             event.preventDefault();
                         });
@@ -759,6 +776,7 @@ var labelling_tool;
         };
         LabellingTool.prototype.notifyLabelUpdateResponse = function (msg) {
             if (msg.error === undefined) {
+                // All good
             }
             else if (msg.error === 'locked') {
                 // Lock controls
@@ -952,7 +970,6 @@ var labelling_tool;
             }
         };
         return LabellingTool;
-    })();
+    }());
     labelling_tool.LabellingTool = LabellingTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=main_tool.js.map

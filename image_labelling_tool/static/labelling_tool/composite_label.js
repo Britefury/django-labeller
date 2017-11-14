@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
 var labelling_tool;
@@ -43,8 +48,9 @@ var labelling_tool;
     var CompositeLabelEntity = (function (_super) {
         __extends(CompositeLabelEntity, _super);
         function CompositeLabelEntity(view, model) {
-            _super.call(this, view, model);
-            this._centroid = null;
+            var _this = _super.call(this, view, model) || this;
+            _this._centroid = null;
+            return _this;
         }
         CompositeLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
@@ -184,10 +190,9 @@ var labelling_tool;
             }
         };
         return CompositeLabelEntity;
-    })(labelling_tool.AbstractLabelEntity);
+    }(labelling_tool.AbstractLabelEntity));
     labelling_tool.CompositeLabelEntity = CompositeLabelEntity;
     labelling_tool.register_entity_factory('composite', function (root_view, model) {
         return new CompositeLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=composite_label.js.map

@@ -89,7 +89,7 @@ var labelling_tool;
         Colour4.BLACK = new Colour4(0, 0, 0, 1.0);
         Colour4.WHITE = new Colour4(255, 255, 255, 1.0);
         return Colour4;
-    })();
+    }());
     labelling_tool.Colour4 = Colour4;
     /*
     Axis-aligned box
@@ -125,7 +125,7 @@ var labelling_tool;
             return Math.sqrt(this.sqr_distance_to(p));
         };
         return AABox;
-    })();
+    }());
     labelling_tool.AABox = AABox;
     function AABox_from_points(array_of_points) {
         if (array_of_points.length > 0) {
@@ -165,4 +165,3 @@ var labelling_tool;
     }
     labelling_tool.AABox_from_aaboxes = AABox_from_aaboxes;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=math_primitives.js.map

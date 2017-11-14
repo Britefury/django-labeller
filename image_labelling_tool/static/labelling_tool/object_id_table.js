@@ -86,7 +86,6 @@ var labelling_tool;
             }
         };
         return ObjectIDTable;
-    })();
+    }());
     labelling_tool.ObjectIDTable = ObjectIDTable;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=object_id_table.js.map

@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
 var labelling_tool;
@@ -43,9 +48,9 @@ var labelling_tool;
     var GroupLabelEntity = (function (_super) {
         __extends(GroupLabelEntity, _super);
         function GroupLabelEntity(view, model) {
-            _super.call(this, view, model);
-            var self = this;
-            this._component_event_listener = {
+            var _this = _super.call(this, view, model) || this;
+            var self = _this;
+            _this._component_event_listener = {
                 on_mouse_in: function (entity) {
                     for (var i = 0; i < self._event_listeners.length; i++) {
                         self._event_listeners[i].on_mouse_in(self);
@@ -57,6 +62,7 @@ var labelling_tool;
                     }
                 }
             };
+            return _this;
         }
         GroupLabelEntity.prototype.add_child = function (child) {
             this.model.component_models.push(child.model);
@@ -239,10 +245,9 @@ var labelling_tool;
             return best_dist;
         };
         return GroupLabelEntity;
-    })(labelling_tool.AbstractLabelEntity);
+    }(labelling_tool.AbstractLabelEntity));
     labelling_tool.GroupLabelEntity = GroupLabelEntity;
     labelling_tool.register_entity_factory('group', function (root_view, model) {
         return new GroupLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=group_label.js.map

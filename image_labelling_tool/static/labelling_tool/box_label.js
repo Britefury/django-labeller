@@ -24,11 +24,16 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
@@ -49,7 +54,7 @@ var labelling_tool;
     var BoxLabelEntity = (function (_super) {
         __extends(BoxLabelEntity, _super);
         function BoxLabelEntity(view, model) {
-            _super.call(this, view, model);
+            return _super.call(this, view, model) || this;
         }
         BoxLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
@@ -129,7 +134,7 @@ var labelling_tool;
             return BoxLabel_box(this.model).distance_to(point);
         };
         return BoxLabelEntity;
-    })(labelling_tool.AbstractLabelEntity);
+    }(labelling_tool.AbstractLabelEntity));
     labelling_tool.BoxLabelEntity = BoxLabelEntity;
     labelling_tool.register_entity_factory('box', function (root_view, model) {
         return new BoxLabelEntity(root_view, model);
@@ -140,10 +145,11 @@ var labelling_tool;
     var DrawBoxTool = (function (_super) {
         __extends(DrawBoxTool, _super);
         function DrawBoxTool(view, entity) {
-            _super.call(this, view);
-            this.entity = entity;
-            this._start_point = null;
-            this._current_point = null;
+            var _this = _super.call(this, view) || this;
+            _this.entity = entity;
+            _this._start_point = null;
+            _this._current_point = null;
+            return _this;
         }
         DrawBoxTool.prototype.on_init = function () {
         };
@@ -238,7 +244,6 @@ var labelling_tool;
         };
         ;
         return DrawBoxTool;
-    })(labelling_tool.AbstractTool);
+    }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=box_label.js.map

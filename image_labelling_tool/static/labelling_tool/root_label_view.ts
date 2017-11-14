@@ -290,13 +290,21 @@ module labelling_tool {
         /*
         Destroy selection
          */
-        delete_selection() {
+        delete_selection(delete_filter_fn: (entity: AbstractLabelEntity<AbstractLabelModel>) => boolean) {
             var entities_to_remove: AbstractLabelEntity<AbstractLabelModel>[] = this.selected_entities.slice();
+            var can_delete: boolean;
 
             this.unselect_all_entities();
 
             for (var i = 0; i < entities_to_remove.length; i++) {
-                entities_to_remove[i].destroy();
+                if (delete_filter_fn !== undefined && delete_filter_fn !== null) {
+                    if (delete_filter_fn(entities_to_remove[i])) {
+                        entities_to_remove[i].destroy();
+                    }
+                }
+                else {
+                    entities_to_remove[i].destroy();
+                }
             }
         }
 

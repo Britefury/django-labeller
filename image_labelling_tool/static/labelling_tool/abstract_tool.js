@@ -82,7 +82,6 @@ var labelling_tool;
         };
         ;
         return AbstractTool;
-    })();
+    }());
     labelling_tool.AbstractTool = AbstractTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_tool.js.map

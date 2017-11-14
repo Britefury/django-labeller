@@ -182,6 +182,14 @@ module labelling_tool {
             config.settings = config.settings || {};
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
 
+            config.tools.deleteConfig = config.tools.deleteConfig || {};
+            config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
+
 
             /*
             Entity event listener
@@ -527,6 +535,17 @@ module labelling_tool {
                 this._lockableControls = this._lockableControls.add(group_button);
             }
 
+            var canDelete = function(entity: AbstractLabelEntity<AbstractLabelModel>) {
+                var typeName = entity.get_label_type_name();
+                var delPerm = config.tools.deleteConfig.typePermissions[typeName];
+                if (delPerm === undefined) {
+                    return true;
+                }
+                else {
+                    return delPerm;
+                }
+            };
+
             if (config.tools.deleteLabel) {
                 var delete_label_button: any = $('<button>Delete</button>').appendTo(toolbar);
                 delete_label_button.button({
@@ -549,7 +568,7 @@ module labelling_tool {
                         });
 
                         confirm_button.button().click(function (event: any) {
-                            self.root_view.delete_selection();
+                            self.root_view.delete_selection(canDelete);
 
                             remove_confirm_ui();
                             event.preventDefault();

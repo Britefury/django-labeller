@@ -240,6 +240,11 @@ class PointLabel (AbstractLabel):
         js['position'] = dict(x=self.position_xy[0], y=self.position_xy[1])
         return js
 
+    def __str__(self):
+        return 'PointLabel(object_id={}, classification={}, position_xy={})'.format(
+            self.object_id, self.classification, self.position_xy.tolist()
+        )
+
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
         pos_xy = np.array([label_json['position']['x'], label_json['position']['y']])
@@ -290,6 +295,11 @@ class PolygonLabel (AbstractLabel):
         js = super(PolygonLabel, self).to_json()
         js['vertices'] = [dict(x=self.vertices[i,0], y=self.vertices[i,1]) for i in range(len(self.vertices))]
         return js
+
+    def __str__(self):
+        return 'PolygonLabel(object_id={}, classification={}, vertices={})'.format(
+            self.object_id, self.classification, self.vertices
+        )
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
@@ -353,6 +363,11 @@ class BoxLabel (AbstractLabel):
         js['size'] = dict(x=self.size_xy[0], y=self.size_xy[1])
         return js
 
+    def __str__(self):
+        return 'BoxLabel(object_id={}, classification={}, centre_xy={}, size_xy={})'.format(
+            self.object_id, self.classification, self.centre_xy.tolist(), self.size_xy.tolist()
+        )
+
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
         centre = np.array([label_json['centre']['x'], label_json['centre']['y']])
@@ -393,6 +408,11 @@ class CompositeLabel (AbstractLabel):
         js = super(CompositeLabel, self).to_json()
         js['components'] = [component.object_id for component in self.components]
         return js
+
+    def __str__(self):
+        return 'CompositeLabel(object_id={}, classification={}, ids(components)={}'.format(
+            self.object_id, self.classification, [c.object_id for c in self.components]
+        )
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
@@ -441,6 +461,11 @@ class GroupLabel (AbstractLabel):
         js = super(GroupLabel, self).to_json()
         js['component_models'] = [component.to_json() for component in self.component_labels]
         return js
+
+    def __str__(self):
+        return 'GroupLabel(object_id={}, classification={}, component_labels={}'.format(
+            self.object_id, self.classification, self.component_labels
+        )
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
@@ -680,33 +705,34 @@ class ImageLabels (object):
             if label_class_set is None  or  label.classification in label_class_set:
                 bounds = label.bounding_box(ctx=ctx)
 
-                lx = int(math.floor(bounds[0][0]))
-                ly = int(math.floor(bounds[0][1]))
-                ux = int(math.ceil(bounds[1][0]))
-                uy = int(math.ceil(bounds[1][1]))
+                if bounds[0] is not None and bounds[1] is not None:
+                    lx = int(math.floor(bounds[0][0]))
+                    ly = int(math.floor(bounds[0][1]))
+                    ux = int(math.ceil(bounds[1][0]))
+                    uy = int(math.ceil(bounds[1][1]))
 
-                # Given that the images and labels may have been warped by a transformation,
-                # there is no guarantee that they lie within the bounds of the image
-                lx = max(min(lx, image_shape[1]), 0)
-                ux = max(min(ux, image_shape[1]), 0)
-                ly = max(min(ly, image_shape[0]), 0)
-                uy = max(min(uy, image_shape[0]), 0)
+                    # Given that the images and labels may have been warped by a transformation,
+                    # there is no guarantee that they lie within the bounds of the image
+                    lx = max(min(lx, image_shape[1]), 0)
+                    ux = max(min(ux, image_shape[1]), 0)
+                    ly = max(min(ly, image_shape[0]), 0)
+                    uy = max(min(uy, image_shape[0]), 0)
 
-                w = ux - lx
-                h = uy - ly
+                    w = ux - lx
+                    h = uy - ly
 
-                if w > 0 and h > 0:
+                    if w > 0 and h > 0:
 
-                    mask = label.render_mask(w, h, fill=True, dx=float(-lx), dy=float(-ly), ctx=ctx)
-                    if mask is not None and (mask > 0).any():
-                        img_box = image_2d[ly:uy, lx:ux]
-                        if len(img_box.shape) == 2:
-                            # Convert greyscale image to RGB:
-                            img_box = gray2rgb(img_box)
-                        # Append the mask as an alpha channel
-                        object_img = np.append(img_box, mask[:,:,None], axis=2)
+                        mask = label.render_mask(w, h, fill=True, dx=float(-lx), dy=float(-ly), ctx=ctx)
+                        if mask is not None and (mask > 0).any():
+                            img_box = image_2d[ly:uy, lx:ux]
+                            if len(img_box.shape) == 2:
+                                # Convert greyscale image to RGB:
+                                img_box = gray2rgb(img_box)
+                            # Append the mask as an alpha channel
+                            object_img = np.append(img_box, mask[:,:,None], axis=2)
 
-                        label_images.append(object_img)
+                            label_images.append(object_img)
 
         return label_images
 
@@ -715,10 +741,41 @@ class ImageLabels (object):
         return [lab.to_json() for lab in self.labels]
 
     @staticmethod
-    def from_json(labels_js):
+    def from_json(label_data_js):
+        """
+        Labels in JSON format
+
+        :param label_data_js: either a list of labels in JSON format or a dict that maps the key `'labels'` to a list
+        of labels in JSON form. The dict format will match the format stored in JSON label files.
+
+        :return: an `ImageLabels` instance
+        """
+        if isinstance(label_data_js, dict):
+            if 'labels' not in label_data_js:
+                raise ValueError('label_js should be a list or a dict containing a \'labels\' key')
+            labels = label_data_js['labels']
+            if not isinstance(labels, list):
+                raise TypeError('labels[\'labels\'] should be a list')
+        elif isinstance(label_data_js, list):
+            labels = label_data_js
+        else:
+            raise ValueError('label_js should be a list or a dict containing a \'labels\' key')
+
         obj_table = ObjectTable()
-        labs = [AbstractLabel.from_json(lab_js, obj_table) for lab_js in labels_js]
+        labs = [AbstractLabel.from_json(label, obj_table) for label in labels]
         return ImageLabels(labs, obj_table=obj_table)
+
+
+    @staticmethod
+    def from_file(f):
+        if isinstance(f, six.string_types):
+            f = open(f, 'r')
+        elif isinstance(f, io.IOBase):
+            pass
+        else:
+            raise TypeError('f should be a path as a string or a file')
+        return ImageLabels.from_json(json.load(f))
+
 
 
     @classmethod

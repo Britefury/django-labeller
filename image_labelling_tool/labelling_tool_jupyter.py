@@ -120,12 +120,14 @@ class ImageLabellingTool (widgets.DOMWidget):
             if sys.version_info[0] == 3:
                 data_b64 = data_b64.decode('us-ascii')
 
-            self.label_data = image.labels_json
+            labels_json, complete = image.get_label_data_for_tool()
+
+            self.label_data = labels_json
 
             msg_label_header = {
                 'image_id': image_id,
-                'labels': image.labels_json,
-                'complete': image.complete
+                'labels': labels_json,
+                'complete': complete
             }
             msg_image = {
                 'image_id': image_id,
@@ -144,8 +146,7 @@ class ImageLabellingTool (widgets.DOMWidget):
                 image_id = label_header['image_id']
                 complete = label_header['complete']
                 labels = label_header['labels']
-                self.__images[image_id].labels_json = labels
-                self.__images[image_id].complete = complete
+                self.__images[image_id].set_label_data_from_tool(labels, complete)
                 print('Received changes for image {0}; {1} labels'.format(image_id, len(labels)))
 
 

@@ -98,15 +98,11 @@ def flask_labeller(labelled_images, label_classes, config=None):
 
             image = images_table[image_id]
 
-            labels = image.labels_json
-            complete = False
+            labels, complete = image.get_label_data_for_tool()
 
-
-            label_header = {
-                'labels': labels,
-                'image_id': image_id,
-                'complete': complete
-            }
+            label_header = dict(labels=labels,
+                                image_id=image_id,
+                                complete=complete)
 
             socketio_emit('get_labels_reply', label_header)
 
@@ -116,11 +112,10 @@ def flask_labeller(labelled_images, label_classes, config=None):
             label_header = arg_js['label_header']
 
             image_id = label_header['image_id']
-            complete = label_header['complete']
-            labels = label_header['labels']
 
             image = images_table[image_id]
-            image.labels_json = labels
+
+            image.set_label_data_from_tool(label_header['labels'], label_header['complete'])
 
             socketio_emit('set_labels_reply', '')
 

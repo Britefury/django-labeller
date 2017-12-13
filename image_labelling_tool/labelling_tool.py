@@ -398,8 +398,14 @@ class CompositeLabel (AbstractLabel):
         return None, None
 
     def _warp(self, xform_fn, object_table):
-        return CompositeLabel([object_table[comp.object_id] for comp in self.components],
-                              self.object_id, self.classification)
+        warped_components = []
+        for comp in self.components:
+            if comp.object_id in object_table:
+                warped_comp = object_table[comp.object_id]
+            else:
+                warped_comp = comp.warped(xform_fn, object_table)
+            warped_components.append(warped_comp)
+        return CompositeLabel(warped_components, self.object_id, self.classification)
 
     def render_mask(self, width, height, fill, dx=0.0, dy=0.0, ctx=None):
         return None
@@ -555,15 +561,7 @@ class ImageLabels (object):
         :return: an `ImageLabels` instance that contains the warped labels
         """
         warped_obj_table = ObjectTable()
-        def _warped_label(lab):
-            for dep in lab.dependencies:
-                if dep.object_id not in warped_obj_table:
-                    warped_lab = lab.warped(xform_fn, warped_obj_table)
-                    warped_obj_table.register(warped_lab)
-                else:
-                    return warped_obj_table[dep.object_id]
-
-        warped_labels = [_warped_label(lab) for lab in self.labels]
+        warped_labels = [lab.warped(xform_fn, warped_obj_table) for lab in self.labels]
         return  ImageLabels(warped_labels, obj_table=warped_obj_table)
 
 

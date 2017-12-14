@@ -525,7 +525,7 @@ class ObjectTable (object):
         if obj_id is None:
             return None
         else:
-            return self._object_id_to_obj.get(obj_id, default=default)
+            return self._object_id_to_obj.get(obj_id, default)
 
     def __contains__(self, obj_id):
         return obj_id in self._object_id_to_obj

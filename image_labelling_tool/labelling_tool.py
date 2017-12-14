@@ -422,7 +422,8 @@ class CompositeLabel (AbstractLabel):
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
-        components = [object_table[obj_id] for obj_id in label_json['components']]
+        components = [object_table.get(obj_id) for obj_id in label_json['components']]
+        components = [comp for comp in components if comp is not None]
         return CompositeLabel(components, label_json.get('object_id'), label_json['label_class'])
 
 

@@ -160,7 +160,9 @@ class AbstractLabel (object):
     def _warp(self, xform_fn, object_table):
         raise NotImplementedError('Abstract')
 
-    def warped(self, xform_fn, object_table):
+    def warped(self, xform_fn, object_table=None):
+        if object_table is None:
+            object_table = ObjectTable()
         w = self._warp(xform_fn, object_table)
         object_table.register(w)
         return w

@@ -39,8 +39,8 @@ module labelling_tool {
         position: Vector2;
     }
 
-    function new_PointLabelModel(position: Vector2): PointLabelModel {
-        return {label_type: 'point', label_class: null, position: position};
+    function new_PointLabelModel(position: Vector2, label_class: string): PointLabelModel {
+        return {label_type: 'point', label_class: label_class, position: position};
     }
 
 
@@ -110,15 +110,16 @@ module labelling_tool {
             if (this._attached) {
                 var stroke_colour: Colour4 = this._outline_colour();
 
-                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                var vis: LabelVisibility = this.get_visibility();
+                if (vis == LabelVisibility.HIDDEN) {
                     this.circle.attr("visibility", "hidden");
                 }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                else if (vis == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this.circle.attr("visibility", "visible");
                 }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                else if (vis == LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
                     if (this._hover) {
                         circle_fill_colour = circle_fill_colour.lighten(0.4);
@@ -196,7 +197,8 @@ module labelling_tool {
 
 
         create_entity(position: Vector2) {
-            var model = new_PointLabelModel(position);
+            var label_class = this._view.view.get_label_class_for_new_label();
+            var model = new_PointLabelModel(position, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend

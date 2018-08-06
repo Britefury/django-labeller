@@ -130,7 +130,7 @@ module labelling_tool {
         /*
         Set label visibility
          */
-        set_label_visibility(visibility: LabelVisibility) {
+        set_label_visibility(visibility: LabelVisibility, filter_class: string) {
             for (var i = 0; i < this._all_entities.length; i++) {
                 this._all_entities[i].notify_hide_labels_change();
             }
@@ -247,7 +247,8 @@ module labelling_tool {
             var N = this.selected_entities.length;
 
             if (N > 0) {
-                var model = new_CompositeLabelModel();
+                var label_class = this.view.get_label_class_for_new_label();
+                var model = new_CompositeLabelModel(label_class);
 
                 for (var i = 0; i < this.selected_entities.length; i++) {
                     var model_id = ObjectIDTable.get_id(this.selected_entities[i].model);
@@ -271,7 +272,8 @@ module labelling_tool {
             var N = selection.length;
 
             if (N > 0) {
-                var model = new_GroupLabelModel();
+                var label_class = this.view.get_label_class_for_new_label();
+                var model = new_GroupLabelModel(label_class);
                 for (var i = 0; i < selection.length; i++) {
                     var entity = selection[i];
                     model.component_models.push(entity.model);

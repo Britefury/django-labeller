@@ -41,13 +41,13 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./select_tools.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_PolygonalLabelModel() {
-        return { label_type: 'polygon', label_class: null, vertices: [] };
+    function new_PolygonalLabelModel(label_class) {
+        return { label_type: 'polygon', label_class: label_class, vertices: [] };
     }
     /*
     Polygonal label entity
      */
-    var PolygonalLabelEntity = (function (_super) {
+    var PolygonalLabelEntity = /** @class */ (function (_super) {
         __extends(PolygonalLabelEntity, _super);
         function PolygonalLabelEntity(view, model) {
             var _this = _super.call(this, view, model) || this;
@@ -108,12 +108,13 @@ var labelling_tool;
         PolygonalLabelEntity.prototype._update_style = function () {
             if (this._attached) {
                 var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                var vis = this.get_visibility();
+                if (vis == labelling_tool.LabelVisibility.HIDDEN) {
                     this.poly.attr("visibility", "hidden");
                 }
                 else {
                     var fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
-                    if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                    if (vis == labelling_tool.LabelVisibility.FAINT) {
                         stroke_colour = stroke_colour.with_alpha(0.2);
                         if (this._hover) {
                             fill_colour = fill_colour.lighten(0.4);
@@ -123,7 +124,7 @@ var labelling_tool;
                         }
                         fill_colour = fill_colour.with_alpha(0.1);
                     }
-                    else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                    else if (vis == labelling_tool.LabelVisibility.FULL) {
                         if (this._hover) {
                             fill_colour = fill_colour.lighten(0.4);
                         }
@@ -175,7 +176,7 @@ var labelling_tool;
     /*
     Draw polygon tool
      */
-    var DrawPolygonTool = (function (_super) {
+    var DrawPolygonTool = /** @class */ (function (_super) {
         __extends(DrawPolygonTool, _super);
         function DrawPolygonTool(view, entity) {
             var _this = _super.call(this, view) || this;
@@ -286,7 +287,8 @@ var labelling_tool;
         };
         ;
         DrawPolygonTool.prototype.create_entity = function () {
-            var model = new_PolygonalLabelModel();
+            var label_class = this._view.view.get_label_class_for_new_label();
+            var model = new_PolygonalLabelModel(label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend
@@ -370,3 +372,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPolygonTool = DrawPolygonTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=polygonal_label.js.map

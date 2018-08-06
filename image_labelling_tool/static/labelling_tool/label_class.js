@@ -27,7 +27,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./math_primitives.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    var LabelClass = (function () {
+    var LabelClass = /** @class */ (function () {
         function LabelClass(j) {
             this.name = j.name;
             this.human_name = j.human_name;
@@ -37,3 +37,4 @@ var labelling_tool;
     }());
     labelling_tool.LabelClass = LabelClass;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=label_class.js.map

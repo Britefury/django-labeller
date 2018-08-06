@@ -103,6 +103,7 @@ module labelling_tool {
         private _current_tool: AbstractTool;
         label_classes: LabelClass[];
         label_visibility: LabelVisibility;
+        label_visibility_class_filter: string;
         private _button_down: boolean;
         private _mouse_within: boolean;
         private _last_mouse_pos: Vector2;
@@ -131,6 +132,7 @@ module labelling_tool {
         private label_vis_hidden_radio: JQuery;
         private label_vis_faint_radio: JQuery;
         private label_vis_full_radio: JQuery;
+        private _label_class_filter_menu: JQuery;
         private _confirm_delete: JQuery;
         private _confirm_delete_visible: boolean;
         private _svg: d3.Selection<any>;
@@ -171,6 +173,7 @@ module labelling_tool {
             config.tools = config.tools || {};
             ensure_config_option_exists(config.tools, 'imageSelector', true);
             ensure_config_option_exists(config.tools, 'labelClassSelector', true);
+            ensure_config_option_exists(config.tools, 'labelClassFilter', true);
             ensure_config_option_exists(config.tools, 'brushSelect', true);
             ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
@@ -241,6 +244,7 @@ module labelling_tool {
             }
             // Hide labels
             this.label_visibility = LabelVisibility.FULL;
+            this.label_visibility_class_filter = '__all';
             // Button state
             this._button_down = false;
 
@@ -426,19 +430,36 @@ module labelling_tool {
             this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
             this.label_vis_hidden_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.HIDDEN);
+                    self.set_label_visibility(LabelVisibility.HIDDEN, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_faint_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FAINT);
+                    self.set_label_visibility(LabelVisibility.FAINT, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_full_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FULL);
+                    self.set_label_visibility(LabelVisibility.FULL, self.label_visibility_class_filter);
                 }
             });
+
+            if (config.tools.labelClassFilter) {
+                this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
+                $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
+                for (var i = 0; i < this.label_classes.length; i++) {
+                    var cls = this.label_classes[i];
+                    $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(this._label_class_filter_menu);
+                }
+                $('<option value="__unclassified">UNCLASSIFIED</option>').appendTo(this._label_class_filter_menu);
+                this._label_class_filter_menu.change(function (event, ui) {
+                    var label_filter_class = (event.target as any).value;
+                    if (label_filter_class === '__unclassified') {
+                        label_filter_class = null;
+                    }
+                    self.set_label_visibility(self.label_visibility, label_filter_class);
+                });
+            }
 
 
 
@@ -834,15 +855,15 @@ module labelling_tool {
             var handled = false;
             if (event.keyCode === 186) { // ';'
                 if (this.label_visibility === LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(LabelVisibility.FULL);
+                    this.set_label_visibility(LabelVisibility.FULL, this.label_visibility_class_filter);
                     (this.label_vis_full_radio[0] as any).checked = true;
                 }
                 else if (this.label_visibility === LabelVisibility.FAINT) {
-                    this.set_label_visibility(LabelVisibility.HIDDEN);
+                    this.set_label_visibility(LabelVisibility.HIDDEN, this.label_visibility_class_filter);
                     (this.label_vis_hidden_radio[0] as any).checked = true;
                 }
                 else if (this.label_visibility === LabelVisibility.FULL) {
-                    this.set_label_visibility(LabelVisibility.FAINT);
+                    this.set_label_visibility(LabelVisibility.FAINT, this.label_visibility_class_filter);
                     (this.label_vis_faint_radio[0] as any).checked = true;
                 }
                 else {
@@ -1130,13 +1151,36 @@ module labelling_tool {
             }
         };
 
+        get_label_class_for_new_label(): string {
+            if (this.label_visibility_class_filter === '__all') {
+                return null;
+            }
+            else if (this.label_visibility_class_filter === '__unclassified') {
+                return null;
+            }
+            else {
+                return this.label_visibility_class_filter;
+            }
+        }
+
 
         /*
         Set label visibility
          */
-        set_label_visibility(visibility: LabelVisibility) {
+        set_label_visibility(visibility: LabelVisibility, filter_class: string) {
             this.label_visibility = visibility;
-            this.root_view.set_label_visibility(visibility);
+            this.label_visibility_class_filter = filter_class;
+            this.root_view.set_label_visibility(visibility, filter_class);
+        }
+
+        get_label_visibility(label_class: string): LabelVisibility {
+            var vis: LabelVisibility = this.label_visibility;
+            if (this.label_visibility_class_filter !== '__all') {
+                if (label_class !== this.label_visibility_class_filter) {
+                    vis = LabelVisibility.HIDDEN;
+                }
+            }
+            return vis;
         }
 
 

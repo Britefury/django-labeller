@@ -38,10 +38,11 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
+/// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_BoxLabelModel(centre, size) {
-        return { label_type: 'box', label_class: null, centre: centre, size: size };
+    function new_BoxLabelModel(centre, size, label_class) {
+        return { label_type: 'box', label_class: label_class, centre: centre, size: size };
     }
     function BoxLabel_box(label) {
         var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
@@ -51,7 +52,7 @@ var labelling_tool;
     /*
     Box label entity
      */
-    var BoxLabelEntity = (function (_super) {
+    var BoxLabelEntity = /** @class */ (function (_super) {
         __extends(BoxLabelEntity, _super);
         function BoxLabelEntity(view, model) {
             return _super.call(this, view, model) || this;
@@ -99,15 +100,16 @@ var labelling_tool;
         BoxLabelEntity.prototype._update_style = function () {
             if (this._attached) {
                 var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                var vis = this.get_visibility();
+                if (vis == labelling_tool.LabelVisibility.HIDDEN) {
                     this._rect.attr("visibility", "hidden");
                 }
-                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                else if (vis == labelling_tool.LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this._rect.attr("visibility", "visible");
                 }
-                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                else if (vis == labelling_tool.LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
                     if (this._hover) {
                         circle_fill_colour = circle_fill_colour.lighten(0.4);
@@ -142,7 +144,7 @@ var labelling_tool;
     /*
     Draw box tool
      */
-    var DrawBoxTool = (function (_super) {
+    var DrawBoxTool = /** @class */ (function (_super) {
         __extends(DrawBoxTool, _super);
         function DrawBoxTool(view, entity) {
             var _this = _super.call(this, view) || this;
@@ -208,7 +210,8 @@ var labelling_tool;
         };
         ;
         DrawBoxTool.prototype.create_entity = function (pos) {
-            var model = new_BoxLabelModel(pos, { x: 0.0, y: 0.0 });
+            var label_class = this._view.view.get_label_class_for_new_label();
+            var model = new_BoxLabelModel(pos, { x: 0.0, y: 0.0 }, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend
@@ -247,3 +250,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=box_label.js.map

@@ -35,7 +35,7 @@ var labelling_tool;
     /*
     Label view root
      */
-    var RootLabelView = (function () {
+    var RootLabelView = /** @class */ (function () {
         function RootLabelView(model, root_listener, entity_listener, ltool, world) {
             this.model = model;
             this._all_entities = [];
@@ -94,7 +94,7 @@ var labelling_tool;
         /*
         Set label visibility
          */
-        RootLabelView.prototype.set_label_visibility = function (visibility) {
+        RootLabelView.prototype.set_label_visibility = function (visibility, filter_class) {
             for (var i = 0; i < this._all_entities.length; i++) {
                 this._all_entities[i].notify_hide_labels_change();
             }
@@ -197,7 +197,8 @@ var labelling_tool;
         RootLabelView.prototype.create_composite_label_from_selection = function () {
             var N = this.selected_entities.length;
             if (N > 0) {
-                var model = labelling_tool.new_CompositeLabelModel();
+                var label_class = this.view.get_label_class_for_new_label();
+                var model = labelling_tool.new_CompositeLabelModel(label_class);
                 for (var i = 0; i < this.selected_entities.length; i++) {
                     var model_id = labelling_tool.ObjectIDTable.get_id(this.selected_entities[i].model);
                     model.components.push(model_id);
@@ -217,7 +218,8 @@ var labelling_tool;
             var selection = this.selected_entities.slice();
             var N = selection.length;
             if (N > 0) {
-                var model = labelling_tool.new_GroupLabelModel();
+                var label_class = this.view.get_label_class_for_new_label();
+                var model = labelling_tool.new_GroupLabelModel(label_class);
                 for (var i = 0; i < selection.length; i++) {
                     var entity = selection[i];
                     model.component_models.push(entity.model);
@@ -380,3 +382,4 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=root_label_view.js.map

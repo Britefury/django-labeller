@@ -27,7 +27,6 @@ Dr. M. Mackiewicz.
 
 /// <reference path="../d3.d.ts" />
 /// <reference path="./math_primitives.ts" />
-/// <reference path="./root_label_view.ts" />
 
 module labelling_tool {
     /*
@@ -151,6 +150,10 @@ module labelling_tool {
             this.model.label_class = label_class;
             this._update_style();
             this.commit();
+        }
+
+        get_visibility(): LabelVisibility {
+            return this.root_view.view.get_label_visibility(this.get_label_class());
         }
 
         _update_style() {

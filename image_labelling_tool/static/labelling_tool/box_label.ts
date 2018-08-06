@@ -29,6 +29,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
+/// <reference path="./root_label_view.ts" />
 
 module labelling_tool {
     /*
@@ -39,8 +40,8 @@ module labelling_tool {
         size: Vector2;
     }
 
-    function new_BoxLabelModel(centre: Vector2, size: Vector2): BoxLabelModel {
-        return {label_type: 'box', label_class: null, centre: centre, size: size};
+    function new_BoxLabelModel(centre: Vector2, size: Vector2, label_class: string): BoxLabelModel {
+        return {label_type: 'box', label_class: label_class, centre: centre, size: size};
     }
 
     function BoxLabel_box(label: BoxLabelModel): AABox {
@@ -120,15 +121,16 @@ module labelling_tool {
             if (this._attached) {
                 var stroke_colour: Colour4 = this._outline_colour();
 
-                if (this.root_view.view.label_visibility == LabelVisibility.HIDDEN) {
+                var vis: LabelVisibility = this.get_visibility();
+                if (vis == LabelVisibility.HIDDEN) {
                     this._rect.attr("visibility", "hidden");
                 }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                else if (vis == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this._rect.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this._rect.attr("visibility", "visible");
                 }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                else if (vis == LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
                     if (this._hover) {
                         circle_fill_colour = circle_fill_colour.lighten(0.4);
@@ -240,7 +242,8 @@ module labelling_tool {
 
 
         create_entity(pos: Vector2) {
-            var model = new_BoxLabelModel(pos, {x: 0.0, y: 0.0});
+            var label_class = this._view.view.get_label_class_for_new_label();
+            var model = new_BoxLabelModel(pos, {x: 0.0, y: 0.0}, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend

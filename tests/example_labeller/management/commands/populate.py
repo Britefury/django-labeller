@@ -31,10 +31,10 @@ class Command(BaseCommand):
                 self.stdout.write('Adding image {} with labels from {}'.format(image_path, labels_path))
                 wrapped_labels = json.load(open(labels_path, 'r'))
                 labels, complete = labelling_tool.PersistentLabelledImage._unwrap_labels(
-                    image_path, wrapped_labels)
+                    wrapped_labels)
                 complete = complete if isinstance(complete, bool) else False
                 labels_model = lt_models.Labels(
-                    labels_json_str=json.dumps(labels.labels_json), complete=complete,
+                    labels_json_str=json.dumps(labels), complete=complete,
                     creation_date=datetime.date.today())
                 labels_model.save()
             else:

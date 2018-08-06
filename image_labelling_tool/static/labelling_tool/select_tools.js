@@ -42,7 +42,7 @@ var labelling_tool;
     /*
     Select entity tool
      */
-    var SelectEntityTool = (function (_super) {
+    var SelectEntityTool = /** @class */ (function (_super) {
         __extends(SelectEntityTool, _super);
         function SelectEntityTool(view) {
             var _this = _super.call(this, view) || this;
@@ -172,7 +172,7 @@ var labelling_tool;
     /*
     Brush select entity tool
      */
-    var BrushSelectEntityTool = (function (_super) {
+    var BrushSelectEntityTool = /** @class */ (function (_super) {
         __extends(BrushSelectEntityTool, _super);
         function BrushSelectEntityTool(view) {
             var _this = _super.call(this, view) || this;
@@ -292,3 +292,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.BrushSelectEntityTool = BrushSelectEntityTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=select_tools.js.map

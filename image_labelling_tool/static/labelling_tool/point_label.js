@@ -41,13 +41,13 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_PointLabelModel(position) {
-        return { label_type: 'point', label_class: null, position: position };
+    function new_PointLabelModel(position, label_class) {
+        return { label_type: 'point', label_class: label_class, position: position };
     }
     /*
     Point label entity
      */
-    var PointLabelEntity = (function (_super) {
+    var PointLabelEntity = /** @class */ (function (_super) {
         __extends(PointLabelEntity, _super);
         function PointLabelEntity(view, model) {
             return _super.call(this, view, model) || this;
@@ -92,15 +92,16 @@ var labelling_tool;
         PointLabelEntity.prototype._update_style = function () {
             if (this._attached) {
                 var stroke_colour = this._outline_colour();
-                if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.HIDDEN) {
+                var vis = this.get_visibility();
+                if (vis == labelling_tool.LabelVisibility.HIDDEN) {
                     this.circle.attr("visibility", "hidden");
                 }
-                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FAINT) {
+                else if (vis == labelling_tool.LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
                     this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
                     this.circle.attr("visibility", "visible");
                 }
-                else if (this.root_view.view.label_visibility == labelling_tool.LabelVisibility.FULL) {
+                else if (vis == labelling_tool.LabelVisibility.FULL) {
                     var circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
                     if (this._hover) {
                         circle_fill_colour = circle_fill_colour.lighten(0.4);
@@ -131,7 +132,7 @@ var labelling_tool;
     /*
     Draw point tool
      */
-    var DrawPointTool = (function (_super) {
+    var DrawPointTool = /** @class */ (function (_super) {
         __extends(DrawPointTool, _super);
         function DrawPointTool(view, entity) {
             var _this = _super.call(this, view) || this;
@@ -169,7 +170,8 @@ var labelling_tool;
         };
         ;
         DrawPointTool.prototype.create_entity = function (position) {
-            var model = new_PointLabelModel(position);
+            var label_class = this._view.view.get_label_class_for_new_label();
+            var model = new_PointLabelModel(position, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend
@@ -191,3 +193,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPointTool = DrawPointTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=point_label.js.map

@@ -26,7 +26,6 @@ Dr. M. Mackiewicz.
  */
 /// <reference path="../d3.d.ts" />
 /// <reference path="./math_primitives.ts" />
-/// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     /*
@@ -41,7 +40,7 @@ var labelling_tool;
     /*
     Abstract label entity
      */
-    var AbstractLabelEntity = (function () {
+    var AbstractLabelEntity = /** @class */ (function () {
         function AbstractLabelEntity(view, model) {
             this.root_view = view;
             this.model = model;
@@ -104,6 +103,9 @@ var labelling_tool;
             this.model.label_class = label_class;
             this._update_style();
             this.commit();
+        };
+        AbstractLabelEntity.prototype.get_visibility = function () {
+            return this.root_view.view.get_label_visibility(this.get_label_class());
         };
         AbstractLabelEntity.prototype._update_style = function () {
         };
@@ -168,3 +170,4 @@ var labelling_tool;
     }
     labelling_tool.new_entity_for_model = new_entity_for_model;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=abstract_label.js.map

@@ -29,7 +29,7 @@ var labelling_tool;
     /*
      Object ID table
       */
-    var ObjectIDTable = (function () {
+    var ObjectIDTable = /** @class */ (function () {
         function ObjectIDTable() {
             this._id_counter = 1;
             this._id_to_object = {};
@@ -89,3 +89,4 @@ var labelling_tool;
     }());
     labelling_tool.ObjectIDTable = ObjectIDTable;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=object_id_table.js.map

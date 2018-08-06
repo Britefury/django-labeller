@@ -132,6 +132,7 @@ LABELLING_TOOL_CONFIG = {
         'imageSelector': True,
         'labelClassSelector': True,
         'brushSelect': True,
+        'labelClassFilter': True,
         'drawPointLabel': True,
         'drawBoxLabel': True,
         'drawPolyLabel': True,

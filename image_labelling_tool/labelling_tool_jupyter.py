@@ -176,7 +176,7 @@ requirejs.config({
 });
 
 define('image-labelling-tool',
-       ["jupyter-js-widgets",
+       ["@jupyter-widgets/base",
         "image_labelling_tool/static/d3.min.js",
         "image_labelling_tool/static/json2.js",
         "image_labelling_tool/static/polyk.js",

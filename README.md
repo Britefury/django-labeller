@@ -18,7 +18,9 @@ API usage is demonstrated further down.
 An example Flask-based web app is provided that displays the labelling tool within a web page. To start it,
 run `python flask_app.py` and open `127.0.0.1:5000` within a browser.
 
-### Django web app example
+### Django 1.11 web app example
+
+** Not Django 2.x compatible **
 
 The example Django-based web app provides a little more functionality than the Flask app. It stores the label
 data in a database (only SQLite in the example) and does basic image locking so that multiple users cannot work

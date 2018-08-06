@@ -36,8 +36,8 @@ module labelling_tool {
         components: number[];
     }
 
-    export function new_CompositeLabelModel(): CompositeLabelModel {
-        return {label_type: 'composite', label_class: null, components: []};
+    export function new_CompositeLabelModel(label_class: string): CompositeLabelModel {
+        return {label_type: 'composite', label_class: label_class, components: []};
     }
 
 
@@ -153,16 +153,27 @@ module labelling_tool {
             if (this._attached) {
                 var stroke_colour: Colour4 = this._outline_colour();
 
-                if (this.root_view.view.label_visibility == LabelVisibility.FAINT) {
+                var vis: LabelVisibility = this.get_visibility();
+                if (vis == LabelVisibility.HIDDEN) {
+                    this.circle.attr("visibility", "hidden");
+                    this.central_circle.attr("visibility", "hidden");
+                    this.connections_group.selectAll("path").attr("visibility", "hidden");
+                    this.connections_group.selectAll("circle").attr("visibility", "hidden");
+                }
+                else if (vis == LabelVisibility.FAINT) {
                     stroke_colour = stroke_colour.with_alpha(0.2);
+                    this.circle.attr("visibility", "visible");
                     this.circle.attr("style", "fill:none;stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.central_circle.attr("visibility", "visible");
 
                     this.connections_group.selectAll("path")
+                        .attr("visibility", "visible")
                         .attr("style", "stroke:rgba(255,0,255,0.2);");
                     this.connections_group.selectAll("circle")
+                        .attr("visibility", "visible")
                         .attr("style", "stroke:rgba(255,0,255,0.2);fill: none;");
                 }
-                else if (this.root_view.view.label_visibility == LabelVisibility.FULL) {
+                else if (vis == LabelVisibility.FULL) {
                     var circle_fill_colour = new Colour4(255, 128, 255, 1.0);
                     var central_circle_fill_colour = this.root_view.view.colour_for_label_class(this.model.label_class);
                     var connection_fill_colour = new Colour4(255, 0, 255, 1.0);
@@ -180,12 +191,16 @@ module labelling_tool {
 
                     stroke_colour = stroke_colour.with_alpha(0.5);
 
+                    this.circle.attr("visibility", "visible");
                     this.circle.attr("style", "fill:" + circle_fill_colour.to_rgba_string() + ";stroke:" + connection_stroke_colour.to_rgba_string() + ";stroke-width:1");
+                    this.central_circle.attr("visibility", "visible");
                     this.central_circle.attr("style", "fill:" + central_circle_fill_colour.to_rgba_string() + ";stroke:" + stroke_colour.to_rgba_string() + ";stroke-width:1");
 
                     this.connections_group.selectAll("path")
+                        .attr("visibility", "visible")
                         .attr("style", "stroke:rgba(255,0,255,0.6);");
                     this.connections_group.selectAll("circle")
+                        .attr("visibility", "visible")
                         .attr("style", "stroke:"+connection_stroke_colour.to_rgba_string()+";fill:"+connection_fill_colour.to_rgba_string()+";");
                 }
             }

@@ -1,6 +1,7 @@
 import os, datetime
 
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 from django.conf import settings
 
@@ -10,6 +11,7 @@ from image_labelling_tool import labelling_tool_views
 
 from . import models
 
+@ensure_csrf_cookie
 def home(request):
     image_descriptors = [labelling_tool.image_descriptor(
             image_id=img.id, url=img.image.url,

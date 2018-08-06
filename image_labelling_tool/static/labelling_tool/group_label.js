@@ -38,14 +38,14 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./abstract_label.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_GroupLabelModel() {
-        return { label_type: 'group', label_class: null, component_models: [] };
+    function new_GroupLabelModel(label_class) {
+        return { label_type: 'group', label_class: label_class, component_models: [] };
     }
     labelling_tool.new_GroupLabelModel = new_GroupLabelModel;
     /*
     Group label entity
      */
-    var GroupLabelEntity = (function (_super) {
+    var GroupLabelEntity = /** @class */ (function (_super) {
         __extends(GroupLabelEntity, _super);
         function GroupLabelEntity(view, model) {
             var _this = _super.call(this, view, model) || this;
@@ -251,3 +251,4 @@ var labelling_tool;
         return new GroupLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=group_label.js.map

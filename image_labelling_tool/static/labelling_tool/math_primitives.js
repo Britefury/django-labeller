@@ -63,7 +63,7 @@ var labelling_tool;
     /*
     RGBA colour
      */
-    var Colour4 = (function () {
+    var Colour4 = /** @class */ (function () {
         function Colour4(r, g, b, a) {
             this.r = r;
             this.g = g;
@@ -94,7 +94,7 @@ var labelling_tool;
     /*
     Axis-aligned box
      */
-    var AABox = (function () {
+    var AABox = /** @class */ (function () {
         function AABox(lower, upper) {
             this.lower = lower;
             this.upper = upper;
@@ -165,3 +165,4 @@ var labelling_tool;
     }
     labelling_tool.AABox_from_aaboxes = AABox_from_aaboxes;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=math_primitives.js.map

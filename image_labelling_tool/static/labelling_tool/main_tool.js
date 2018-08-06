@@ -59,7 +59,7 @@ var labelling_tool;
     /*
    Labelling tool view; links to the server side data structures
     */
-    var LabellingTool = (function () {
+    var LabellingTool = /** @class */ (function () {
         function LabellingTool(element, label_classes, tool_width, tool_height, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, config) {
             var _this = this;
             var self = this;
@@ -73,6 +73,7 @@ var labelling_tool;
             config.tools = config.tools || {};
             labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'labelClassSelector', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'labelClassFilter', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'brushSelect', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
@@ -135,6 +136,7 @@ var labelling_tool;
             }
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
+            this.label_visibility_class_filter = '__all';
             // Button state
             this._button_down = false;
             // Labelling tool dimensions
@@ -283,19 +285,35 @@ var labelling_tool;
             this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
             this.label_vis_hidden_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_faint_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_full_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL, self.label_visibility_class_filter);
                 }
             });
+            if (config.tools.labelClassFilter) {
+                this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
+                $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
+                for (var i = 0; i < this.label_classes.length; i++) {
+                    var cls = this.label_classes[i];
+                    $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(this._label_class_filter_menu);
+                }
+                $('<option value="__unclassified">UNCLASSIFIED</option>').appendTo(this._label_class_filter_menu);
+                this._label_class_filter_menu.change(function (event, ui) {
+                    var label_filter_class = event.target.value;
+                    if (label_filter_class === '__unclassified') {
+                        label_filter_class = null;
+                    }
+                    self.set_label_visibility(self.label_visibility, label_filter_class);
+                });
+            }
             //
             // Tool buttons:
             // Select, brush select, draw poly, composite, group, delete
@@ -624,17 +642,17 @@ var labelling_tool;
         ;
         LabellingTool.prototype.on_key_down = function (event) {
             var handled = false;
-            if (event.keyCode === 186) {
+            if (event.keyCode === 186) { // ';'
                 if (this.label_visibility === labelling_tool.LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL, this.label_visibility_class_filter);
                     this.label_vis_full_radio[0].checked = true;
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FAINT) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, this.label_visibility_class_filter);
                     this.label_vis_hidden_radio[0].checked = true;
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FULL) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT, this.label_visibility_class_filter);
                     this.label_vis_faint_radio[0].checked = true;
                 }
                 else {
@@ -886,12 +904,33 @@ var labelling_tool;
             }
         };
         ;
+        LabellingTool.prototype.get_label_class_for_new_label = function () {
+            if (this.label_visibility_class_filter === '__all') {
+                return null;
+            }
+            else if (this.label_visibility_class_filter === '__unclassified') {
+                return null;
+            }
+            else {
+                return this.label_visibility_class_filter;
+            }
+        };
         /*
         Set label visibility
          */
-        LabellingTool.prototype.set_label_visibility = function (visibility) {
+        LabellingTool.prototype.set_label_visibility = function (visibility, filter_class) {
             this.label_visibility = visibility;
-            this.root_view.set_label_visibility(visibility);
+            this.label_visibility_class_filter = filter_class;
+            this.root_view.set_label_visibility(visibility, filter_class);
+        };
+        LabellingTool.prototype.get_label_visibility = function (label_class) {
+            var vis = this.label_visibility;
+            if (this.label_visibility_class_filter !== '__all') {
+                if (label_class !== this.label_visibility_class_filter) {
+                    vis = labelling_tool.LabelVisibility.HIDDEN;
+                }
+            }
+            return vis;
         };
         /*
         Set the current tool; switch the old one out and a new one in
@@ -973,3 +1012,4 @@ var labelling_tool;
     }());
     labelling_tool.LabellingTool = LabellingTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=main_tool.js.map

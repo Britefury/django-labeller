@@ -31,7 +31,7 @@ var labelling_tool;
     /*
     Abstract tool
      */
-    var AbstractTool = (function () {
+    var AbstractTool = /** @class */ (function () {
         function AbstractTool(view) {
             this._view = view;
         }
@@ -85,3 +85,4 @@ var labelling_tool;
     }());
     labelling_tool.AbstractTool = AbstractTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=abstract_tool.js.map

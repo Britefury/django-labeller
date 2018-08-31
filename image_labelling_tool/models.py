@@ -41,6 +41,59 @@ class Labels (models.Model):
         self.labels_json_str = json.dumps(label_js)
 
     @property
+    def metadata_json(self):
+        last_modified_by = self.last_modified_by
+        if last_modified_by is not None:
+            username = last_modified_by.username
+            user_id = last_modified_by.id
+        else:
+            username = user_id = None
+        return dict(
+            complete=self.complete,
+            creation_date=self.creation_date.strftime('%Y-%m-%d'),
+            last_modified_by__id=user_id,
+            last_modified_by__username=username,
+            last_modified_datetime=self.last_modified_datetime.strftime('%Y-%m-%d %H:%M:%S'),
+        )
+
+    @metadata_json.setter
+    def metadata_json(self, meta_js):
+        self.load_metadata_json(meta_js)
+
+    def load_metadata_json(self, metadata_json, last_modified_by=None):
+        if last_modified_by is None:
+            username = metadata_json['last_modified_by__username']
+            if username is not None:
+                last_modified_by = settings.AUTH_USER_MODEL.objects.get(username=username)
+        if last_modified_by is None:
+            user_id = metadata_json['last_modified_by__id']
+            if user_id is not None:
+                last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
+        self.complete = metadata_json['complete']
+        self.creation_date = datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date()
+        self.last_modified_by = last_modified_by
+        self.last_modified_datetime = datetime.datetime.strptime(metadata_json['last_modified_datetime'],
+                                                                 '%Y-%m-%d %H:%M:%S')
+
+
+    @staticmethod
+    def from_labels_json_str_and_metadata_json(labels_json_str, metadata_json, last_modified_by=None):
+        if last_modified_by is None:
+            username = metadata_json['last_modified_by__username']
+            if username is not None:
+                last_modified_by = settings.AUTH_USER_MODEL.objects.get(username=username)
+        if last_modified_by is None:
+            user_id = metadata_json['last_modified_by__id']
+            if user_id is not None:
+                last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
+        return Labels(labels_json_str=labels_json_str,
+                      complete=metadata_json['complete'],
+                      creation_date=datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date(),
+                      last_modified_by=last_modified_by,
+                      last_modified_datetime=datetime.datetime.strptime(metadata_json['last_modified_datetime'],
+                                                                        '%Y-%m-%d %H:%M:%S'))
+
+    @property
     def is_empty(self):
         return self.labels_json_str == '[]'
 

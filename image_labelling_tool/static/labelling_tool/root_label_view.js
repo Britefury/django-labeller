@@ -92,6 +92,14 @@ var labelling_tool;
         };
         ;
         /*
+        Notify of colour_scheme change
+         */
+        RootLabelView.prototype.notify_colour_scheme_changed = function () {
+            for (var i = 0; i < this._all_entities.length; i++) {
+                this._all_entities[i].notify_colour_scheme_changed();
+            }
+        };
+        /*
         Set label visibility
          */
         RootLabelView.prototype.set_label_visibility = function (visibility, filter_class) {

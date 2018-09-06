@@ -35,18 +35,29 @@ module labelling_tool {
         name: string;
         human_name: string;
         colour: number[];
+        colours: { [colour_scheme: string]: number[]; };
     }
 
 
     export class LabelClass {
         name: string;
         human_name: string;
-        colour: Colour4;
+        colours: { [colour_scheme: string]: Colour4; };
 
         constructor(j: LabelClassJSON) {
             this.name = j.name;
             this.human_name = j.human_name;
-            this.colour = Colour4.from_rgb_a(j.colour, 1.0);
+            this.colours = {};
+            if (j.colours !== undefined) {
+                // Multiple colours; new form
+                for (let colour_scheme in j.colours) {
+                    this.colours[colour_scheme] = Colour4.from_rgb_a(j.colours[colour_scheme], 1.0);
+                }
+            }
+            else if (j.colour !== undefined) {
+                // Single colour; old form
+                this.colours['default'] = Colour4.from_rgb_a(j.colour, 1.0);
+            }
         }
     }
 }

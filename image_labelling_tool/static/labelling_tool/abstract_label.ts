@@ -138,6 +138,10 @@ module labelling_tool {
             this._update_style();
         }
 
+        notify_colour_scheme_changed() {
+            this._update_style();
+        }
+
         get_label_type_name(): string {
             return this.model.label_type;
         }

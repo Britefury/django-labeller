@@ -31,10 +31,18 @@ def run_app(slic, readonly):
     from image_labelling_tool import labelling_tool, flask_labeller
 
     # Specify our 3 label classes.
-    # `LabelClass` parameters are: symbolic name, human readable name for UI, and RGB colour as list
-    label_classes = [labelling_tool.LabelClass('tree', 'Trees', [0, 255, 192]),
-                     labelling_tool.LabelClass('building', 'Buldings', [255, 128, 0]),
-                     labelling_tool.LabelClass('lake', 'Lake', [0, 128, 255]),
+    # `LabelClass` parameters are: symbolic name, human readable name for UI, and colours by colour scheme.
+    # The user can choose between colour schemes, this is useful when there are lots of label classes,
+    # making it difficult to choose a range of colours that are easily differentiable from one another.
+    # In this case, the colour schemes are 'default', 'natural' and 'artifical'.
+    # They given human readable names that are displayed in the UI in the `tools.colour_schemes` section
+    # of the `config` dictionary below.
+    label_classes = [labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
+                                                                     artificial=[128, 128, 128])),
+                     labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
+                                                                            artificial=[255, 128, 0])),
+                     labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
+                                                                    artificial=[128, 128, 128])),
                      ]
     if slic:
         import glob
@@ -69,6 +77,9 @@ def run_app(slic, readonly):
             'drawPolyLabel': True,
             'compositeLabel': True,
             'deleteLabel': True,
+            'colour_schemes': [dict(name='default', human_name='All'),
+                               dict(name='natural', human_name='Natural'),
+                               dict(name='artificial', human_name='Artifical')],
             'deleteConfig': {
                 'typePermissions': {
                     'point': True,

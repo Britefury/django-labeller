@@ -62,24 +62,40 @@ def js_file_urls(url_prefix):
     return ['{}{}'.format(url_prefix, filename) for filename in LABELLING_TOOL_JS_FILES]
 
 class LabelClass (object):
-    def __init__(self, name, human_name, colour):
+    def __init__(self, name, human_name, colour=None, colours=None):
         """
         Label class constructor
         
         :param name: identifier class name 
         :param human_name: human readable name
         :param colour: colour as a tuple or list e.g. [255, 0, 0] for red
+        :param colours: colours as a dict that maps colour scheme name to colour as a tuple or list
         """
         self.name = name
         self.human_name = human_name
-        colour = list(colour)
-        if len(colour) != 3:
-            raise TypeError('colour must be a tuple or list of length 3')
-        self.colour = colour
+        if colour is not None:
+            if isinstance(colour, (tuple, list)):
+                colour = list(colour)
+                if len(colour) != 3:
+                    raise TypeError('colour must be a tuple or list of length 3')
+                colours = {'default': colour}
+            elif isinstance(colour, dict):
+                colours = colour
+            else:
+                raise TypeError('colour should be a tuple, a list or a dict')
+
+        if colours is not None:
+            if isinstance(colours, dict):
+                colours = {k: list(v) for k, v in colours.items()}
+                for v in colours.values():
+                    if len(v) != 3:
+                        raise TypeError('values in colours must be tuples or lists of length 3')
+
+        self.colours = colours
 
 
     def to_json(self):
-        return {'name': self.name, 'human_name': self.human_name, 'colour': self.colour}
+        return {'name': self.name, 'human_name': self.human_name, 'colours': self.colours}
 
 
 def label_class(name, human_name, rgb):

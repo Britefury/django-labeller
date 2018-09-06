@@ -74,7 +74,7 @@ class ImageLabellingTool (widgets.DOMWidget):
         if label_classes is None:
             label_classes = []
 
-        label_classes = [{'name': cls.name, 'human_name': cls.human_name, 'colour': cls.colour}   for cls in label_classes]
+        label_classes = [cls.to_json() for cls in label_classes]
 
         if labelled_images is None:
             labelled_images = []

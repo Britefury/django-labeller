@@ -31,7 +31,17 @@ var labelling_tool;
         function LabelClass(j) {
             this.name = j.name;
             this.human_name = j.human_name;
-            this.colour = labelling_tool.Colour4.from_rgb_a(j.colour, 1.0);
+            this.colours = {};
+            if (j.colours !== undefined) {
+                // Multiple colours; new form
+                for (var colour_scheme in j.colours) {
+                    this.colours[colour_scheme] = labelling_tool.Colour4.from_rgb_a(j.colours[colour_scheme], 1.0);
+                }
+            }
+            else if (j.colour !== undefined) {
+                // Single colour; old form
+                this.colours['default'] = labelling_tool.Colour4.from_rgb_a(j.colour, 1.0);
+            }
         }
         return LabelClass;
     }());

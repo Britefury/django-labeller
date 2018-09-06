@@ -101,6 +101,7 @@ module labelling_tool {
         private root_view: RootLabelView;
         private root_view_listener: RootLabelViewListener;
         private _current_tool: AbstractTool;
+        private _current_colour_scheme: string;
         label_classes: LabelClass[];
         label_visibility: LabelVisibility;
         label_visibility_class_filter: string;
@@ -128,6 +129,7 @@ module labelling_tool {
         private _pushDataTimeout: any;
         private frozen: boolean;
 
+        private _colour_scheme_selector_menu: JQuery;
         private _label_class_selector_menu: JQuery;
         private label_vis_hidden_radio: JQuery;
         private label_vis_faint_radio: JQuery;
@@ -168,7 +170,6 @@ module labelling_tool {
             }
 
             config = config || {};
-            this._config = config;
 
             config.tools = config.tools || {};
             ensure_config_option_exists(config.tools, 'imageSelector', true);
@@ -182,6 +183,11 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'groupLabel', true);
             ensure_config_option_exists(config.tools, 'deleteLabel', true);
 
+            ensure_config_option_exists(config.tools, 'colour_schemes',
+                            [{name: 'default', human_name: 'Default'}]);
+
+            this._current_colour_scheme = config.tools.colour_schemes[0].name;
+
             config.settings = config.settings || {};
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
 
@@ -193,6 +199,7 @@ module labelling_tool {
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
 
+            this._config = config;
 
             /*
             Entity event listener
@@ -399,7 +406,7 @@ module labelling_tool {
 
 
             //
-            // LABEL CLASS SELECTOR AND HIDE LABELS
+            // TASK SELECTOR LABEL CLASS SELECTOR AND HIDE LABELS
             //
 
             $('<p style="background: #b0b0b0;">Labels</p>').appendTo(toolbar);
@@ -422,6 +429,20 @@ module labelling_tool {
                     }
                 });
                 this._lockableControls = this._lockableControls.add(this._label_class_selector_menu);
+            }
+
+            if (config.tools.colour_schemes.length > 1) {
+                $('<br/><span>Colour scheme:</span><br/>').appendTo(toolbar);
+
+                this._colour_scheme_selector_menu = $('<select name="colour_scheme_selector"/>').appendTo(toolbar);
+                for (var i = 0; i < this._config.tools.colour_schemes.length; i++) {
+                    var colour_scheme = this._config.tools.colour_schemes[i];
+                    $('<option value="' + colour_scheme.name + '">' + colour_scheme.human_name + '</option>').appendTo(this._colour_scheme_selector_menu);
+                }
+                this._colour_scheme_selector_menu.change(function (event, ui) {
+                    self.set_current_colour_scheme((event.target as any).value);
+                });
+                this._lockableControls = this._lockableControls.add(this._colour_scheme_selector_menu);
             }
 
             $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
@@ -1102,6 +1123,15 @@ module labelling_tool {
 
 
 
+        /*
+        Change colour_scheme
+         */
+        set_current_colour_scheme(name: string) {
+            this._current_colour_scheme = name;
+            this.root_view.notify_colour_scheme_changed();
+        }
+
+
 
         /*
         Get colour for a given label class
@@ -1124,7 +1154,7 @@ module labelling_tool {
         colour_for_label_class(label_class: string): Colour4 {
             var index = this.index_for_label_class(label_class);
             if (index !== -1) {
-                return this.label_classes[index].colour;
+                return this.label_classes[index].colours[this._current_colour_scheme];
             }
             else {
                 // Default

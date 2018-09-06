@@ -118,11 +118,15 @@ CSRF_COOKIE_SECURE = False
 # Labelling tool configuration, used in `example_labeller.views`
 
 # Label classes
-# Tuple entries arameters are: symbolic name, human readable name for UI, and RGB colour as list
+# Tuple entries arameters are: symbolic name, human readable name for UI, and colours by colour scheme.
+# The user can choose between colour schemes, this is useful when there are lots of label classes,
+# making it difficult to choose a range of colours that are easily differentiable from one another.
+# They given human readable names that are displayed in the UI in the `tools.colour_schemes` section of the
+# `LABELLING_TOOL_CONFIG` dictionary below.
 LABEL_CLASSES = [
-    ('tree', 'Trees', [0, 255, 192]),
-    ('building', 'Buldings', [255, 128, 0]),
-    ('lake', 'Lake', [0, 128, 255]),
+    ('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192], artificial=[128, 128, 128])),
+    ('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128], artificial=[255, 128, 0])),
+    ('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255], artificial=[128, 128, 128])),
 ]
 
 
@@ -139,6 +143,9 @@ LABELLING_TOOL_CONFIG = {
         'compositeLabel': True,
         'groupLabel': True,
         'deleteLabel': True,
+        'colour_schemes': [dict(name='default', human_name='All'),
+                           dict(name='natural', human_name='Natural'),
+                           dict(name='artificial', human_name='Artifical')],
         'deleteConfig': {
             'typePermissions': {
                 'point': True,

@@ -127,6 +127,16 @@ module labelling_tool {
             }
         };
 
+
+        /*
+        Notify of colour_scheme change
+         */
+        notify_colour_scheme_changed() {
+            for (var i = 0; i < this._all_entities.length; i++) {
+                this._all_entities[i].notify_colour_scheme_changed();
+            }
+        }
+
         /*
         Set label visibility
          */

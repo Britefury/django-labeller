@@ -81,7 +81,7 @@ def flask_labeller(labelled_images, label_classes, config=None):
 
     @app.route('/')
     def index():
-        label_classes_json = [{'name': cls.name, 'human_name': cls.human_name, 'colour': cls.colour}   for cls in label_classes]
+        label_classes_json = [cls.to_json()   for cls in label_classes]
         return render_template('labeller_page.jinja2',
                                tool_js_urls=labelling_tool.js_file_urls('/static/labelling_tool/'),
                                label_classes=json.dumps(label_classes_json),

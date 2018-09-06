@@ -93,6 +93,9 @@ var labelling_tool;
         AbstractLabelEntity.prototype.notify_hide_labels_change = function () {
             this._update_style();
         };
+        AbstractLabelEntity.prototype.notify_colour_scheme_changed = function () {
+            this._update_style();
+        };
         AbstractLabelEntity.prototype.get_label_type_name = function () {
             return this.model.label_type;
         };

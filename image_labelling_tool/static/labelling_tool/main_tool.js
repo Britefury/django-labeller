@@ -69,7 +69,6 @@ var labelling_tool;
                 LabellingTool._global_key_handler_connected = false;
             }
             config = config || {};
-            this._config = config;
             config.tools = config.tools || {};
             labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'labelClassSelector', true);
@@ -81,6 +80,8 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'colour_schemes', [{ name: 'default', human_name: 'Default' }]);
+            this._current_colour_scheme = config.tools.colour_schemes[0].name;
             config.settings = config.settings || {};
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
@@ -90,6 +91,7 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
+            this._config = config;
             /*
             Entity event listener
              */
@@ -257,7 +259,7 @@ var labelling_tool;
             });
             this._lockableControls = this._lockableControls.add(this._complete_checkbox);
             //
-            // LABEL CLASS SELECTOR AND HIDE LABELS
+            // TASK SELECTOR LABEL CLASS SELECTOR AND HIDE LABELS
             //
             $('<p style="background: #b0b0b0;">Labels</p>').appendTo(toolbar);
             if (config.tools.labelClassSelector) {
@@ -278,6 +280,18 @@ var labelling_tool;
                     }
                 });
                 this._lockableControls = this._lockableControls.add(this._label_class_selector_menu);
+            }
+            if (config.tools.colour_schemes.length > 1) {
+                $('<br/><span>Colour scheme:</span><br/>').appendTo(toolbar);
+                this._colour_scheme_selector_menu = $('<select name="colour_scheme_selector"/>').appendTo(toolbar);
+                for (var i = 0; i < this._config.tools.colour_schemes.length; i++) {
+                    var colour_scheme = this._config.tools.colour_schemes[i];
+                    $('<option value="' + colour_scheme.name + '">' + colour_scheme.human_name + '</option>').appendTo(this._colour_scheme_selector_menu);
+                }
+                this._colour_scheme_selector_menu.change(function (event, ui) {
+                    self.set_current_colour_scheme(event.target.value);
+                });
+                this._lockableControls = this._lockableControls.add(this._colour_scheme_selector_menu);
             }
             $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
             this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
@@ -860,6 +874,13 @@ var labelling_tool;
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
         };
         /*
+        Change colour_scheme
+         */
+        LabellingTool.prototype.set_current_colour_scheme = function (name) {
+            this._current_colour_scheme = name;
+            this.root_view.notify_colour_scheme_changed();
+        };
+        /*
         Get colour for a given label class
          */
         LabellingTool.prototype.index_for_label_class = function (label_class) {
@@ -878,7 +899,7 @@ var labelling_tool;
         LabellingTool.prototype.colour_for_label_class = function (label_class) {
             var index = this.index_for_label_class(label_class);
             if (index !== -1) {
-                return this.label_classes[index].colour;
+                return this.label_classes[index].colours[this._current_colour_scheme];
             }
             else {
                 // Default

@@ -763,6 +763,11 @@ class ImageLabels (object):
     def to_json(self):
         return [lab.to_json() for lab in self.labels]
 
+    def wrapped_json(self, image_filename, complete):
+        return {'image_filename': image_filename,
+                'complete': complete,
+                'labels': self.to_json()}
+
     @staticmethod
     def from_json(label_data_js):
         """

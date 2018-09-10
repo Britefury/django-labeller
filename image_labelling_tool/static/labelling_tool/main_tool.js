@@ -197,17 +197,21 @@ var labelling_tool;
             if (config.tools.imageSelector) {
                 var _increment_image_index = function (offset) {
                     var image_id = self._get_current_image_id();
-                    var index = self._image_id_to_index(image_id);
-                    var new_index = index + offset;
-                    new_index = Math.max(Math.min(new_index, self._images.length - 1), 0);
-                    // Only trigger an image load if the index has changed and it is valid
-                    if (new_index !== index && new_index < self._images.length) {
-                        self.loadImage(self._images[new_index]);
+                    if (image_id !== '') {
+                        var index = self._image_id_to_index(image_id);
+                        var new_index = index + offset;
+                        new_index = Math.max(Math.min(new_index, self._images.length - 1), 0);
+                        // Only trigger an image load if the index has changed and it is valid
+                        if (new_index !== index && new_index < self._images.length) {
+                            self.loadImage(self._images[new_index]);
+                        }
                     }
                 };
                 var _next_unlocked_image = function () {
                     var image_id = self._get_current_image_id();
-                    self._getNextUnlockedImageIDCallback(image_id);
+                    if (image_id !== '') {
+                        self._getNextUnlockedImageIDCallback(image_id);
+                    }
                 };
                 this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
                 this._image_index_input.on('change', function () {

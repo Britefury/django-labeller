@@ -263,7 +263,7 @@ var labelling_tool;
             });
             this._lockableControls = this._lockableControls.add(this._complete_checkbox);
             //
-            // TASK SELECTOR LABEL CLASS SELECTOR AND HIDE LABELS
+            // LABEL CLASS SELECTOR AND HIDE LABELS
             //
             $('<p style="background: #b0b0b0;">Labels</p>').appendTo(toolbar);
             if (config.tools.labelClassSelector) {
@@ -297,7 +297,7 @@ var labelling_tool;
                 });
                 this._lockableControls = this._lockableControls.add(this._colour_scheme_selector_menu);
             }
-            $('<br/><span>Label visibility:</span><br/>').appendTo(toolbar);
+            $('<p style="background: #b0b0b0;">Label visibility</p>').appendTo(toolbar);
             this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
             this.label_vis_faint_radio = $('<input type="radio" name="labelvis" value="faint">faint</input>').appendTo(toolbar);
             this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);

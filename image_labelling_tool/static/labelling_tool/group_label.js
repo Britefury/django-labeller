@@ -181,17 +181,17 @@ var labelling_tool;
             if (this._attached) {
                 if (this._selected) {
                     if (this._hover) {
-                        this._bounding_rect.attr("style", "stroke:rgba(192,128,255,0.8); fill:rgba(192,128,255,0.2); line-width: 1.0px;")
+                        this._bounding_rect.attr("style", "stroke:rgba(255,128,192,1.0); fill:rgba(255,128,192,0.3); line-width: 2.0px;")
                             .attr("visibility", "visible");
                     }
                     else {
-                        this._bounding_rect.attr("style", "stroke:rgba(192,128,255,0.6); fill:none; line-width: 1.0px;")
+                        this._bounding_rect.attr("style", "stroke:rgba(255,128,192,0.8); fill:none; line-width: 2.0px;")
                             .attr("visibility", "visible");
                     }
                 }
                 else {
                     if (this._hover) {
-                        this._bounding_rect.attr("style", "stroke:rgba(192,128,255,0.4); fill:none; line-width: 1.0px;")
+                        this._bounding_rect.attr("style", "stroke:rgba(255,128,192,0.6); fill:none; line-width: 2.0px;")
                             .attr("visibility", "visible");
                     }
                     else {

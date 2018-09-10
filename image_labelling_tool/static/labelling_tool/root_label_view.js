@@ -227,6 +227,31 @@ var labelling_tool;
             var N = selection.length;
             if (N > 0) {
                 var label_class = this.view.get_label_class_for_new_label();
+                // If `label_class` is null, choose the most popular class from the components
+                if (label_class === null) {
+                    // Count the frequencies if the component models
+                    var class_freq = {};
+                    for (var i = 0; i < selection.length; i++) {
+                        // Get the class of the component
+                        var component_class = selection[i].model.label_class;
+                        if (component_class in class_freq) {
+                            class_freq[component_class] += 1;
+                        }
+                        else {
+                            class_freq[component_class] = 1;
+                        }
+                    }
+                    // Choose the class with the highest frequency
+                    var best_class = null;
+                    var best_freq = 0;
+                    for (var cls in class_freq) {
+                        if (class_freq[cls] > best_freq) {
+                            best_class = cls;
+                            best_freq = class_freq[cls];
+                        }
+                    }
+                    label_class = best_class;
+                }
                 var model = labelling_tool.new_GroupLabelModel(label_class);
                 for (var i = 0; i < selection.length; i++) {
                     var entity = selection[i];

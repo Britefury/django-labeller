@@ -983,6 +983,7 @@ class InMemoryLabelledImage (AbsractLabelledImage):
     def pixels(self):
         return self.__pixels
 
+    @property
     def image_size(self):
         return self.__pixels.shape[:2]
 

@@ -43,7 +43,6 @@ def labelling_tool(width, height, label_classes, image_descriptors, initial_imag
 
 @register.inclusion_tag('inline/instructions.html')
 def labelling_tool_instructions(config=None):
-    print('labelling_tool_instructions: {}'.format(config))
     tools = {
         'imageSelector': True,
         'labelClassSelector': True,

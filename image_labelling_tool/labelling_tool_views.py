@@ -17,13 +17,12 @@ class LabellingToolView (View):
     Subclass and override the `get_labels` method (mandatory) and optionally
     the `update_labels` method to customise how label data is accessed and updated.
 
-    `get_labels` should return either a `models.Labels` instance or a dictionary of the form:
-    `{
-        'complete': boolean indicating if labelling is finished for this image,
-        'labels': label data as JSON
-        'state': [optional] 'editable' if editing should be permitted, 'locked' if the UI should
-            warn the user that the labels are being edited by someone else
-    }`
+    `get_labels` should return a `models.Labels` instance.
+
+    The `get_labels_for_update` method is the same, but is called by `update_labels`
+    to retrieve a `Labels` instance to be updated. This could be used in a scenario in which
+    you want to have `get_labels` return automatically generated labels when viewing,
+    but apply updates to different manually created labels.
 
     Example:
     >>> class MyLabelView (LabellingToolView):
@@ -55,8 +54,11 @@ class LabellingToolView (View):
     def get_labels(self, request, image_id_str, *args, **kwargs):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
+    def get_labels_for_update(self, request, image_id_str, *args, **kwargs):
+        return self.get_labels(request, image_id_str, *args, **kwargs)
+
     def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
-        labels = self.get_labels(request, image_id_str, *args, **kwargs)
+        labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
         labels.update_labels(labels, complete, time_elapsed, request.user, save=True, check_lock=False)
 
     @method_decorator(never_cache)
@@ -157,7 +159,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
 
     def update_labels(self, request, image_id_str, labels_js, complete, time_elapsed, *args, **kwargs):
         expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
-        labels = self.get_labels(request, image_id_str, *args, **kwargs)
+        labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
         labels.update_labels(labels_js, complete, time_elapsed, request.user, check_lock=True, save=False)
         if request.user.is_authenticated():
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)

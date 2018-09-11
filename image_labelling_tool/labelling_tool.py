@@ -24,7 +24,7 @@
 # Dr. M. Mackiewicz.
 
 
-import mimetypes, json, os, glob, io, math, six, traceback
+import mimetypes, json, os, glob, io, math, six, traceback, itertools
 
 import numpy as np
 
@@ -38,6 +38,12 @@ from skimage.io import imread, imsave
 from skimage.color import gray2rgb
 from skimage.util import pad
 from skimage.measure import find_contours
+
+# Try to import cv2
+try:
+    import cv2
+except:
+    cv2 = None
 
 
 LABELLING_TOOL_JS_FILES = [
@@ -808,12 +814,16 @@ class ImageLabels (object):
 
 
     @classmethod
-    def from_contours(cls, list_of_contours, label_classes=None):
+    def from_contours(cls, label_contours, label_classes=None):
         """
         Convert a list of contours to an `ImageLabels` instance.
 
-        :param list_of_contours: list of contours, where each contour is an `(N,2)` numpy array.
-                where `N` is the number of vertices, each of which is a `(y,x)` pair.
+        :param label_contours: list of list of contours. The outer list contains one item per label,
+                with the inner lists containing the contours that should be grouped to form a label.
+                Each contour is an `(N, (y, x))` numpy array.
+                If an inner list contains one contour, a polygonal label is created to represent it.
+                If it contains more than one, a polygonal label is created for each member contour
+                and they are combined with a group.
         :param label_classes: [optional] a list of the same length as `list_of_contours` that provides
                 the label class of each contour
         :return: an `ImageLabels` instance containing the labels extracted from the contours
@@ -821,19 +831,31 @@ class ImageLabels (object):
         obj_table = ObjectTable()
         labels = []
         if not isinstance(label_classes, list):
-            label_classes = [label_classes] * len(list_of_contours)
-        for contour, lcls in zip(list_of_contours, label_classes):
-            vertices = np.array([[contour[i][1], contour[i][0]] for i in range(len(contour))])
-            label = PolygonLabel(vertices, classification=lcls)
-            obj_table.register(label)
-            labels.append(label)
+            label_classes = [label_classes] * len(label_contours)
+        for contours_in_label, lcls in zip(label_contours, label_classes):
+            polygons = []
+            for contour in contours_in_label:
+                vertices = np.array([[contour[i][1], contour[i][0]] for i in range(len(contour))])
+                poly = PolygonLabel(vertices, classification=lcls)
+                polygons.append(poly)
+                obj_table.register(poly)
+
+            if len(polygons) == 1:
+                labels.append(polygons[0])
+            else:
+                group = GroupLabel(polygons, classification=lcls)
+                obj_table.register(group)
+                labels.append(group)
+
         return cls(labels, obj_table=obj_table)
 
 
     @classmethod
     def from_label_image(cls, labels):
         """
-        Convert a integer label mask image to an `ImageLabels` instance.
+        Convert a integer label image to an `ImageLabels` instance.
+
+        Converts label images to contours using Scikit-Image `find_contours`.
 
         :param labels: a `(h,w)` numpy array of dtype `int32` that gives an integer label for each
                 pixel in the image. Label values start at 1; pixels with a value of 0 will not be
@@ -855,8 +877,70 @@ class ImageLabels (object):
                     for contour in cs:
                         simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
                         if simp is not None:
-                            contours.append(simp)
+                            contours.append([simp])
         return cls.from_contours(contours)
+
+
+    @staticmethod
+    def _contour_areas(contours):
+        contour_areas = []
+        for contour in contours:
+            # Vectors from vertex 0 to all others
+            u = contour[1:, :] - contour[0:1, :]
+            contour_area = np.cross(u[:-1, :], u[1:, :]).sum() / 2
+            contour_area = abs(float(contour_area))
+            contour_areas.append(contour_area)
+        return np.array(contour_areas)
+
+    @classmethod
+    def from_mask_images_cv(cls, masks, label_classes=None, sort_decreasing_area=True):
+        """
+        Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
+        Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
+
+        Raises RuntimeError is OpenCV is not available.
+
+        :param masks: a sequence of mask images - can be a generator. Each mask is a `(H,W)` array
+            with non-zero values indicating pixels that are part of the label
+        :param label_classes: a sequence of strings identifying the class of the label represented by
+            each mask
+        :return: an `ImageLabels` instance
+        """
+        if cv2 is None:
+            raise RuntimeError('OpenCV is not available!')
+
+        if label_classes is None:
+            # Default to all None
+            label_classes = itertools.repeat(None)
+
+        mask_areas = []
+        image_contours_and_labels = []
+        for lab_msk, label_cls in zip(masks, label_classes):
+            _, region_contours, _ = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_EXTERNAL,
+                                                     cv2.CHAIN_APPROX_TC89_L1)
+            region_contours = [contour[:, 0, ::-1] for contour in region_contours if len(contour) >= 3]
+
+            if len(region_contours) > 0:
+                # Compute area
+                areas = cls._contour_areas(region_contours)
+                mask_areas.append(float(areas.sum()))
+
+                if sort_decreasing_area:
+                    # Sort in order of decreasing order
+                    order = np.argsort(areas)[::-1]
+                    region_contours = [region_contours[i] for i in order]
+
+                image_contours_and_labels.append((region_contours, label_cls))
+        mask_areas = np.array(mask_areas)
+
+        if sort_decreasing_area and len(image_contours_and_labels) > 0:
+            order = np.argsort(mask_areas)[::-1]
+            image_contours_and_labels = [image_contours_and_labels[i] for i in order]
+
+        image_contours, image_labels = list(zip(*image_contours_and_labels))
+
+        return cls.from_contours(image_contours, image_labels)
+
 
 
 

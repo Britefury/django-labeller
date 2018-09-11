@@ -69,6 +69,15 @@
             </ul>
         </li>
 
+        {% if groupLabel %}
+            <li><strong>Grouping smaller labels into one:</strong>
+                <ul>
+                    <li>Select the labels you wish to combine by <em>Shift</em>-clicking them</li>
+                    <li>Click the <em>Group</em> button to combine them into a group</li>
+                </ul>
+            </li>
+        {% endif %}
+
         {% if deleteLabel %}
             <li><strong>Deleting regions:</strong>
                 <ul>
@@ -95,6 +104,16 @@
                     <li>Select regions using the select tool (see above)</li>
                     <li>Use the drop-down (normally reads <em>UNCLASSIFIED</em>) within the <em>Labels</em> section to change the label</li>
                     <li><strong>Please note:</strong> for regions for which you <em>cannot</em> identify the content, use the <em>Excluded</em> label, this indicates to the system that it should not consider these parts of the image</li>
+                </ul>
+            </li>
+        {% endif %}
+
+        {% if colour_schemes %}
+            <li><strong>Changing the colour scheme:</strong>
+                <ul>
+                    <li>Different colour schemes are available to help you differentiate different label classes
+                        when performing different tasks</li>
+                    <li>Select the colour scheme using the <em>Colour scheme</em> menu button</li>
                 </ul>
             </li>
         {% endif %}

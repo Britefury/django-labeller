@@ -54,6 +54,7 @@ def labelling_tool_instructions(config=None):
         'compositeLabel': True,
         'groupLabel': True,
         'deleteLabel': True,
+        'colour_schemes': False,
         'deleteConfig': {
             'typePermissions': {
                 'point': True,

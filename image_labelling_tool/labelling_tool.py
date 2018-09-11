@@ -937,9 +937,11 @@ class ImageLabels (object):
             order = np.argsort(mask_areas)[::-1]
             image_contours_and_labels = [image_contours_and_labels[i] for i in order]
 
-        image_contours, image_labels = list(zip(*image_contours_and_labels))
-
-        return cls.from_contours(image_contours, image_labels)
+        if len(image_contours_and_labels) > 0:
+            image_contours, image_labels = list(zip(*image_contours_and_labels))
+            return cls.from_contours(image_contours, image_labels)
+        else:
+            return cls.from_contours([])
 
 
 

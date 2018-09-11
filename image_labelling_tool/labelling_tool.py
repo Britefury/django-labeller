@@ -496,7 +496,7 @@ class GroupLabel (AbstractLabel):
     def new_instance_from_json(cls, label_json, object_table):
         components = [AbstractLabel.from_json(comp, object_table)
                       for comp in label_json['component_models']]
-        return CompositeLabel(components, label_json.get('object_id'), label_json['label_class'])
+        return GroupLabel(components, label_json.get('object_id'), label_json['label_class'])
 
 
 
@@ -635,7 +635,7 @@ class ImageLabels (object):
         else:
             label_image = np.zeros((height, width), dtype=int)
 
-        for label in self.flatten():
+        for label in self.labels:
             label_cls_n = cls_to_index.get(label.classification, None)
             if label_cls_n is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
@@ -663,24 +663,26 @@ class ImageLabels (object):
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
-        :return: tuple of (label_image, label_counts) where:
-            label_image is a (H,W,C) array with dtype=int
-            label_counts is a 1D array of length C (number of channels) that contains the number of labels drawn for each channel; effectively the maximum value found in each channel
+        :return: tuple of (label_image, label_index_to_cls) where:
+            label_image is a (H,W) array with dtype=int
+            label_index_to_cls is a 1D array that gives the class index of each labels. The first entry
+                at index 0 will have a value of 0 as it is the background label. The class indices are the
+                index of the class in `label_class` + 1.
         """
         # Create `cls_to_channel`
         if isinstance(label_classes, list) or isinstance(label_classes, tuple):
-            cls_to_channel = {}
+            cls_to_index = {}
             for i, cls in enumerate(label_classes):
                 if isinstance(cls, LabelClass):
-                    cls_to_channel[cls.name] = i
+                    cls_to_index[cls.name] = i
                 elif isinstance(cls, six.string_types)  or  cls is None:
-                    cls_to_channel[cls] = i
+                    cls_to_index[cls] = i
                 elif isinstance(cls, list)  or  isinstance(cls, tuple):
                     for c in cls:
                         if isinstance(c, LabelClass):
-                            cls_to_channel[c.name] = i
+                            cls_to_index[c.name] = i
                         elif isinstance(c, six.string_types):
-                            cls_to_channel[c] = i
+                            cls_to_index[c] = i
                         else:
                             raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
                                             'LabelClass or a string but a {1}'.format(i, type(c).__name__))
@@ -694,21 +696,20 @@ class ImageLabels (object):
 
         height, width = image_shape
 
-        label_image = np.zeros((height, width, len(label_classes)), dtype=int)
+        label_image = np.zeros((height, width), dtype=int)
 
-        channel_label_count = [0] * len(label_classes)
-
-        for label in self.flatten():
-            label_channel = cls_to_channel.get(label.classification, None)
-            if label_channel is not None:
+        label_i = 1
+        label_index_to_cls = [0]
+        for label in self.labels:
+            label_cls = cls_to_index.get(label.classification, None)
+            if label_cls is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
                 if mask is not None:
-                    value = channel_label_count[label_channel]
-                    channel_label_count[label_channel] += 1
+                    label_index_to_cls.append(label_cls + 1)
+                    label_image[mask >= 0.5] = label_i
+                    label_i += 1
 
-                    label_image[mask >= 0.5, label_channel] = value + 1
-
-        return label_image, np.array(channel_label_count)
+        return label_image, np.array(label_index_to_cls)
 
 
     def extract_label_images(self, image_2d, label_class_set=None, ctx=None):
@@ -724,7 +725,7 @@ class ImageLabels (object):
 
         label_images = []
 
-        for label in self.flatten():
+        for label in self.labels:
             if label_class_set is None  or  label.classification in label_class_set:
                 bounds = label.bounding_box(ctx=ctx)
 
@@ -950,9 +951,11 @@ class AbsractLabelledImage (object):
             Each entry within label_classes will have a corresponding channel in the output image
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
-        :return: tuple of (label_image, label_counts) where:
-            label_image is a (H,W,C) array with dtype=int
-            label_counts is a 1D array of length C (number of channels) that contains the number of labels drawn for each channel; effectively the maximum value found in each channel
+        :return: tuple of (label_image, label_index_to_cls) where:
+            label_image is a (H,W) array with dtype=int
+            label_index_to_cls is a 1D array that gives the class index of each labels. The first entry
+                at index 0 will have a value of 0 as it is the background label. The class indices are the
+                index of the class in `label_class` + 1.
         """
         return self.labels.render_individual_labels(label_classes, self.image_size, fill=fill)
 

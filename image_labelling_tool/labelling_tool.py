@@ -830,8 +830,8 @@ class ImageLabels (object):
         """
         obj_table = ObjectTable()
         labels = []
-        if not isinstance(label_classes, list):
-            label_classes = [label_classes] * len(label_contours)
+        if isinstance(label_classes, str) or label_classes is None:
+            label_classes = itertools.repeat(label_classes)
         for contours_in_label, lcls in zip(label_contours, label_classes):
             polygons = []
             for contour in contours_in_label:

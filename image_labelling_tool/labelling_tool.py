@@ -770,6 +770,18 @@ class ImageLabels (object):
     def to_json(self):
         return [lab.to_json() for lab in self.labels]
 
+    def replace_json(self, existing_json):
+        if isinstance(existing_json, dict):
+            new_dict = {}
+            new_dict.update(existing_json)
+            new_dict['labels'] = self.to_json()
+            return new_dict
+        elif isinstance(existing_json, list):
+            return self.to_json()
+        else:
+            raise ValueError('existing_json should be a list or a dict')
+
+
     def wrapped_json(self, image_filename, complete):
         return {'image_filename': image_filename,
                 'complete': complete,

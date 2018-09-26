@@ -806,7 +806,9 @@ class ImageLabels (object):
         elif isinstance(label_data_js, list):
             labels = label_data_js
         else:
-            raise ValueError('label_js should be a list or a dict containing a \'labels\' key')
+            raise ValueError('label_data_js should be a list or a dict containing a \'labels\' key, it is a {}'.format(
+                type(label_data_js)
+            ))
 
         obj_table = ObjectTable()
         labs = [AbstractLabel.from_json(label, obj_table) for label in labels]

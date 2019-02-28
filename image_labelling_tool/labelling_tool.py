@@ -34,9 +34,9 @@ from PIL import Image, ImageDraw
 
 from skimage import img_as_float
 from skimage import transform
-from skimage.io import imread, imsave
+from skimage.io import imread
 from skimage.color import gray2rgb
-from skimage.util import pad
+from skimage.util import pad, img_as_ubyte
 from skimage.measure import find_contours
 
 # Try to import cv2
@@ -1092,7 +1092,9 @@ class InMemoryLabelledImage (AbsractLabelledImage):
 
     def data_and_mime_type_and_size(self):
         buf = io.BytesIO()
-        imsave(buf, self.__pixels, format='png')
+        pix_u8 = img_as_ubyte(self.__pixels)
+        img = Image.fromarray(pix_u8)
+        img.save(buf, format='png')
         return buf.getvalue(), 'image/png', int(self.__pixels.shape[1]), int(self.__pixels.shape[0])
 
 

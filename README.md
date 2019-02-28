@@ -2,16 +2,35 @@
 
 #### A light-weight image labelling tool for Python designed for creating segmentation datasets.
 
-Operates as a browser-based application, either embedded as a widget within [IPython Notebook](http://ipython.org)
+Operates as a browser-based application, either embedded as a widget within [Jupyter Notebook](https://jupyter.org/)
 or embedded within a web page as part of a web application.
 
-Currently supports simple polygonal labels.
+Currently supports simple polygonal labels, box labels, point labels and grouping.
 
 
-### IPython Notebook widget example
+## Installation
 
-The supplied IPython notebook example creates a labelling tool widget and displays it within the notebook.
-API usage is demonstrated further down.
+From the command line run:
+
+`python setup.py install`
+
+#### Installing Jupyter notebook extensions
+
+Install the Jupyter notebook widget with:
+
+`jupyter nbextension install --py --sys-prefix image_labelling_tool`
+
+Then enable the extension with:
+
+`jupyter nbextension enable --py --sys-prefix image_labelling_tool`
+
+
+## Examples
+
+### Jupyter Notebook widget example
+
+The supplied Jupyter notebook example `Image labeller notebook.ipynb` creates a labelling tool widget and displays it
+within the notebook. API usage is demonstrated further down.
 
 ### Flask web app example
 
@@ -45,8 +64,12 @@ Then run the app:
 > python tests/manage.py runserver
 ```
 
+## API
 
-### Libraries, Credits and License
+Please see the Jupyter notebook `Image labeller notebook.ipynb` for API usage.
+
+
+## Libraries, Credits and License
 
 Incorporates the public domain [json2.js](https://github.com/douglascrockford/JSON-js) library.
 Uses [d3.js](http://d3js.org/), [jQuery](https://jquery.com/), [jQuery UI](https://jqueryui.com/)

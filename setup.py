@@ -19,10 +19,38 @@ install_requires = [
 tests_require = [
     ]
 
+include_package_data = True
+data_files = [
+    ('share/jupyter/nbextensions/image_labelling_tool', [
+        'image_labelling_tool/static/polyk.js',
+        'image_labelling_tool/static/json2.js',
+        'image_labelling_tool/static/d3.min.js',
+        'image_labelling_tool/static/labelling_tool/abstract_label.js',
+        'image_labelling_tool/static/labelling_tool/abstract_tool.js',
+        'image_labelling_tool/static/labelling_tool/box_label.js',
+        'image_labelling_tool/static/labelling_tool/composite_label.js',
+        'image_labelling_tool/static/labelling_tool/extension.js',
+        'image_labelling_tool/static/labelling_tool/group_label.js',
+        'image_labelling_tool/static/labelling_tool/label_class.js',
+        'image_labelling_tool/static/labelling_tool/main_tool.js',
+        'image_labelling_tool/static/labelling_tool/math_primitives.js',
+        'image_labelling_tool/static/labelling_tool/object_id_table.js',
+        'image_labelling_tool/static/labelling_tool/point_label.js',
+        'image_labelling_tool/static/labelling_tool/polygonal_label.js',
+        'image_labelling_tool/static/labelling_tool/root_label_view.js',
+        'image_labelling_tool/static/labelling_tool/select_tools.js',
+        'image_labelling_tool/static/labelling_tool/widget.js',
+    ]),
+    ('etc/jupyter/nbconfig/notebook.d', [
+        'enable_image_labelling_tool.json'
+    ])
+
+]
+
 setup(
     name="Image labelling tool",
     version=version,
-    description="A web-based labelling tool for Djano, Flask and Jupyter notebook",
+    description="A web-based labelling tool for Django, Flask and Jupyter notebook",
     long_description="\n\n".join([README]),
     classifiers=[
         "Development Status :: 1 - Alpha",
@@ -39,7 +67,8 @@ setup(
     url="https://bitbucket.org/ueacomputervision/image-labelling-tool",
     license="MIT",
     packages=find_packages(),
-    include_package_data=False,
+    include_package_data=include_package_data,
+    data_files=data_files,
     zip_safe=False,
     install_requires=install_requires,
     extras_require={

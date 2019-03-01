@@ -173,17 +173,70 @@ var labelling_tool;
             this._pushDataTimeout = null;
             // Frozen flag; while frozen, data will not be sent to backend
             this.frozen = false;
+            this.is_expanded = false;
             var toolbar_width = 220;
             this._labelling_area_width = this._tool_width - toolbar_width;
             var labelling_area_x_pos = toolbar_width + 10;
             this._lockableControls = $();
             // A <div> element that surrounds the labelling tool
-            var overall_border = $('<div style="border: 1px solid gray; width: ' + this._tool_width + 'px;"/>')
+            this.in_element_container = $('<div style="border: 1px solid gray; width: ' + this._tool_width + 'px;"/>')
                 .appendTo(element);
-            var toolbar_container = $('<div style="position: relative;">').appendTo(overall_border);
+            this.movable_container = $('<div style="background: #ffffff;"/>').appendTo(this.in_element_container);
+            /*
+             *
+             * FULL SCREEN CONTROLS
+             *
+             */
+            var fullscreen_controls_outer_container = $('<div style="position: relative"></div>');
+            fullscreen_controls_outer_container.appendTo(this.movable_container);
+            var fullscreen_controls_container = $('<div style="position: absolute; right: 0; padding: 3px; margin: 2px"></div>');
+            fullscreen_controls_container.appendTo(fullscreen_controls_outer_container);
+            this.full_screen_container = null;
+            var expand_button = $('<button>Full screen</button>');
+            expand_button.button({
+                text: false,
+                icons: { primary: "ui-icon-arrow-4-diag" }
+            });
+            expand_button.appendTo(fullscreen_controls_container);
+            expand_button.on('click', function () {
+                if (self.is_expanded) {
+                    self.movable_container.appendTo(self.in_element_container);
+                    self.full_screen_container.remove();
+                    self.labelling_area.css('width', self._labelling_area_width + 'px');
+                    self._svg.attr('width', self._labelling_area_width);
+                    self._svg.attr('height', self._tool_height);
+                    self._loading_notification.attr('width', self._labelling_area_width);
+                    self._loading_notification.attr('height', self._tool_height);
+                    self.is_expanded = false;
+                    $(this).button({ text: false, icons: { primary: 'ui-icon-arrow-4-diag' } });
+                }
+                else {
+                    self.full_screen_container = $('<div style="position: fixed; width: 100%; height: 100%; left: 0; top: 0; z-index: 1000; background: rgba(32, 32, 32, 0.7);"></div>');
+                    self.full_screen_container.appendTo($('body'));
+                    self.movable_container.appendTo(self.full_screen_container);
+                    setTimeout(function () {
+                        var width = self.full_screen_container[0].offsetWidth, height = self.full_screen_container[0].offsetHeight;
+                        var labelling_area_width = width - toolbar_width;
+                        console.log("Resizing to " + width + "x" + height + ';' + labelling_area_width);
+                        self.labelling_area.css('width', labelling_area_width + 'px');
+                        self._svg.attr('width', labelling_area_width);
+                        self._svg.attr('height', height);
+                        self._loading_notification.attr('width', labelling_area_width);
+                        self._loading_notification.attr('height', height);
+                    }, 0);
+                    self.is_expanded = true;
+                    $(this).button({ text: false, icons: { primary: 'ui-icon-arrowthick-1-sw' } });
+                }
+            });
+            /*
+             *
+             * MAIN CONTAINER
+             *
+             */
+            var toolbar_container = $('<div style="position: relative;">').appendTo(this.movable_container);
             var toolbar = $('<div style="position: absolute; width: ' + toolbar_width +
                 'px; padding: 4px; display: inline-block; background: #d0d0d0; border: 1px solid #a0a0a0; font-family: sans-serif;"/>').appendTo(toolbar_container);
-            var labelling_area = $('<div style="width:' + this._labelling_area_width + 'px; margin-left: ' + labelling_area_x_pos + 'px"/>').appendTo(overall_border);
+            this.labelling_area = $('<div id="labelling_area" style="width:' + this._labelling_area_width + 'px; margin-left: ' + labelling_area_x_pos + 'px"/>').appendTo(this.movable_container);
             /*
              *
              *
@@ -471,16 +524,16 @@ var labelling_tool;
             var zoom_behaviour = d3.behavior.zoom()
                 .on("zoom", zoomed);
             // Disable context menu so we can use right-click
-            labelling_area[0].oncontextmenu = function () {
+            this.labelling_area[0].oncontextmenu = function () {
                 return false;
             };
             // Create SVG element of the appropriate dimensions
-            this._svg = d3.select(labelling_area[0])
+            this._svg = d3.select(this.labelling_area[0])
                 .append("svg:svg")
                 .attr("width", this._labelling_area_width)
                 .attr("height", this._tool_height)
                 .call(zoom_behaviour);
-            this._loading_notification = d3.select(labelling_area[0])
+            this._loading_notification = d3.select(this.labelling_area[0])
                 .append("svg:svg")
                 .attr("width", this._labelling_area_width)
                 .attr("height", this._tool_height)

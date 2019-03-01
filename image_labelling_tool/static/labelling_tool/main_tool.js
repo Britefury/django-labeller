@@ -903,7 +903,7 @@ var labelling_tool;
             if (label_class === null) {
                 label_class = '__unclassified';
             }
-            this._label_class_selector_menu.children('option').each(function () {
+            this._label_class_selector_menu.find('option').each(function () {
                 this.selected = (this.value == label_class);
             });
         };

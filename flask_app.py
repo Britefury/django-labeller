@@ -37,13 +37,18 @@ def run_app(slic, readonly):
     # In this case, the colour schemes are 'default', 'natural' and 'artifical'.
     # They given human readable names that are displayed in the UI in the `tools.colour_schemes` section
     # of the `config` dictionary below.
-    label_classes = [labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
-                                                                     artificial=[128, 128, 128])),
-                     labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
-                                                                            artificial=[255, 128, 0])),
-                     labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
-                                                                    artificial=[128, 128, 128])),
-                     ]
+    label_classes = [
+        labelling_tool.LabelClassGroup('Natural', [
+            labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
+                                                            artificial=[128, 128, 128])),
+            labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
+                                                           artificial=[128, 128, 128])),
+        ]),
+        labelling_tool.LabelClassGroup('Artificial', [
+            labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
+                                                                   artificial=[255, 128, 0])),
+        ])]
+
     if slic:
         import glob
         from matplotlib import pyplot as plt

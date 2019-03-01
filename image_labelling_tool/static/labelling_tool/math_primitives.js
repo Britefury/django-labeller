@@ -165,4 +165,3 @@ var labelling_tool;
     }
     labelling_tool.AABox_from_aaboxes = AABox_from_aaboxes;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=math_primitives.js.map

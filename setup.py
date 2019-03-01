@@ -21,6 +21,13 @@ tests_require = [
 
 include_package_data = True
 data_files = [
+    ('image_labelling_tool/templates', [
+        'image_labelling_tool/templates/labeller_page.jinja2'
+    ]),
+    ('image_labelling_tool/templates/inline', [
+        'image_labelling_tool/templates/inline/instructions.html',
+        'image_labelling_tool/templates/inline/labelling_tool.html'
+    ]),
     ('share/jupyter/nbextensions/image_labelling_tool', [
         'image_labelling_tool/static/polyk.js',
         'image_labelling_tool/static/json2.js',

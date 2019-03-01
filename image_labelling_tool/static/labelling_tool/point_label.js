@@ -193,4 +193,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPointTool = DrawPointTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=point_label.js.map

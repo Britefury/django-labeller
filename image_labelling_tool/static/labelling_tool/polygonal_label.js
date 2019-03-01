@@ -372,4 +372,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPolygonTool = DrawPolygonTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=polygonal_label.js.map

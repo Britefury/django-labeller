@@ -251,4 +251,3 @@ var labelling_tool;
         return new GroupLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=group_label.js.map

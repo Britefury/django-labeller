@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+from image_labelling_tool import labelling_tool
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -124,10 +125,16 @@ CSRF_COOKIE_SECURE = False
 # They given human readable names that are displayed in the UI in the `tools.colour_schemes` section of the
 # `LABELLING_TOOL_CONFIG` dictionary below.
 LABEL_CLASSES = [
-    ('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192], artificial=[128, 128, 128])),
-    ('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128], artificial=[255, 128, 0])),
-    ('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255], artificial=[128, 128, 128])),
-]
+    labelling_tool.LabelClassGroup('Natural', [
+        labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
+                                                        artificial=[128, 128, 128])),
+        labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
+                                                       artificial=[128, 128, 128])),
+    ]),
+    labelling_tool.LabelClassGroup('Artificial', [
+        labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
+                                                               artificial=[255, 128, 0])),
+    ])]
 
 
 # Configuration

@@ -36,15 +36,29 @@ module labelling_tool {
         human_name: string;
         colour: number[];
         colours: { [colour_scheme: string]: number[]; };
+        group_name: string;
+        group_classes: LabelClassJSON[];
     }
 
 
-    export class LabelClass {
-        name: string;
+    export class AbstractLabelClass {
         human_name: string;
+
+        fill_name_to_class_table(table: {[class_name: string]: LabelClass}) {
+        }
+
+        to_html(): string {
+            return '';
+        }
+    }
+
+
+    export class LabelClass extends AbstractLabelClass {
+        name: string;
         colours: { [colour_scheme: string]: Colour4; };
 
         constructor(j: LabelClassJSON) {
+            super();
             this.name = j.name;
             this.human_name = j.human_name;
             this.colours = {};
@@ -59,5 +73,56 @@ module labelling_tool {
                 this.colours['default'] = Colour4.from_rgb_a(j.colour, 1.0);
             }
         }
+
+        fill_name_to_class_table(table: {[class_name: string]: LabelClass}) {
+            table[this.name] = this;
+        }
+
+        to_html(): string {
+            return '<option value="' + this.name + '">' + this.human_name + '</option>';
+        }
+    }
+
+    export class LabelClassGroup extends AbstractLabelClass {
+        label_classes: AbstractLabelClass[];
+
+        constructor(human_name: string, label_classes: AbstractLabelClass[]) {
+            super();
+            this.human_name = human_name;
+            this.label_classes = label_classes;
+        }
+
+        fill_name_to_class_table(table: {[class_name: string]: LabelClass}) {
+            for (let i = 0; i < this.label_classes.length; i++) {
+                this.label_classes[i].fill_name_to_class_table(table);
+            }
+        }
+
+        to_html(): string {
+            let items: string[] = [];
+            for (let i = 0; i < this.label_classes.length; i++) {
+                items.push(this.label_classes[i].to_html());
+            }
+            return '<optgroup label="' + this.human_name + '">' + items.join() + '</optgroup>';
+        }
+    }
+
+    export function label_classes_from_json(j_items: LabelClassJSON[]): AbstractLabelClass[] {
+        let result: AbstractLabelClass[] = [];
+
+        for (let i = 0; i < j_items.length; i++) {
+            let j = j_items[i];
+            if ((j.group_name !== undefined && j.group_name !== null) &&
+                (j.group_classes !== undefined && j.group_classes !== null)) {
+                // j represents a group of classes
+                result.push(new LabelClassGroup(j.group_name, label_classes_from_json(j.group_classes)));
+            }
+            else {
+                // j represents a class
+                result.push(new LabelClass(j));
+            }
+        }
+
+        return result;
     }
 }

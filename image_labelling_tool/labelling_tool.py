@@ -67,7 +67,11 @@ def js_file_urls(url_prefix):
         url_prefix = url_prefix + '/'
     return ['{}{}'.format(url_prefix, filename) for filename in LABELLING_TOOL_JS_FILES]
 
-class LabelClass (object):
+class AbstractLabelClass (object):
+    def to_json(self):
+        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+
+class LabelClass (AbstractLabelClass):
     def __init__(self, name, human_name, colour=None, colours=None):
         """
         Label class constructor
@@ -104,10 +108,30 @@ class LabelClass (object):
         return {'name': self.name, 'human_name': self.human_name, 'colours': self.colours}
 
 
+class LabelClassGroup (AbstractLabelClass):
+    def __init__(self, human_name, classes):
+        """
+        Label class group constructor
+
+        :param human_name: human readable name
+        :param classes: member classes
+        """
+        self.group_name = human_name
+        self.classes = classes
+
+
+    def to_json(self):
+        return {'group_name': self.group_name, 'group_classes': [cls.to_json() for cls in self.classes]}
+
+
 def label_class(name, human_name, rgb):
     return {'name': name,
             'human_name': human_name,
             'colour': rgb}
+
+def label_class_group(human_name, classes_json):
+    return {'group_name': human_name,
+            'group_classes': classes_json}
 
 def image_descriptor(image_id, url=None, width=None, height=None):
     return {'image_id': str(image_id),

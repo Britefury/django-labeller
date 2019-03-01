@@ -102,7 +102,8 @@ module labelling_tool {
         private root_view_listener: RootLabelViewListener;
         private _current_tool: AbstractTool;
         private _current_colour_scheme: string;
-        label_classes: LabelClass[];
+        private label_classes: AbstractLabelClass[];
+        private class_name_to_class: {[class_name: string]: LabelClass};
         label_visibility: LabelVisibility;
         label_visibility_class_filter: string;
         private _button_down: boolean;
@@ -245,9 +246,10 @@ module labelling_tool {
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = [];
-            for (var i = 0; i < label_classes.length; i++) {
-                this.label_classes.push(new LabelClass(label_classes[i]));
+            this.label_classes = label_classes_from_json(label_classes);
+            this.class_name_to_class = {};
+            for (let i = 0; i < this.label_classes.length; i++) {
+                this.label_classes[i].fill_name_to_class_table(this.class_name_to_class);
             }
             // Hide labels
             this.label_visibility = LabelVisibility.FULL;
@@ -419,7 +421,7 @@ module labelling_tool {
                 this._label_class_selector_menu = $('<select name="label_class_selector"/>').appendTo(toolbar);
                 for (var i = 0; i < this.label_classes.length; i++) {
                     var cls = this.label_classes[i];
-                    $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(this._label_class_selector_menu);
+                    $(cls.to_html()).appendTo(this._label_class_selector_menu);
                 }
                 $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(this._label_class_selector_menu);
                 this._label_class_selector_menu.change(function (event, ui) {
@@ -474,7 +476,7 @@ module labelling_tool {
                 $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
                 for (var i = 0; i < this.label_classes.length; i++) {
                     var cls = this.label_classes[i];
-                    $('<option value="' + cls.name + '">' + cls.human_name + '</option>').appendTo(this._label_class_filter_menu);
+                    $(cls.to_html()).appendTo(this._label_class_filter_menu);
                 }
                 $('<option value="__unclassified">UNCLASSIFIED</option>').appendTo(this._label_class_filter_menu);
                 this._label_class_filter_menu.change(function (event, ui) {
@@ -1140,25 +1142,10 @@ module labelling_tool {
         /*
         Get colour for a given label class
          */
-        index_for_label_class(label_class: string) {
-            if (label_class != null) {
-                for (var i = 0; i < this.label_classes.length; i++) {
-                    var cls = this.label_classes[i];
-
-                    if (cls.name === label_class) {
-                        return i;
-                    }
-                }
-            }
-
-            // Default
-            return -1;
-        };
-
-        colour_for_label_class(label_class: string): Colour4 {
-            var index = this.index_for_label_class(label_class);
-            if (index !== -1) {
-                return this.label_classes[index].colours[this._current_colour_scheme];
+        colour_for_label_class(label_class_name: string): Colour4 {
+            let label_class: LabelClass = this.class_name_to_class[label_class_name];
+            if (label_class !== undefined) {
+                return label_class.colours[this._current_colour_scheme];
             }
             else {
                 // Default

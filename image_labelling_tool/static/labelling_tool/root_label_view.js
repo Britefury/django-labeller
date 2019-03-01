@@ -415,4 +415,3 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=root_label_view.js.map

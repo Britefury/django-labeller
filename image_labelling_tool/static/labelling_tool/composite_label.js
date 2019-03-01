@@ -211,4 +211,3 @@ var labelling_tool;
         return new CompositeLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=composite_label.js.map

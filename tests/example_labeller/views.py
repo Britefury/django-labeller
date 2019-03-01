@@ -18,7 +18,7 @@ def home(request):
             width=img.image.width, height=img.image.height) for img in models.ImageWithLabels.objects.all()]
 
     # Convert the label class tuples in `settings` to `labelling_tool.LabelClass` instances
-    label_classes = [labelling_tool.LabelClass(*c) for c in settings.LABEL_CLASSES]
+    label_classes = settings.LABEL_CLASSES
 
     context = {
         'label_classes': [c.to_json()   for c in label_classes],

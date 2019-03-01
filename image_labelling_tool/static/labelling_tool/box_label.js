@@ -250,4 +250,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=box_label.js.map

@@ -173,4 +173,3 @@ var labelling_tool;
     }
     labelling_tool.new_entity_for_model = new_entity_for_model;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_label.js.map

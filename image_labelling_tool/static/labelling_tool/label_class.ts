@@ -103,7 +103,7 @@ module labelling_tool {
             for (let i = 0; i < this.label_classes.length; i++) {
                 items.push(this.label_classes[i].to_html());
             }
-            return '<optgroup label="' + this.human_name + '">' + items.join() + '</optgroup>';
+            return '<optgroup label="' + this.human_name + '">' + items.join('') + '</optgroup>';
         }
     }
 

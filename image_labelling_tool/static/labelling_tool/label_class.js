@@ -25,9 +25,12 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -94,7 +97,7 @@ var labelling_tool;
             for (var i = 0; i < this.label_classes.length; i++) {
                 items.push(this.label_classes[i].to_html());
             }
-            return '<optgroup label="' + this.human_name + '">' + items.join() + '</optgroup>';
+            return '<optgroup label="' + this.human_name + '">' + items.join('') + '</optgroup>';
         };
         return LabelClassGroup;
     }(AbstractLabelClass));
@@ -117,3 +120,4 @@ var labelling_tool;
     }
     labelling_tool.label_classes_from_json = label_classes_from_json;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=label_class.js.map

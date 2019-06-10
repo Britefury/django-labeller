@@ -957,7 +957,7 @@ module labelling_tool {
 
         on_key_down(event: any): boolean {
             var handled = false;
-            if (event.keyCode === 186) { // ';'
+            if (event.keyCode === 186) {
                 if (this.label_visibility === LabelVisibility.HIDDEN) {
                     this.set_label_visibility(LabelVisibility.FULL, this.label_visibility_class_filter);
                     (this.label_vis_full_radio[0] as any).checked = true;

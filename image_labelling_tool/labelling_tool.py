@@ -200,6 +200,9 @@ class AbstractLabel (object):
     def flatten(self):
         yield self
 
+    def fill_label_class_histogram(self, histogram):
+        histogram[self.classification] = histogram.get(self.classification, 0) + 1
+
     def bounding_box(self, ctx=None):
         raise NotImplementedError('Abstract')
 
@@ -603,6 +606,13 @@ class ImageLabels (object):
         for lab in self.labels:
             for f in lab.flatten():
                 yield f
+
+
+    def label_class_histogram(self):
+        histogram = {}
+        for lab in self.labels:
+            lab.fill_label_class_histogram(histogram)
+        return histogram
 
 
     def warp(self, xform_fn):
@@ -1037,6 +1047,9 @@ class AbsractLabelledImage (object):
         self.complete = complete
         self.labels_json = labels_js
 
+
+    def label_class_histogram(self):
+        return self.labels.label_class_histogram()
 
 
     def warped(self, projection, sz_px):

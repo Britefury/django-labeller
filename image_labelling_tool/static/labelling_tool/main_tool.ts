@@ -141,6 +141,7 @@ module labelling_tool {
         private label_vis_faint_radio: JQuery;
         private label_vis_full_radio: JQuery;
         private _label_class_filter_menu: JQuery;
+        private _label_class_filter_notification: JQuery;
         private _confirm_delete: JQuery;
         private _confirm_delete_visible: boolean;
         private _svg: d3.Selection<any>;
@@ -181,6 +182,7 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'imageSelector', true);
             ensure_config_option_exists(config.tools, 'labelClassSelector', true);
             ensure_config_option_exists(config.tools, 'labelClassFilter', true);
+            ensure_config_option_exists(config.tools, 'labelClassFilterInitial', false);
             ensure_config_option_exists(config.tools, 'brushSelect', true);
             ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
@@ -550,6 +552,8 @@ module labelling_tool {
 
             if (config.tools.labelClassFilter) {
                 this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
+                self._label_class_filter_notification = $(
+                    '<div id="__" style="color: #008000">All labels visible</div>').appendTo(toolbar);
                 $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
                 for (var i = 0; i < this.label_classes.length; i++) {
                     var cls = this.label_classes[i];
@@ -562,7 +566,31 @@ module labelling_tool {
                         label_filter_class = null;
                     }
                     self.set_label_visibility(self.label_visibility, label_filter_class);
+
+                    if (label_filter_class === '__all') {
+                        self._label_class_filter_notification.attr('style', 'color: #008000').text(
+                            'All labels visible');
+                    }
+                    else {
+                        self._label_class_filter_notification.attr('style', 'color: #800000').text(
+                            'Some labels hidden');
+                    }
                 });
+
+                if (config.tools.labelClassFilterInitial !== false) {
+                    setTimeout(function() {
+                        var label_filter_class = config.tools.labelClassFilterInitial;
+                        if (label_filter_class === null) {
+                            self._label_class_filter_menu.val('__unclassified');
+                        }
+                        else {
+                            self._label_class_filter_menu.val(config.tools.labelClassFilterInitial);
+                        }
+                        self._label_class_filter_notification.attr('style', 'color: #800000').text(
+                            'Some labels hidden');
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
+                    }, 0);
+                }
             }
 
 

@@ -73,6 +73,7 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'labelClassSelector', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'labelClassFilter', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'labelClassFilterInitial', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'brushSelect', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
@@ -372,6 +373,7 @@ var labelling_tool;
             });
             if (config.tools.labelClassFilter) {
                 this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
+                self._label_class_filter_notification = $('<div id="__" style="color: #008000">All labels visible</div>').appendTo(toolbar);
                 $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
                 for (var i = 0; i < this.label_classes.length; i++) {
                     var cls = this.label_classes[i];
@@ -384,7 +386,26 @@ var labelling_tool;
                         label_filter_class = null;
                     }
                     self.set_label_visibility(self.label_visibility, label_filter_class);
+                    if (label_filter_class === '__all') {
+                        self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
+                    }
+                    else {
+                        self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                    }
                 });
+                if (config.tools.labelClassFilterInitial !== false) {
+                    setTimeout(function () {
+                        var label_filter_class = config.tools.labelClassFilterInitial;
+                        if (label_filter_class === null) {
+                            self._label_class_filter_menu.val('__unclassified');
+                        }
+                        else {
+                            self._label_class_filter_menu.val(config.tools.labelClassFilterInitial);
+                        }
+                        self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
+                    }, 0);
+                }
             }
             //
             // Tool buttons:
@@ -1078,3 +1099,4 @@ var labelling_tool;
     }());
     labelling_tool.LabellingTool = LabellingTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=main_tool.js.map

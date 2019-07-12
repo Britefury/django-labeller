@@ -23,7 +23,7 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(labelled_images, label_classes, config=None):
+def flask_labeller(labelled_images, label_classes, config=None, use_reloader=True, debug=True):
     import json
 
     from flask import Flask, render_template, request, make_response, send_from_directory
@@ -63,6 +63,7 @@ def flask_labeller(labelled_images, label_classes, config=None):
             'tools': {
                 'imageSelector': True,
                 'labelClassSelector': True,
+                'labelClassFilterInitial': label_class_filter_initial,
                 'drawPolyLabel': True,
                 'compositeLabel': True,
                 'deleteLabel': True,
@@ -169,7 +170,7 @@ def flask_labeller(labelled_images, label_classes, config=None):
 
 
     if socketio is not None:
-        socketio.run(app, debug=True)
+        socketio.run(app, debug=debug, use_reloader=use_reloader)
     else:
-        app.run(debug=True)
+        app.run(debug=debug, use_reloader=use_reloader)
 

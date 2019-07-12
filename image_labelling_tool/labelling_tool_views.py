@@ -60,6 +60,7 @@ class LabellingToolView (View):
     def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
         labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
         labels.update_labels(labels, complete, time_elapsed, request.user, save=True, check_lock=False)
+        return labels
 
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):
@@ -164,6 +165,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
         if request.user.is_authenticated():
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)
         labels.save()
+        return labels
 
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):

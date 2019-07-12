@@ -104,11 +104,14 @@ class Labels (models.Model):
 
     @property
     def label_class_histogram(self):
-        histogram = {}
-        for x in self.labels_json:
-            cls = x['label_class']
-            histogram[cls] = histogram.get(cls, 0)
-        return histogram
+        if self.is_empty:
+            return {}
+        else:
+            histogram = {}
+            for x in self.labels_json:
+                cls = x['label_class']
+                histogram[cls] = histogram.get(cls, 0)
+            return histogram
 
     def update_labels(self, labels_json, complete, time_elapsed, user, save=False, check_lock=False):
         # Verify time elapsed is within the bounds of possibility

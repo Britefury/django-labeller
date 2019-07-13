@@ -110,7 +110,7 @@ class Labels (models.Model):
             histogram = {}
             for x in self.labels_json:
                 cls = x['label_class']
-                histogram[cls] = histogram.get(cls, 0)
+                histogram[cls] = histogram.get(cls, 0) + 1
             return histogram
 
     def update_labels(self, labels_json, complete, time_elapsed, user, save=False, check_lock=False):

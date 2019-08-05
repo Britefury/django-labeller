@@ -63,7 +63,7 @@ def flask_labeller(labelled_images, label_classes, config=None, use_reloader=Tru
             'tools': {
                 'imageSelector': True,
                 'labelClassSelector': True,
-                'labelClassFilterInitial': label_class_filter_initial,
+                'labelClassFilterInitial': None,
                 'drawPolyLabel': True,
                 'compositeLabel': True,
                 'deleteLabel': True,
@@ -82,7 +82,8 @@ def flask_labeller(labelled_images, label_classes, config=None, use_reloader=Tru
 
     @app.route('/')
     def index():
-        label_classes_json = [cls.to_json()   for cls in label_classes]
+        label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
+                               for cls in label_classes]
         return render_template('labeller_page.jinja2',
                                tool_js_urls=labelling_tool.js_file_urls('/static/labelling_tool/'),
                                label_classes=json.dumps(label_classes_json),

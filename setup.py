@@ -30,36 +30,12 @@ data_files = [
         'image_labelling_tool/templates/inline/image_annotator_css.html',
         'image_labelling_tool/templates/inline/image_annotator_scripts.html',
     ]),
-    ('share/jupyter/nbextensions/image_labelling_tool', [
-        'image_labelling_tool/static/polyk.js',
-        'image_labelling_tool/static/json2.js',
-        'image_labelling_tool/static/d3.min.js',
-        'image_labelling_tool/static/labelling_tool/abstract_label.js',
-        'image_labelling_tool/static/labelling_tool/abstract_tool.js',
-        'image_labelling_tool/static/labelling_tool/box_label.js',
-        'image_labelling_tool/static/labelling_tool/composite_label.js',
-        'image_labelling_tool/static/labelling_tool/extension.js',
-        'image_labelling_tool/static/labelling_tool/group_label.js',
-        'image_labelling_tool/static/labelling_tool/label_class.js',
-        'image_labelling_tool/static/labelling_tool/main_anno.js',
-        'image_labelling_tool/static/labelling_tool/math_primitives.js',
-        'image_labelling_tool/static/labelling_tool/object_id_table.js',
-        'image_labelling_tool/static/labelling_tool/point_label.js',
-        'image_labelling_tool/static/labelling_tool/polygonal_label.js',
-        'image_labelling_tool/static/labelling_tool/root_label_view.js',
-        'image_labelling_tool/static/labelling_tool/select_tools.js',
-        'image_labelling_tool/static/labelling_tool/widget.js',
-    ]),
-    ('etc/jupyter/nbconfig/notebook.d', [
-        'enable_image_labelling_tool.json'
-    ])
-
 ]
 
 setup(
     name="Image labelling tool",
     version=version,
-    description="A web-based labelling tool for Django, Flask and Jupyter notebook",
+    description="A web-based labelling tool for Django and Flask",
     long_description="\n\n".join([README]),
     classifiers=[
         "Development Status :: 1 - Alpha",

@@ -1,5 +1,0 @@
-{
-    "load_extensions": {
-      "image_labelling_tool/labelling_tool/extension": true
-    }
-  }

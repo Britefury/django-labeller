@@ -36,6 +36,12 @@
                 tool.notifyLabelUpdateResponse(msg);
             });
 
+            {% if dextr_available %}
+                socket.on('dextr_reply', function(msg) {
+                    tool.dextrSuccess(msg.dextr_id, msg.regions);
+                });
+            {% endif %}
+
             var get_labels = function(image_id) {
                 socket.emit('get_labels', {image_id: image_id});
             };
@@ -44,6 +50,15 @@
             var set_labels = function(label_header) {
                 socket.emit('set_labels', {label_header: label_header});
             };
+
+            {% if dextr_available %}
+                // set labels callback function
+                var dextr_request = function(dextr_request) {
+                    socket.emit('dextr', dextr_request);
+                };
+            {% else %}
+                var dextr_request = null;
+            {% endif %}
 
 
         {% else %}
@@ -77,6 +92,30 @@
                     dataType: 'json'
                 });
             };
+
+            {% if dextr_available %}
+                // set labels callback function
+                var dextr_request = function(dextr_request) {
+                    var dextr_request_str = JSON.stringify(dextr_request);
+
+                    // Create the POST data
+                    var post_data = {
+                        dextr_request: dextr_request_str
+                    };
+
+                    $.ajax({
+                        type: 'POST',
+                        url: '/labelling/dextr',
+                        data: post_data,
+                        success: function(msg) {
+                            tool.dextrSuccess(msg.dextr_id, msg.regions);
+                        },
+                        dataType: 'json'
+                    });
+                };
+            {% else %}
+                var dextr_request = null;
+            {% endif %}
         {% endif %}
 
         // Create the labelling tool
@@ -88,6 +127,7 @@
                 {{ initial_image_index | safe }},
                 get_labels,
                 set_labels,
+                dextr_request,
                 null,
                 {{ labelling_tool_config | tojson | safe }}
             );

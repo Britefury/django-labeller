@@ -37,6 +37,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./point_label.ts" />
 /// <reference path="./box_label.ts" />
 /// <reference path="./polygonal_label.ts" />
+/// <reference path="./dextr_label.ts" />
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
 /// <reference path="./popup_menu.ts" />
@@ -117,6 +118,7 @@ module labelling_tool {
         private _requestLabelsCallback: any;
         private _sendLabelHeaderFn: any;
         private _getNextUnlockedImageIDCallback: any;
+        private _dextrCallback: any;
         private _image_initialised: boolean;
         private _image_loaded: boolean;
         private _labels_loaded: boolean;
@@ -161,8 +163,33 @@ module labelling_tool {
 
         constructor(label_classes: LabelClassJSON[], colour_schemes: ColourSchemeJSON[],
                     images: ImageModel[], initial_image_index: number,
-                    requestLabelsCallback: any, sendLabelHeaderFn: any, getNextUnlockedImageIDCallback: any,
-                    config: any) {
+                    requestLabelsCallback: any, sendLabelHeaderFn: any, dextrCallback: any,
+                    getNextUnlockedImageIDCallback: any, config: any) {
+            /*
+            label_classes: label class definitions in JSON format
+            colour_schemes: colour scheme definitions in JSON format
+            images: images to annotate
+            initial_image_index: the index of the first image to select
+            requestLabelsCallback: a function of the form `function(image_id)` that the annotator uses to
+                asynchronously requests labels for the given image. When the labels become available (e.g.
+                when the HTTP request succeeds), give the labels to the annotator by invoking the `loadLabels` method
+            sendLabelHeaderFn: a function of the form `function(label_header)` that the annotator uses to
+                asynchronously send modified labels for storage. When the response to the request is
+                available(e.g. when the HTTP request succeeds), reply by invoking the `notifyLabelUpdateResponse`
+                method, passing a message of the form `{error: undefined}` if everything is okay,
+                or `{error: 'locked'}` to indicate that these labels are locked
+            dextrCallback: (optional, can be null) a function of the form `function(dextr_api)` that the annotator
+                uses to asynchronously request an automatically generated label for an object identified by four
+                points in the image. The DextrRequestState object contains the image ID, the points and a unique ID.
+                When the label becomes available (e.g. when the HTTP request succeeds),
+                invoke the `dextrSuccess(dextr_id, regions)` method where `dextr_id` is obtained
+                from the DextrRequestState object provided by the annotator, and regions is an array of arrays of Vector2,
+                that gives the contours/regions that define the label.
+            getNextUnlockedImageIDCallback: (optional, can be null) a function of the form
+                `function(current_image_id)` that the annotator uses to asynchronously request the ID of the next
+                available unlocked image. When the image ID become available (e.g. when the HTTP request succeeds),
+                give it to the annotator by invoking the `goToImageById(next_unlocked_image_id)` method.
+             */
             let self = this;
 
             if (DjangoAnnotator._global_key_handler === undefined ||
@@ -292,6 +319,8 @@ module labelling_tool {
             // next available image that is not locked. If it is `null` or `undefined` then the button will not
             // be displayed to the user
             this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
+            // Dextr label request callback; labelling tool will call this when it needs a new image to show
+            this._dextrCallback = dextrCallback;
 
             // Send data interval for storing interval ID for queued label send
             this._pushDataTimeout = null;
@@ -660,6 +689,14 @@ module labelling_tool {
                         self.root_view.select_entity(merged_entity, false, false);
                     }
 
+                    event.preventDefault();
+                });
+            }
+
+            if (dextrCallback !== null) {
+                var draw_dextr_button: any = $('#dextr_button');
+                draw_dextr_button.click(function (event: any) {
+                    self.set_current_tool(new DextrTool(self.root_view));
                     event.preventDefault();
                 });
             }
@@ -1046,6 +1083,20 @@ module labelling_tool {
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
         };
+
+        dextrRequest(request: DextrRequest): boolean {
+            if (this._dextrCallback !== null  &&  this._dextrCallback !== undefined) {
+                this._dextrCallback(request);
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        dextrSuccess(dextr_id: number, regions: Vector2[][]) {
+            DextrRequestState.dextr_success(dextr_id, regions);
+        }
 
         _notify_image_loaded() {
             this._image_loaded = true;

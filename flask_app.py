@@ -27,8 +27,27 @@ import click
 @click.command()
 @click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
 @click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
-def run_app(slic, readonly):
+@click.option('--dextr_weights', type=click.Path())
+def run_app(slic, readonly, dextr_weights):
     from image_labelling_tool import labelling_tool, flask_labeller
+
+    if dextr_weights is not None:
+        import os
+        from dextr.dextr import ResNet101DeepLabDEXTR
+        import torch
+
+        dextr_weights = os.path.expanduser(dextr_weights)
+
+        dextr_model = ResNet101DeepLabDEXTR()
+        dextr_model.load_weights(dextr_weights)
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        dextr_model.eval()
+        dextr_model.to(device)
+
+        dextr_fn = lambda image, points: dextr_model.inference(image*255, points)
+    else:
+        dextr_fn = None
 
     colour_schemes = [
         dict(name='default', human_name='All'),
@@ -61,7 +80,7 @@ def run_app(slic, readonly):
         from skimage.segmentation import slic as slic_segment
 
         labelled_images = []
-        for path in glob.glob('images/*.jpg'):
+        for path in glob.glob('images/*.jpg') + glob.glob('images/*.png'):
             print('Segmenting {0}'.format(path))
             img = plt.imread(path)
             # slic_labels = slic_segment(img, 1000, compactness=20.0)
@@ -76,8 +95,8 @@ def run_app(slic, readonly):
         print('Segmented {0} images'.format(len(labelled_images)))
     else:
         # Load in .JPG images from the 'images' directory.
-        labelled_images = labelling_tool.PersistentLabelledImage.for_directory('images', image_filename_pattern='*.jpg',
-                                                                               readonly=readonly)
+        labelled_images = labelling_tool.PersistentLabelledImage.for_directory(
+            'images', image_filename_patterns=['*.jpg', '*.png'], readonly=readonly)
         print('Loaded {0} images'.format(len(labelled_images)))
 
 
@@ -102,7 +121,8 @@ def run_app(slic, readonly):
         }
     }
 
-    flask_labeller.flask_labeller(label_classes, labelled_images, colour_schemes, config=config)
+    flask_labeller.flask_labeller(label_classes, labelled_images, colour_schemes, config=config,
+                                  dextr_fn=dextr_fn)
 
 
 if __name__ == '__main__':

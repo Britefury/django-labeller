@@ -23,9 +23,11 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, use_reloader=True, debug=True,
-                   port=None):
+def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, dextr_fn=None,
+                   use_reloader=True, debug=True, port=None):
     import json
+    import numpy as np
+    from skimage.color import rgb2grey
 
     from flask import Flask, render_template, request, make_response, send_from_directory
     try:
@@ -57,6 +59,20 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
         socketio = SocketIO(app)
     else:
         socketio = None
+
+
+    def dextr_js(image, dextr_points_js):
+        pixels = image.read_pixels()
+        dextr_points = np.array([[p['x'], p['y']] for p in dextr_points_js])
+        if dextr_fn is not None:
+            mask = dextr_fn(pixels, dextr_points)
+            regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)
+            regions_js = labelling_tool.PolygonLabel.regions_to_json(regions)
+            return regions_js
+        else:
+            return []
+
+
 
 
     if config is None:
@@ -93,6 +109,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
                                image_descriptors=image_descriptors,
                                initial_image_index=0,
                                labelling_tool_config=config,
+                               dextr_available=dextr_fn is not None,
                                use_websockets=socketio is not None)
 
 
@@ -123,6 +140,21 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
             image.set_label_data_from_tool(label_header['labels'], label_header['complete'])
 
             socketio_emit('set_labels_reply', '')
+
+
+        @socketio.on('dextr')
+        def handle_dextr(dextr_request_js):
+            image_id = dextr_request_js['image_id']
+            dextr_id = dextr_request_js['dextr_id']
+            dextr_points = dextr_request_js['dextr_points']
+
+            image = images_table[image_id]
+
+            regions_js = dextr_js(image, dextr_points)
+
+            dextr_reply = dict(dextr_id=dextr_id, regions=regions_js)
+
+            socketio_emit('dextr_reply', dextr_reply)
 
 
     else:
@@ -156,6 +188,21 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
             image.labels_json = labels
 
             return make_response('')
+
+
+        @app.route('/labelling/dextr', methods=['POST'])
+        def dextr():
+            dextr_request_js = json.loads(request.form['dextr_request'])
+            image_id = dextr_request_js['image_id']
+            dextr_id = dextr_request_js['dextr_id']
+            dextr_points = dextr_request_js['dextr_points']
+
+            image = images_table[image_id]
+            regions_js = dextr_js(image, dextr_points)
+
+            dextr_reply = dict(dextr_id=dextr_id, regions=regions_js)
+
+            return make_response(json.dumps(dextr_reply))
 
 
     @app.route('/image/<image_id>')

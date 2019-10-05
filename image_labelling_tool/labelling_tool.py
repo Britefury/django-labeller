@@ -347,10 +347,14 @@ class PolygonLabel (AbstractLabel):
 
                     ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
 
+    @staticmethod
+    def regions_to_json(regions):
+        return [[dict(x=float(region[i,0]), y=float(region[i,1])) for i in range(len(region))]
+                         for region in regions]
+
     def to_json(self):
         js = super(PolygonLabel, self).to_json()
-        js['regions'] = [[dict(x=region[i,0], y=region[i,1]) for i in range(len(region))]
-                         for region in self.regions]
+        js['regions'] = PolygonLabel.regions_to_json(self.regions)
         return js
 
     def __str__(self):
@@ -366,6 +370,65 @@ class PolygonLabel (AbstractLabel):
             regions_json = label_json['regions']
         regions = [np.array([[v['x'], v['y']] for v in region_json]) for region_json in regions_json]
         return PolygonLabel(regions, label_json.get('object_id'), label_json['label_class'])
+
+
+    @staticmethod
+    def mask_image_to_regions(mask):
+        """
+        Convert a mask label image to regions/contours that can be used as regions for a Polygonal label
+
+        Uses Scikit-Image `find_contours`.
+
+        :param mask: a mask image as  `(h,w)` numpy array (preferable of dtype bool) that identifies the pixels
+            belonging to the object in question
+        :return: regions as a list of NumPy arrays, where each array is (N, [x,y])
+        """
+        contours = []
+        if mask.sum() > 0:
+            mask_positions = np.argwhere(mask)
+            (ystart, xstart), (ystop, xstop) = mask_positions.min(0), mask_positions.max(0) + 1
+
+            if ystop >= ystart+1 and xstop >= xstart+1:
+                mask_trim = mask[ystart:ystop, xstart:xstop]
+                mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
+                cs = find_contours(mask_trim, 0.5)
+                for contour in cs:
+                    simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
+                    if simp is not None:
+                        contours.append([simp[:, ::-1]])
+        return contours
+
+
+    @staticmethod
+    def mask_image_to_regions_cv(mask, sort_decreasing_area=True):
+        """
+        Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
+        Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
+
+        Raises RuntimeError is OpenCV is not available.
+
+        :param mask: a mask image as  `(h,w)` numpy array (preferable of dtype bool) that identifies the pixels
+            belonging to the object in question
+        :param sort_decreasing_area: if True, regions are sorted in order of decreasing area
+        :return: regions as a list of NumPy arrays, where each array is (N, [x,y])
+        """
+        if cv2 is None:
+            raise RuntimeError('OpenCV is not available!')
+
+        _, image_contours, _ = cv2.findContours((mask != 0).astype(np.uint8), cv2.RETR_LIST,
+                                                 cv2.CHAIN_APPROX_TC89_L1)
+        image_contours = [contour[:, 0, :] for contour in image_contours if len(contour) >= 3]
+
+        if len(image_contours) > 0:
+            # Compute area
+            areas = ImageLabels._contour_areas(image_contours)
+
+            if sort_decreasing_area:
+                # Sort in order of decreasing area
+                order = np.argsort(areas)[::-1]
+                image_contours = [image_contours[i] for i in order]
+
+        return image_contours
 
 
 @label_cls
@@ -1056,6 +1119,9 @@ class AbsractLabelledImage (object):
         pass
 
 
+    def read_pixels(self):
+        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+
     @property
     def pixels(self):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
@@ -1183,6 +1249,9 @@ class InMemoryLabelledImage (AbsractLabelledImage):
         self.__complete = complete
 
 
+    def read_pixels(self):
+        return self.__pixels
+
     @property
     def pixels(self):
         return self.__pixels
@@ -1240,12 +1309,13 @@ class PersistentLabelledImage (AbsractLabelledImage):
         self.__complete = None
         self.__readonly = readonly
 
-
+    def read_pixels(self):
+        return img_as_float(imread(self.__image_path))
 
     @property
     def pixels(self):
         if self.__pixels is None:
-            self.__pixels = img_as_float(imread(self.__image_path))
+            self.__pixels = self.read_pixels()
         return self.__pixels
 
     @property
@@ -1400,10 +1470,13 @@ class LabelledImageFile (AbsractLabelledImage):
 
 
 
+    def read_pixels(self):
+        return img_as_float(imread(self.__image_path))
+
     @property
     def pixels(self):
         if self.__pixels is None:
-            self.__pixels = img_as_float(imread(self.__image_path))
+            self.__pixels = self.read_pixels()
         return self.__pixels
 
     @property

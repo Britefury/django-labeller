@@ -42,7 +42,7 @@ module labelling_tool {
         regions: Vector2[][];
     }
 
-    function new_PolygonalLabelModel(label_class: string): PolygonalLabelModel {
+    export function new_PolygonalLabelModel(label_class: string): PolygonalLabelModel {
         return {label_type: 'polygon', label_class: label_class, regions: []};
     }
 

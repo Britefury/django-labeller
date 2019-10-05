@@ -48,6 +48,7 @@ var labelling_tool;
     function new_PolygonalLabelModel(label_class) {
         return { label_type: 'polygon', label_class: label_class, regions: [] };
     }
+    labelling_tool.new_PolygonalLabelModel = new_PolygonalLabelModel;
     var shape_line = d3.svg.line()
         .x(function (d) { return d.x; })
         .y(function (d) { return d.y; })

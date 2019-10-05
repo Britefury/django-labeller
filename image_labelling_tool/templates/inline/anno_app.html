@@ -177,6 +177,10 @@
                         <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-toggle="tooltip"
                             data-placement="top" title="Merge polygonal labels; select labels first then
                             click here to merge them">MergeP</button>
+                        {% if dextr_available %}
+                            <button class="btn btn-sm btn-primary w-25 mb-1" type="button" id="dextr_button" data-toggle="tooltip"
+                                data-placement="top" title="Use ">AutoP</button>
+                        {% endif %}
                     {% endif %}
                     {% if not labelling_tool_config.tools.drawBoxLabel == False %}
                         <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-toggle="tooltip"
@@ -197,7 +201,6 @@
                             click here to associate them">Assoc.</button>
                     {% endif %}
                 </div>
-
             </div>
         </div>
 
@@ -380,6 +383,25 @@
                                         the right of the <em>Poly</em> button in the <em>Tools</em> section. Select the labels
                                         (see below) that you want to merge and click <em>MergeP</em>. If you select any labels that are not
                                         polygonal labels, nothing will happen.</li>
+                                </ul>
+                            </li>
+                        {% endif %}
+
+                        {% if dextr_available %}
+                            <li><strong>For automatic object outlining, click the <em>AutoP</em> button:</strong>
+                                <ul>
+                                    <li>You must now identify the object that you wish to be outlined by clicking
+                                    on four points in the following order:
+                                        <ul>
+                                            <li>A point at the <em>top</em> edge of the object</li>
+                                            <li>A point at the <em>left</em> edge of the object</li>
+                                            <li>A point at the <em>bottom</em> edge of the object</li>
+                                            <li>A point at the <em>right</em> edge of the object</li>
+                                        </ul>
+                                    </li>
+                                    <li>You will notice a bounding rectangle being built as you go.</li>
+                                    <li>After choosing the 4th point, there will be a small delay, after which the
+                                    bounding rectangle will be replaced by an automatically generated polygonal label</li>
                                 </ul>
                             </li>
                         {% endif %}

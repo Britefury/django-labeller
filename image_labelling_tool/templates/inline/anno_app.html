@@ -64,18 +64,21 @@
             <!-- Filter labels by class !-->
             <div class="tool_bar_content">
                 Filter by label class:
-                <!-- Class filter drop-down !-->
-                <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_menu">
-                    <option value="__all" selected="true">-- ALL --</option>
-                    {% for group in label_class_groups %}
-                        <optgroup label="{{ group.group_name }}">
-                        {% for lcls in group.group_classes %}
-                            <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+                {% if not labelling_tool_config.useClassSelectorPopup == False %}
+                    <button class="btn btn-sm btn-secondary w-100" id="label_class_filter_menu_btn"><span class="menu_choice">-- ALL --</span> <span class="oi oi-chevron-bottom"></span></button>
+                {% else %}
+                    <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_select">
+                        <option value="__all" selected="true">-- ALL --</option>
+                        {% for group in label_class_groups %}
+                            <optgroup label="{{ group.group_name }}">
+                            {% for lcls in group.group_classes %}
+                                <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+                            {% endfor %}
+                            </optgroup>
                         {% endfor %}
-                        </optgroup>
-                    {% endfor %}
-                    <option value="__unclassified">UNCLASSIFIED</option>
-                </select>
+                        <option value="__unclassified">UNCLASSIFIED</option>
+                    </select>
+                {% endif %}
             </div>
         {% endif %}
 
@@ -106,6 +109,13 @@
             <div class="tool_bar_header">Select</div>
 
             <div class="tool_bar_content">
+                {% if not labelling_tool_config.tools.deleteLabel == False %}
+                    <button class="btn btn-sm btn-danger w-25 float-right" type="button" id="delete_label_button" data-toggle="tooltip"
+                            data-placement="top" title="Delete selected labels (groups will be opened; the group will
+                            be deleted but its members will remain)">
+                        <span class="oi oi-trash"></span></button>
+                {% endif %}
+
                 <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
                         data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
                         selection">Pick</button>
@@ -115,7 +125,31 @@
                         change brush size with &lt;shift&gt;+scroll">Brush</button>
                 {% endif %}
             </div>
-            <div class="tool_bar_header">New label</div>
+
+            {% if not labelling_tool_config.tools.labelClassSelector == False %}
+                <div class="tool_bar_content">
+                    Change class:
+
+                    <!-- Change class drop-down !-->
+                    {% if not labelling_tool_config.useClassSelectorPopup == False %}
+                        <button class="btn btn-sm btn-secondary w-100" id="label_class_selector_menu_btn"><span class="menu_choice">UNCLASSIFIED</span> <span class="oi oi-chevron-bottom"></span></button>
+                    {% else %}
+                        <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_select">
+                            {% for group in label_class_groups %}
+                                <optgroup label="{{ group.group_name }}">
+                                {% for lcls in group.group_classes %}
+                                    <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+                                {% endfor %}
+                                </optgroup>
+                            {% endfor %}
+                            <option value="__unclassified" selected="true">UNCLASSIFIED</option>
+                        </select>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+
+            <div class="tool_bar_header">Edit labels</div>
             <div class="tool_bar_content">
                 {% if not labelling_tool_config.tools.drawPolyLabel == False %}
                     <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-toggle="tooltip"
@@ -141,39 +175,6 @@
                 {% endif %}
             </div>
         </div>
-
-
-        <!-- Selection section !-->
-        <div class="anno_lockable">
-            <div class="tool_bar_header">Selected labels</div>
-
-            {% if not labelling_tool_config.tools.labelClassSelector == False %}
-                <div class="tool_bar_content">
-                    Change class:
-
-                    <!-- Change class drop-down !-->
-                    <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_menu">
-                        {% for group in label_class_groups %}
-                            <optgroup label="{{ group.group_name }}">
-                            {% for lcls in group.group_classes %}
-                                <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
-                            {% endfor %}
-                            </optgroup>
-                        {% endfor %}
-                        <option value="__unclassified" selected="true">UNCLASSIFIED</option>
-                    </select>
-                </div>
-            {% endif %}
-
-            <div class="tool_bar_content">
-                {% if not labelling_tool_config.tools.deleteLabel == False %}
-                    <button class="btn btn-sm btn-info w-25" type="button" id="delete_label_button" data-toggle="tooltip"
-                            data-placement="top" title="Delete selected labels (groups will be opened; the group will
-                            be deleted but its members will remain)">
-                        <span class="oi oi-trash"></span></button>
-                {% endif %}
-            </div>
-        </div>
     </aside>
 
     <div class="tool_canvas_container" id="anno_canvas_container">
@@ -185,6 +186,45 @@
         </svg>
     </div>
 </div>
+
+
+{% if not labelling_tool_config.useClassSelectorPopup == False %}
+    <div class="tool_bar_popup hidden" id="label_class_selector_menu_contents">
+        {% for group in label_class_groups %}
+            <h6 class="class_selector_group">{{ group.group_name }}</h6>
+            {% for lcls in group.group_classes %}
+              <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">
+                {{ lcls.human_name }}
+              </button>
+            {% endfor %}
+        {% endfor %}
+        <h6 class="class_selector_group">Unclassified</h6>
+        <button class="btn btn-sm btn-danger m-1 popup_menu_choice_button active" type="button" data-choice="__unclassified">
+        <em>UNCLASSIFIED</em>
+        </button>
+    </div>
+
+
+    <div class="tool_bar_popup hidden" id="label_class_filter_menu_contents">
+        <h6 class="class_selector_group">Unclassified</h6>
+        <button class="btn btn-sm btn-success m-1 popup_menu_choice_button active" type="button" data-choice="__all">
+            <em>-- ALL --</em>
+        </button>
+        {% for group in label_class_groups %}
+            <h6 class="class_selector_group">{{ group.group_name }}</h6>
+            {% for lcls in group.group_classes %}
+              <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">
+                {{ lcls.human_name }}
+              </button>
+            {% endfor %}
+        {% endfor %}
+        <h6 class="class_selector_group">Unclassified</h6>
+        <button class="btn btn-sm btn-danger m-1 popup_menu_choice_button" type="button" data-choice="__unclassified">
+            <em>UNCLASSIFIED</em>
+        </button>
+    </div>
+{% endif %}
+
 
 
 <!-- Confirm delete -->

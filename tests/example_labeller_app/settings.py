@@ -144,6 +144,7 @@ LABEL_CLASSES = [
 
 # Configuration
 LABELLING_TOOL_CONFIG = {
+    'useClassSelectorPopup': True,
     'tools': {
         'imageSelector': True,
         'labelClassSelector': True,

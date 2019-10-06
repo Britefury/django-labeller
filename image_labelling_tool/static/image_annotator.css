@@ -36,6 +36,23 @@ nav.anno_menu_bar {
 }
 
 
+.tool_bar_popup {
+    background-color: #ffffff;
+    border: 1px solid rgba(0,0,0,.15);
+    border-radius: .25rem;
+    padding: 16px 24px;
+    margin: .125rem 0 0;
+    max-width: 1280px;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.class_selector_group {
+    font-size: .875rem;
+    color: #6c757d;
+}
+
+
 aside.tool_bar {
     position: fixed;
     background-color: #51576b;

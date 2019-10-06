@@ -38,6 +38,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./polygonal_label.ts" />
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
+/// <reference path="./popup_menu.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     labelling_tool.get_label_header_labels = function (label_header) {
@@ -62,6 +63,10 @@ var labelling_tool;
     var DjangoAnnotator = /** @class */ (function () {
         function DjangoAnnotator(label_classes, colour_schemes, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, config) {
             var _this = this;
+            this._label_class_selector_select = null;
+            this._label_class_selector_popup = null;
+            this._label_class_filter_select = null;
+            this._label_class_filter_popup = null;
             var self = this;
             if (DjangoAnnotator._global_key_handler === undefined ||
                 DjangoAnnotator._global_key_handler_connected === undefined) {
@@ -247,20 +252,6 @@ var labelling_tool;
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
-            if (config.tools.labelClassSelector) {
-                this._label_class_selector_menu = $('#label_class_selector_menu');
-                var choice_btns = this._label_class_selector_menu.find('.choice_button');
-                this._label_class_selector_menu.change(function (event, ui) {
-                    var label_class_name = event.target.value;
-                    if (label_class_name == '__unclassified') {
-                        label_class_name = null;
-                    }
-                    var selection = self.root_view.get_selection();
-                    for (var i = 0; i < selection.length; i++) {
-                        selection[i].set_label_class(label_class_name);
-                    }
-                });
-            }
             if (colour_schemes.length > 1) {
                 this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
@@ -286,34 +277,64 @@ var labelling_tool;
                 }
             });
             if (config.tools.labelClassFilter) {
-                this._label_class_filter_menu = $('#label_class_filter_menu');
-                this._label_class_filter_menu.change(function (event, ui) {
-                    var label_filter_class = event.target.value;
-                    if (label_filter_class === '__unclassified') {
-                        label_filter_class = null;
-                    }
-                    self.set_label_visibility(self.label_visibility, label_filter_class);
-                    // if (label_filter_class === '__all') {
-                    //     self._label_class_filter_notification.attr('style', 'color: #008000').text(
-                    //         'All labels visible');
-                    // }
-                    // else {
-                    //     self._label_class_filter_notification.attr('style', 'color: #800000').text(
-                    //         'Some labels hidden');
-                    // }
-                });
-                if (config.tools.labelClassFilterInitial !== false) {
-                    setTimeout(function () {
-                        var label_filter_class = config.tools.labelClassFilterInitial;
-                        if (label_filter_class === null) {
-                            self._label_class_filter_menu.val('__unclassified');
+                this._label_class_filter_select = $('#label_class_filter_select');
+                var filter_btn = $('#label_class_filter_menu_btn');
+                if (this._label_class_filter_select.length > 0) {
+                    this._label_class_filter_select.change(function (event, ui) {
+                        var label_filter_class = event.target.value;
+                        if (label_filter_class === '__unclassified') {
+                            label_filter_class = null;
+                        }
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
+                        if (label_filter_class === '__all') {
+                            self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
                         }
                         else {
-                            self._label_class_filter_menu.val(config.tools.labelClassFilterInitial);
+                            self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
                         }
-                        self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                    });
+                    if (config.tools.labelClassFilterInitial !== false) {
+                        setTimeout(function () {
+                            var label_filter_class = config.tools.labelClassFilterInitial;
+                            if (label_filter_class === null) {
+                                self._label_class_filter_select.val('__unclassified');
+                            }
+                            else {
+                                self._label_class_filter_select.val(config.tools.labelClassFilterInitial);
+                            }
+                            self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
+                        }, 0);
+                    }
+                }
+                else if (filter_btn.length > 0) {
+                    this._label_class_filter_popup = new popup_menu.PopupMenu(filter_btn, $('#label_class_filter_menu_contents'), { placement: 'bottom' });
+                    filter_btn.on('change', function (el, event) {
+                        var label_filter_class = event.value;
+                        if (label_filter_class === '__unclassified') {
+                            label_filter_class = null;
+                        }
                         self.set_label_visibility(self.label_visibility, label_filter_class);
-                    }, 0);
+                        if (label_filter_class === '__all') {
+                            self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
+                        }
+                        else {
+                            self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                        }
+                    });
+                    if (config.tools.labelClassFilterInitial !== false) {
+                        setTimeout(function () {
+                            var label_filter_class = config.tools.labelClassFilterInitial;
+                            if (label_filter_class === null) {
+                                self._label_class_filter_popup.setChoice('__unclassified');
+                            }
+                            else {
+                                self._label_class_filter_popup.setChoice(label_filter_class);
+                            }
+                            self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
+                        }, 0);
+                    }
                 }
             }
             //
@@ -332,6 +353,60 @@ var labelling_tool;
                     event.preventDefault();
                 });
             }
+            var canDelete = function (entity) {
+                var typeName = entity.get_label_type_name();
+                var delPerm = config.tools.deleteConfig.typePermissions[typeName];
+                if (delPerm === undefined) {
+                    return true;
+                }
+                else {
+                    return delPerm;
+                }
+            };
+            if (config.tools.deleteLabel) {
+                this._confirm_delete = $('#confirm-delete');
+                var delete_label_button = $('#delete_label_button');
+                delete_label_button.click(function (event) {
+                    self._confirm_delete.modal({ show: true });
+                    var confirm_button = $('#btn_delete_confirm_delete');
+                    confirm_button.button().click(function (event) {
+                        self.root_view.delete_selection(canDelete);
+                    });
+                });
+            }
+            if (config.tools.labelClassSelector) {
+                this._label_class_selector_select = $('#label_class_selector_select');
+                var cls_sel_menu_btn = $('#label_class_selector_menu_btn');
+                if (this._label_class_selector_select.length > 0) {
+                    this._label_class_selector_select.change(function (event, ui) {
+                        var label_class_name = event.target.value;
+                        if (label_class_name == '__unclassified') {
+                            label_class_name = null;
+                        }
+                        var selection = self.root_view.get_selection();
+                        for (var i = 0; i < selection.length; i++) {
+                            selection[i].set_label_class(label_class_name);
+                        }
+                    });
+                }
+                else if (cls_sel_menu_btn.length > 0) {
+                    this._label_class_selector_popup = new popup_menu.PopupMenu(cls_sel_menu_btn, $('#label_class_selector_menu_contents'), { placement: 'bottom' });
+                    cls_sel_menu_btn.on('change', function (el, event) {
+                        var label_class_name = event.value;
+                        if (label_class_name == '__unclassified') {
+                            label_class_name = null;
+                        }
+                        var selection = self.root_view.get_selection();
+                        for (var i = 0; i < selection.length; i++) {
+                            selection[i].set_label_class(label_class_name);
+                        }
+                    });
+                }
+            }
+            //
+            // Draw section
+            // Draw point, box, poly, composite, group
+            //
             if (config.tools.drawPointLabel) {
                 var draw_point_button = $('#draw_point_button');
                 draw_point_button.button().click(function (event) {
@@ -386,27 +461,6 @@ var labelling_tool;
                 composite_button.button().click(function (event) {
                     self.root_view.create_composite_label_from_selection();
                     event.preventDefault();
-                });
-            }
-            var canDelete = function (entity) {
-                var typeName = entity.get_label_type_name();
-                var delPerm = config.tools.deleteConfig.typePermissions[typeName];
-                if (delPerm === undefined) {
-                    return true;
-                }
-                else {
-                    return delPerm;
-                }
-            };
-            if (config.tools.deleteLabel) {
-                this._confirm_delete = $('#confirm-delete');
-                var delete_label_button = $('#delete_label_button');
-                delete_label_button.click(function (event) {
-                    self._confirm_delete.modal({ show: true });
-                    var confirm_button = $('#btn_delete_confirm_delete');
-                    confirm_button.button().click(function (event) {
-                        self.root_view.delete_selection(canDelete);
-                    });
                 });
             }
             /*
@@ -841,7 +895,12 @@ var labelling_tool;
             if (label_class === null || label_class === undefined) {
                 label_class = '__unclassified';
             }
-            this._label_class_selector_menu.val(label_class);
+            if (this._label_class_selector_popup !== null) {
+                this._label_class_selector_popup.setChoice(label_class);
+            }
+            else {
+                this._label_class_selector_select.val(label_class);
+            }
         };
         ;
         DjangoAnnotator.prototype._update_label_class_menu_from_views = function (selection) {
@@ -961,4 +1020,3 @@ var labelling_tool;
     }());
     labelling_tool.DjangoAnnotator = DjangoAnnotator;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=main_anno.js.map

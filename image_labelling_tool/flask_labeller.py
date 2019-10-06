@@ -60,6 +60,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
 
     if config is None:
         config = {
+            'useClassSelectorPopup': True,
             'tools': {
                 'imageSelector': True,
                 'labelClassSelector': True,

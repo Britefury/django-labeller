@@ -25,8 +25,10 @@ data_files = [
         'image_labelling_tool/templates/labeller_page.jinja2'
     ]),
     ('image_labelling_tool/templates/inline', [
-        'image_labelling_tool/templates/inline/instructions.html',
-        'image_labelling_tool/templates/inline/labelling_tool.html'
+        'image_labelling_tool/templates/inline/anno_app.html',
+        'image_labelling_tool/templates/inline/image_annotator.html',
+        'image_labelling_tool/templates/inline/image_annotator_css.html',
+        'image_labelling_tool/templates/inline/image_annotator_scripts.html',
     ]),
     ('share/jupyter/nbextensions/image_labelling_tool', [
         'image_labelling_tool/static/polyk.js',
@@ -39,7 +41,7 @@ data_files = [
         'image_labelling_tool/static/labelling_tool/extension.js',
         'image_labelling_tool/static/labelling_tool/group_label.js',
         'image_labelling_tool/static/labelling_tool/label_class.js',
-        'image_labelling_tool/static/labelling_tool/main_tool.js',
+        'image_labelling_tool/static/labelling_tool/main_anno.js',
         'image_labelling_tool/static/labelling_tool/math_primitives.js',
         'image_labelling_tool/static/labelling_tool/object_id_table.js',
         'image_labelling_tool/static/labelling_tool/point_label.js',

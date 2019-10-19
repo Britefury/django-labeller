@@ -29,7 +29,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
-/// <reference path="./main_tool.ts" />
+/// <reference path="./main_anno.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     /*
@@ -415,3 +415,4 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=root_label_view.js.map

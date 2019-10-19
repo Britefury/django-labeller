@@ -1,0 +1,28 @@
+{% load labelling_tool_tags %}
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>UEA Computer Vision - Annotator</title>
+
+        {% include "inline/image_annotator_scripts.html" %}
+        {% include "inline/image_annotator_css.html" %}
+    </head>
+
+    <body>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url "example_labeller:home" %}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Labelling tool</li>
+        </ol>
+    </nav>
+
+
+    {% url 'example_labeller:labelling_tool_api' as ltapi_url %}
+
+    {% labelling_tool label_class_groups image_descriptors colour_schemes initial_image_index ltapi_url enable_locking labelling_tool_config %}
+
+
+    </body>
+</html>

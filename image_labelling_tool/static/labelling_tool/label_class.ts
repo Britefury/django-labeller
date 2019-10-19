@@ -41,6 +41,12 @@ module labelling_tool {
     }
 
 
+    export interface ColourSchemeJSON {
+        name: string;
+        human_name: string;
+    }
+
+
     export class AbstractLabelClass {
         human_name: string;
 

@@ -23,7 +23,7 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(labelled_images, label_classes, config=None, use_reloader=True, debug=True):
+def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, use_reloader=True, debug=True):
     import json
 
     from flask import Flask, render_template, request, make_response, send_from_directory
@@ -80,16 +80,17 @@ def flask_labeller(labelled_images, label_classes, config=None, use_reloader=Tru
         }
 
 
+
     @app.route('/')
     def index():
         label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
                                for cls in label_classes]
         return render_template('labeller_page.jinja2',
-                               tool_js_urls=labelling_tool.js_file_urls('/static/labelling_tool/'),
-                               label_classes=json.dumps(label_classes_json),
-                               image_descriptors=json.dumps(image_descriptors),
+                               colour_schemes=colour_schemes,
+                               label_class_groups=label_classes_json,
+                               image_descriptors=image_descriptors,
                                initial_image_index=0,
-                               config=json.dumps(config),
+                               labelling_tool_config=config,
                                use_websockets=socketio is not None)
 
 

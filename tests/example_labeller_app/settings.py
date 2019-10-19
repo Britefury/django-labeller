@@ -117,6 +117,11 @@ CSRF_COOKIE_SECURE = False
 
 
 # Labelling tool configuration, used in `example_labeller.views`
+LABEL_COLOUR_SCHEMES = [
+    dict(name='default', human_name='All'),
+    dict(name='natural', human_name='Natural'),
+    dict(name='artificial', human_name='Artificial'),
+]
 
 # Label classes
 # Tuple entries arameters are: symbolic name, human readable name for UI, and colours by colour scheme.
@@ -150,9 +155,6 @@ LABELLING_TOOL_CONFIG = {
         'compositeLabel': True,
         'groupLabel': True,
         'deleteLabel': True,
-        'colour_schemes': [dict(name='default', human_name='All'),
-                           dict(name='natural', human_name='Natural'),
-                           dict(name='artificial', human_name='Artifical')],
         'deleteConfig': {
             'typePermissions': {
                 'point': True,
@@ -164,3 +166,5 @@ LABELLING_TOOL_CONFIG = {
         }
     }
 }
+
+LABELLING_TOOL_ENABLE_LOCKING = False

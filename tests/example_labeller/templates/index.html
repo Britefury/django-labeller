@@ -4,34 +4,27 @@
     <head>
         <title>UEA Computer Vision - Labelling Tool</title>
 
-        <script src="/static/jquery/jquery-2.1.1.min.js"></script>
+        <link rel="stylesheet" href="/static/bootstrap-4.3.1.min.css">
+        <link rel="stylesheet" href="/static/open-iconic/css/open-iconic-bootstrap.css">
 
-        <link rel="stylesheet" href="/static/jquery/jquery-ui.min.css">
-        <script src="/static/jquery/jquery-ui.min.js"></script>
+        <script src="/static/jquery-3.3.1.min.js"></script>
+        <script src="/static/popper-1.14.7.min.js"></script>
+        <script src="/static/bootstrap-4.3.1.min.js"></script>
 
-        <script src="/static/d3.min.js"></script>
         <script src="/static/js.cookie.js"></script>
-        <script src="/static/json2.js"></script>
-        <script src="/static/polyk.js"></script>
-        {% labelling_tool_scripts %}
     </head>
 
     <body>
 
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page">Home</li>
+        </ol>
+    </nav>
+
     <h1>UEA Computer Vision - Labelling Tool example Django App</h1>
 
-    {% url 'example_labeller:labelling_tool_api' as ltapi_url %}
-
-    {% labelling_tool 1280 720 label_classes image_descriptors initial_image_index ltapi_url True labelling_tool_config %}
-
-
-    <h4>Admin</h4>
-    <p>The Django admin system can be found <a href="/admin">here</a>.</p>
-
-
-    <h3>Instructions for use</h3>
-
-    {% labelling_tool_instructions labelling_tool_config %}
+    <a class="btn btn-success" href="{% url "example_labeller:tool" %}">Labelling tool</a>
 
 
     </body>

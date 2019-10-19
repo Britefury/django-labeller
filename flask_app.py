@@ -30,6 +30,12 @@ import click
 def run_app(slic, readonly):
     from image_labelling_tool import labelling_tool, flask_labeller
 
+    colour_schemes = [
+        dict(name='default', human_name='All'),
+        dict(name='natural', human_name='Natural'),
+        dict(name='artificial', human_name='Artifical')
+    ]
+
     # Specify our 3 label classes.
     # `LabelClass` parameters are: symbolic name, human readable name for UI, and colours by colour scheme.
     # The user can choose between colour schemes, this is useful when there are lots of label classes,
@@ -82,9 +88,6 @@ def run_app(slic, readonly):
             'drawPolyLabel': True,
             'compositeLabel': True,
             'deleteLabel': True,
-            'colour_schemes': [dict(name='default', human_name='All'),
-                               dict(name='natural', human_name='Natural'),
-                               dict(name='artificial', human_name='Artifical')],
             'deleteConfig': {
                 'typePermissions': {
                     'point': True,
@@ -97,7 +100,7 @@ def run_app(slic, readonly):
         }
     }
 
-    flask_labeller.flask_labeller(labelled_images, label_classes, config=config)
+    flask_labeller.flask_labeller(label_classes, labelled_images, colour_schemes, config=config)
 
 
 if __name__ == '__main__':

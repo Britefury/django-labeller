@@ -8,5 +8,6 @@ urlpatterns = [
     # url(r'^blog/', include('blog.urls')),
 
     url(r'^$', views.home, name='home'),
+    url(r'^tool', views.tool, name='tool'),
     url(r'^labelling_tool_api', views.LabellingToolAPI.as_view(), name='labelling_tool_api'),
 ]

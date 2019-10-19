@@ -1,4 +1,4 @@
-import os, datetime
+import os, datetime, json
 
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -10,6 +10,7 @@ from image_labelling_tool import models as lt_models
 from image_labelling_tool import labelling_tool_views
 
 from . import models
+
 
 @ensure_csrf_cookie
 def home(request):
@@ -27,6 +28,26 @@ def home(request):
         'labelling_tool_config': settings.LABELLING_TOOL_CONFIG,
     }
     return render(request, 'index.html', context)
+
+
+@ensure_csrf_cookie
+def tool(request):
+    image_descriptors = [labelling_tool.image_descriptor(
+            image_id=img.id, url=img.image.url,
+            width=img.image.width, height=img.image.height) for img in models.ImageWithLabels.objects.all()]
+
+    # Convert the label class tuples in `settings` to `labelling_tool.LabelClass` instances
+    label_classes = settings.LABEL_CLASSES
+
+    context = {
+        'colour_schemes': settings.LABEL_COLOUR_SCHEMES,
+        'label_class_groups': [g.to_json() for g in settings.LABEL_CLASSES],
+        'image_descriptors': image_descriptors,
+        'initial_image_index': str(0),
+        'labelling_tool_config': settings.LABELLING_TOOL_CONFIG,
+        'enable_locking': settings.LABELLING_TOOL_ENABLE_LOCKING
+    }
+    return render(request, 'tool.html', context)
 
 
 class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):

@@ -92,7 +92,7 @@ module labelling_tool {
      /*
     Labelling tool view; links to the server side data structures
      */
-    export class LabellingTool {
+    export class DjangoAnnotator {
         static _global_key_handler: any;
         static _global_key_handler_connected: boolean;
 
@@ -109,11 +109,8 @@ module labelling_tool {
         private _button_down: boolean;
         private _mouse_within: boolean;
         private _last_mouse_pos: Vector2;
-        private _tool_width: number;
-        private _tool_height: number;
         private _image_width: number;
         private _image_height: number;
-        private _labelling_area_width: number;
         private _images: ImageModel[];
         private _num_images: number;
         private _requestLabelsCallback: any;
@@ -130,11 +127,6 @@ module labelling_tool {
         private _pushDataTimeout: any;
         private frozen: boolean;
 
-        private is_expanded: boolean;
-        private in_element_container: JQuery;
-        private full_screen_container: JQuery;
-        private movable_container: JQuery;
-        private labelling_area: JQuery;
         private _colour_scheme_selector_menu: JQuery;
         private _label_class_selector_menu: JQuery;
         private label_vis_hidden_radio: JQuery;
@@ -143,10 +135,10 @@ module labelling_tool {
         private _label_class_filter_menu: JQuery;
         private _label_class_filter_notification: JQuery;
         private _confirm_delete: JQuery;
-        private _confirm_delete_visible: boolean;
         private _svg: d3.Selection<any>;
-        private _loading_notification: d3.Selection<any>;
-        private _loading_notification_text: d3.Selection<any>;
+        private _svg_q: JQuery;
+        private _loading_notification_q: JQuery;
+        private _loading_notification_text: JQuery;
         world: any;
         private _image: d3.Selection<any>;
         private _image_index_input: JQuery;
@@ -164,16 +156,16 @@ module labelling_tool {
 
 
 
-        constructor(element: Element, label_classes: LabelClassJSON[], tool_width: number, tool_height: number,
+        constructor(label_classes: LabelClassJSON[], colour_schemes: ColourSchemeJSON[],
                     images: ImageModel[], initial_image_index: number,
                     requestLabelsCallback: any, sendLabelHeaderFn: any, getNextUnlockedImageIDCallback: any,
                     config: any) {
             let self = this;
 
-            if (LabellingTool._global_key_handler === undefined ||
-                    LabellingTool._global_key_handler_connected === undefined) {
-                LabellingTool._global_key_handler = null;
-                LabellingTool._global_key_handler_connected = false;
+            if (DjangoAnnotator._global_key_handler === undefined ||
+                    DjangoAnnotator._global_key_handler_connected === undefined) {
+                DjangoAnnotator._global_key_handler = null;
+                DjangoAnnotator._global_key_handler_connected = false;
             }
 
             config = config || {};
@@ -194,7 +186,11 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'colour_schemes',
                             [{name: 'default', human_name: 'Default'}]);
 
-            this._current_colour_scheme = config.tools.colour_schemes[0].name;
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{name: 'default', human_name: 'Default'}];
+            }
+
+            this._current_colour_scheme = colour_schemes[0].name;
 
             config.settings = config.settings || {};
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
@@ -264,10 +260,6 @@ module labelling_tool {
             // Button state
             this._button_down = false;
 
-            // Labelling tool dimensions
-            this._tool_width = tool_width;
-            this._tool_height = tool_height;
-
             // List of Image descriptors
             this._images = images;
 
@@ -296,7 +288,7 @@ module labelling_tool {
             // Get unlocked image IDs callback: labelling tool will call this when the user wants to move to the
             // next available image that is not locked. If it is `null` or `undefined` then the button will not
             // be displayed to the user
-            this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback
+            this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
 
             // Send data interval for storing interval ID for queued label send
             this._pushDataTimeout = null;
@@ -304,94 +296,7 @@ module labelling_tool {
             this.frozen = false;
 
 
-            this.is_expanded = false;
-
-            var toolbar_width = 220;
-            this._labelling_area_width = this._tool_width - toolbar_width;
-            var labelling_area_x_pos = toolbar_width + 10;
-
-            this._lockableControls = $();
-
-
-            // A <div> element that surrounds the labelling tool
-            this.in_element_container = $('<div style="border: 1px solid gray; width: ' + this._tool_width + 'px;"/>')
-                .appendTo(element);
-
-            this.movable_container = $('<div style="background: #ffffff;"/>').appendTo(this.in_element_container);
-
-
-
-            /*
-             *
-             * FULL SCREEN CONTROLS
-             *
-             */
-            var fullscreen_controls_outer_container = $('<div style="position: relative"></div>');
-            fullscreen_controls_outer_container.appendTo(this.movable_container);
-
-            var fullscreen_controls_container = $('<div style="position: absolute; right: 0; padding: 3px; margin: 2px"></div>');
-            fullscreen_controls_container.appendTo(fullscreen_controls_outer_container);
-
-            this.full_screen_container = null;
-
-            var expand_button = $('<button>Full screen</button>');
-            expand_button.button({
-                    text: false,
-                    icons: {primary: "ui-icon-arrow-4-diag"}
-                });
-            expand_button.appendTo(fullscreen_controls_container);
-            expand_button.on('click', function() {
-                if (self.is_expanded) {
-                    self.movable_container.appendTo(self.in_element_container);
-
-                    self.full_screen_container.remove();
-
-                    self.labelling_area.css('width', self._labelling_area_width + 'px');
-                    self._svg.attr('width', self._labelling_area_width);
-                    self._svg.attr('height', self._tool_height);
-                    self._loading_notification.attr('width', self._labelling_area_width);
-                    self._loading_notification.attr('height', self._tool_height);
-
-                    self.is_expanded = false;
-
-                    $(this).button({text: false, icons: {primary: 'ui-icon-arrow-4-diag'}});
-                }
-                else {
-                    self.full_screen_container = $('<div style="position: fixed; width: 100%; height: 100%; left: 0; top: 0; z-index: 1000; background: rgba(32, 32, 32, 0.7);"></div>');
-                    self.full_screen_container.appendTo($('body'));
-
-                    self.movable_container.appendTo(self.full_screen_container);
-
-                    setTimeout(function() {
-                        var width = self.full_screen_container[0].offsetWidth, height = self.full_screen_container[0].offsetHeight;
-                        var labelling_area_width = width - toolbar_width;
-                        console.log("Resizing to " + width + "x" + height + ';' + labelling_area_width);
-                        self.labelling_area.css('width', labelling_area_width + 'px');
-                        self._svg.attr('width', labelling_area_width);
-                        self._svg.attr('height', height);
-                        self._loading_notification.attr('width', labelling_area_width);
-                        self._loading_notification.attr('height', height);
-                    }, 0);
-
-                    self.is_expanded = true;
-
-                    $(this).button({text: false, icons: {primary: 'ui-icon-arrowthick-1-sw'}});
-                }
-            });
-
-
-
-            /*
-             *
-             * MAIN CONTAINER
-             *
-             */
-
-            var toolbar_container = $('<div style="position: relative;">').appendTo(this.movable_container);
-
-            var toolbar = $('<div style="position: absolute; width: ' + toolbar_width +
-                'px; padding: 4px; display: inline-block; background: #d0d0d0; border: 1px solid #a0a0a0; font-family: sans-serif;"/>').appendTo(toolbar_container);
-            this.labelling_area = $('<div id="labelling_area" style="width:' + this._labelling_area_width + 'px; margin-left: ' + labelling_area_x_pos + 'px"/>').appendTo(this.movable_container);
+            this._lockableControls = $('.anno_lockable');
 
 
 
@@ -406,8 +311,6 @@ module labelling_tool {
             //
             // IMAGE SELECTOR
             //
-
-            $('<p style="background: #b0b0b0;">Current image</p>').appendTo(toolbar);
 
             if (config.tools.imageSelector) {
                 var _increment_image_index = function (offset: number) {
@@ -430,7 +333,7 @@ module labelling_tool {
                     }
                 };
 
-                this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
+                this._image_index_input = $('#image_index_input');
                 this._image_index_input.on('change', function () {
                     var index_str = self._image_index_input.val();
                     var index = parseInt(index_str) - 1;
@@ -439,11 +342,9 @@ module labelling_tool {
                         self.loadImage(self._images[index]);
                     }
                 });
-                $('<span>' + '/' + this._num_images + '</span>').appendTo(toolbar);
 
 
-                $('<br/>').appendTo(toolbar);
-                var prev_image_button: any = $('<button>Prev image</button>').appendTo(toolbar);
+                var prev_image_button: any = $('#btn_prev_image');
                 prev_image_button.button({
                     text: false,
                     icons: {primary: "ui-icon-seek-prev"}
@@ -452,7 +353,7 @@ module labelling_tool {
                     event.preventDefault();
                 });
 
-                var next_image_button: any = $('<button>Next image</button>').appendTo(toolbar);
+                var next_image_button: any = $('#btn_next_image');
                 next_image_button.button({
                     text: false,
                     icons: {primary: "ui-icon-seek-next"}
@@ -462,30 +363,22 @@ module labelling_tool {
                 });
 
                 if (this._getNextUnlockedImageIDCallback !== null && this._getNextUnlockedImageIDCallback !== undefined) {
-                    var next_unlocked_image_button: any = $('<button>Next unlocked image</button>').appendTo(toolbar);
-                    next_unlocked_image_button.button({
-                        text: false,
-                        icons: {primary: "ui-icon-unlocked"}
-                    }).click(function (event: any) {
+                    var next_unlocked_image_button: any = $('#btn_next_unlocked_image');
+                    next_unlocked_image_button.click(function (event: any) {
+                        console.log('next...');
                         _next_unlocked_image();
                         event.preventDefault();
                     });
                 }
             }
 
-            this._lockNotification = $('<div style="display: none;"><p style="font-size: 0.75em; color: #c00000">' +
-                'These labels are locked and cannot be edited. Someone else got there first :). ' +
-                'Please choose another image (click the unlock button above to find the next unlocked image).</p></div>');
-            this._lockNotification.appendTo(toolbar);
+            this._lockNotification = $('#lock_warning');
 
-            $('<br/>').appendTo(toolbar);
-            this._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(toolbar);
+            this._complete_checkbox = $('#task_finished');
             this._complete_checkbox.change(function(event, ui) {
                 self.root_view.set_complete((event.target as any).checked);
                 self.queue_push_label_data();
             });
-
-            this._lockableControls = this._lockableControls.add(this._complete_checkbox);
 
 
 
@@ -494,15 +387,9 @@ module labelling_tool {
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
 
-            $('<p style="background: #b0b0b0;">Labels</p>').appendTo(toolbar);
-
             if (config.tools.labelClassSelector) {
-                this._label_class_selector_menu = $('<select name="label_class_selector"/>').appendTo(toolbar);
-                for (var i = 0; i < this.label_classes.length; i++) {
-                    var cls = this.label_classes[i];
-                    $(cls.to_html()).appendTo(this._label_class_selector_menu);
-                }
-                $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(this._label_class_selector_menu);
+                this._label_class_selector_menu = $('#label_class_selector_menu');
+                let choice_btns = this._label_class_selector_menu.find('.choice_button');
                 this._label_class_selector_menu.change(function (event, ui) {
                     var label_class_name = (event.target as any).value;
                     if (label_class_name == '__unclassified') {
@@ -513,27 +400,18 @@ module labelling_tool {
                         selection[i].set_label_class(label_class_name);
                     }
                 });
-                this._lockableControls = this._lockableControls.add(this._label_class_selector_menu);
             }
 
-            if (config.tools.colour_schemes.length > 1) {
-                $('<br/><span>Colour scheme:</span><br/>').appendTo(toolbar);
-
-                this._colour_scheme_selector_menu = $('<select name="colour_scheme_selector"/>').appendTo(toolbar);
-                for (var i = 0; i < this._config.tools.colour_schemes.length; i++) {
-                    var colour_scheme = this._config.tools.colour_schemes[i];
-                    $('<option value="' + colour_scheme.name + '">' + colour_scheme.human_name + '</option>').appendTo(this._colour_scheme_selector_menu);
-                }
+            if (colour_schemes.length > 1) {
+                this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme((event.target as any).value);
                 });
-                this._lockableControls = this._lockableControls.add(this._colour_scheme_selector_menu);
             }
 
-            $('<p style="background: #b0b0b0;">Label visibility</p>').appendTo(toolbar);
-            this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
-            this.label_vis_faint_radio = $('<input type="radio" name="labelvis" value="faint">faint</input>').appendTo(toolbar);
-            this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
+            this.label_vis_hidden_radio = $('#label_vis_radio_hidden');
+            this.label_vis_faint_radio = $('#label_vis_radio_faint');
+            this.label_vis_full_radio = $('#label_vis_radio_full');
             this.label_vis_hidden_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
                     self.set_label_visibility(LabelVisibility.HIDDEN, self.label_visibility_class_filter);
@@ -551,15 +429,8 @@ module labelling_tool {
             });
 
             if (config.tools.labelClassFilter) {
-                this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
-                self._label_class_filter_notification = $(
-                    '<div id="__" style="color: #008000">All labels visible</div>').appendTo(toolbar);
-                $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
-                for (var i = 0; i < this.label_classes.length; i++) {
-                    var cls = this.label_classes[i];
-                    $(cls.to_html()).appendTo(this._label_class_filter_menu);
-                }
-                $('<option value="__unclassified">UNCLASSIFIED</option>').appendTo(this._label_class_filter_menu);
+                this._label_class_filter_menu = $('#label_class_filter_menu');
+
                 this._label_class_filter_menu.change(function (event, ui) {
                     var label_filter_class = (event.target as any).value;
                     if (label_filter_class === '__unclassified') {
@@ -567,14 +438,14 @@ module labelling_tool {
                     }
                     self.set_label_visibility(self.label_visibility, label_filter_class);
 
-                    if (label_filter_class === '__all') {
-                        self._label_class_filter_notification.attr('style', 'color: #008000').text(
-                            'All labels visible');
-                    }
-                    else {
-                        self._label_class_filter_notification.attr('style', 'color: #800000').text(
-                            'Some labels hidden');
-                    }
+                    // if (label_filter_class === '__all') {
+                    //     self._label_class_filter_notification.attr('style', 'color: #008000').text(
+                    //         'All labels visible');
+                    // }
+                    // else {
+                    //     self._label_class_filter_notification.attr('style', 'color: #800000').text(
+                    //         'Some labels hidden');
+                    // }
                 });
 
                 if (config.tools.labelClassFilterInitial !== false) {
@@ -602,25 +473,22 @@ module labelling_tool {
             // Select, brush select, draw poly, composite, group, delete
             //
 
-            $('<p style="background: #b0b0b0;">Tools</p>').appendTo(toolbar);
-            var select_button: any = $('<button>Select</button>').appendTo(toolbar);
-            select_button.button().click(function(event: any) {
+            var select_button: any = $('#select_pick_button');
+            select_button.click(function(event: any) {
                 self.set_current_tool(new SelectEntityTool(self.root_view));
                 event.preventDefault();
             });
-            this._lockableControls = this._lockableControls.add(select_button);
 
             if (config.tools.brushSelect) {
-                var brush_select_button: any = $('<button>Brush select</button>').appendTo(toolbar);
-                brush_select_button.button().click(function (event: any) {
+                var brush_select_button: any = $('#select_brush_button');
+                brush_select_button.click(function (event: any) {
                     self.set_current_tool(new BrushSelectEntityTool(self.root_view));
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(brush_select_button);
             }
 
             if (config.tools.drawPointLabel) {
-                var draw_point_button: any = $('<button>Add point</button>').appendTo(toolbar);
+                var draw_point_button: any = $('#draw_point_button');
                 draw_point_button.button().click(function (event: any) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof PointLabelEntity) {
@@ -631,12 +499,11 @@ module labelling_tool {
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_point_button);
             }
 
             if (config.tools.drawBoxLabel) {
-                var draw_box_button: any = $('<button>Draw box</button>').appendTo(toolbar);
-                draw_box_button.button().click(function (event: any) {
+                var draw_box_button: any = $('#draw_box_button');
+                draw_box_button.click(function (event: any) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof BoxLabelEntity) {
                         self.set_current_tool(new DrawBoxTool(self.root_view, current));
@@ -646,12 +513,11 @@ module labelling_tool {
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_box_button);
             }
 
             if (config.tools.drawPolyLabel) {
-                var draw_polygon_button: any = $('<button>Draw poly</button>').appendTo(toolbar);
-                draw_polygon_button.button().click(function (event: any) {
+                var draw_polygon_button: any = $('#draw_poly_button');
+                draw_polygon_button.click(function (event: any) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof PolygonalLabelEntity) {
                         self.set_current_tool(new DrawPolygonTool(self.root_view, current));
@@ -661,22 +527,11 @@ module labelling_tool {
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_polygon_button);
-            }
-
-            if (config.tools.compositeLabel) {
-                var composite_button: any = $('<button>Composite</button>').appendTo(toolbar);
-                composite_button.button().click(function (event: any) {
-                    self.root_view.create_composite_label_from_selection();
-
-                    event.preventDefault();
-                });
-                this._lockableControls = this._lockableControls.add(composite_button);
             }
 
             if (config.tools.groupLabel) {
-                var group_button: any = $('<button>Group</button>').appendTo(toolbar);
-                group_button.button().click(function (event: any) {
+                var group_button: any = $('#draw_group_button');
+                group_button.click(function (event: any) {
                     var group_entity = self.root_view.create_group_label_from_selection();
 
                     if (group_entity !== null) {
@@ -685,7 +540,15 @@ module labelling_tool {
 
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(group_button);
+            }
+
+            if (config.tools.compositeLabel) {
+                var composite_button: any = $('#draw_composite_button');
+                composite_button.button().click(function (event: any) {
+                    self.root_view.create_composite_label_from_selection();
+
+                    event.preventDefault();
+                });
             }
 
             var canDelete = function(entity: AbstractLabelEntity<AbstractLabelModel>) {
@@ -700,43 +563,16 @@ module labelling_tool {
             };
 
             if (config.tools.deleteLabel) {
-                var delete_label_button: any = $('<button>Delete</button>').appendTo(toolbar);
-                delete_label_button.button({
-                    text: false,
-                    icons: {primary: "ui-icon-trash"}
-                }).click(function (event: any) {
-                    if (!self._confirm_delete_visible) {
-                        var cancel_button: any = $('<button>Cancel</button>').appendTo(self._confirm_delete);
-                        var confirm_button: any = $('<button>Confirm delete</button>').appendTo(self._confirm_delete);
+                this._confirm_delete = $('#confirm-delete');
+                var delete_label_button: any = $('#delete_label_button');
+                delete_label_button.click(function (event: any) {
+                    self._confirm_delete.modal({show: true});
+                    var confirm_button: any = $('#btn_delete_confirm_delete');
 
-                        var remove_confirm_ui = function () {
-                            cancel_button.remove();
-                            confirm_button.remove();
-                            self._confirm_delete_visible = false;
-                        };
-
-                        cancel_button.button().click(function (event: any) {
-                            remove_confirm_ui();
-                            event.preventDefault();
-                        });
-
-                        confirm_button.button().click(function (event: any) {
-                            self.root_view.delete_selection(canDelete);
-
-                            remove_confirm_ui();
-                            event.preventDefault();
-                        });
-
-                        self._confirm_delete_visible = true;
-                    }
-
-                    event.preventDefault();
+                    confirm_button.button().click(function (event: any) {
+                        self.root_view.delete_selection(canDelete);
+                    });
                 });
-
-                this._confirm_delete = $('<span/>').appendTo(toolbar);
-                this._confirm_delete_visible = false;
-
-                this._lockableControls = this._lockableControls.add(delete_label_button);
             }
 
 
@@ -764,35 +600,18 @@ module labelling_tool {
 
 
             // Disable context menu so we can use right-click
-            this.labelling_area[0].oncontextmenu = function() {
-                return false;
-            };
+            $('#anno_canvas_container').contextmenu(function() {
+                return false
+            });
+
+
+            this._svg_q = $('#anno_canvas');
+
+            this._loading_notification_q = $('#loading_annotation');
+            this._loading_notification_text = this._loading_notification_q.find('text');
 
             // Create SVG element of the appropriate dimensions
-            this._svg = d3.select(this.labelling_area[0])
-                    .append("svg:svg")
-                    .attr("width", this._labelling_area_width)
-                    .attr("height", this._tool_height)
-                    .call(zoom_behaviour);
-            this._loading_notification = d3.select(this.labelling_area[0])
-                    .append("svg:svg")
-                    .attr("width", this._labelling_area_width)
-                    .attr("height", this._tool_height)
-                    .attr("style", "display: none");
-            this._loading_notification.append("rect")
-                    .attr("x", "0px")
-                    .attr("y", "0px")
-                    .attr("width", "" + this._labelling_area_width + "px")
-                    .attr("height", "" + this._tool_height + "px")
-                    .attr("fill", "#404040");
-            this._loading_notification_text = this._loading_notification.append("text")
-                    .attr("x", "50%")
-                    .attr("y", "50%")
-                    .attr("text-anchor", "middle")
-                    .attr("fill", "#e0e0e0")
-                    .attr("font-family", "serif")
-                    .attr("font-size", "20px")
-                    .text("Loading...");
+            this._svg = d3.select(this._svg_q[0]).call(zoom_behaviour);
             var svg = this._svg;
 
             // Add the zoom transformation <g> element
@@ -956,23 +775,23 @@ module labelling_tool {
 
             // Mouse leave
             this._svg.on("mouseout", () => {
-                on_mouse_out(this.get_mouse_pos_screen_space(), this._labelling_area_width, this._tool_height);
+                on_mouse_out(this.get_mouse_pos_screen_space(), this._svg_q[0].clientWidth, this._svg_q[0].clientHeight);
             });
 
 
             // Global key handler
-            if (!LabellingTool._global_key_handler_connected) {
+            if (!DjangoAnnotator._global_key_handler_connected) {
                 d3.select("body").on("keydown", function () {
                     self.notifyStopwatchChanges();
-                    if (LabellingTool._global_key_handler !== null) {
+                    if (DjangoAnnotator._global_key_handler !== null) {
                         var key_event: any = d3.event;
-                        var handled = LabellingTool._global_key_handler(key_event);
+                        var handled = DjangoAnnotator._global_key_handler(key_event);
                         if (handled) {
                             key_event.stopPropagation();
                         }
                     }
                 });
-                LabellingTool._global_key_handler_connected = true;
+                DjangoAnnotator._global_key_handler_connected = true;
             }
 
 
@@ -988,15 +807,18 @@ module labelling_tool {
             if (event.keyCode === 186) {
                 if (this.label_visibility === LabelVisibility.HIDDEN) {
                     this.set_label_visibility(LabelVisibility.FULL, this.label_visibility_class_filter);
-                    (this.label_vis_full_radio[0] as any).checked = true;
+                    this.label_vis_full_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_full_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === LabelVisibility.FAINT) {
                     this.set_label_visibility(LabelVisibility.HIDDEN, this.label_visibility_class_filter);
-                    (this.label_vis_hidden_radio[0] as any).checked = true;
+                    this.label_vis_hidden_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_hidden_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === LabelVisibility.FULL) {
                     this.set_label_visibility(LabelVisibility.FAINT, this.label_visibility_class_filter);
-                    (this.label_vis_faint_radio[0] as any).checked = true;
+                    this.label_vis_faint_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_faint_radio.closest('label.btn').addClass('active');
                 }
                 else {
                     throw "Unknown label visibility " + this.label_visibility;
@@ -1128,15 +950,15 @@ module labelling_tool {
         }
 
         _show_loading_notification() {
-            this._svg.attr("style", "display: none");
-            this._loading_notification.attr("style", "");
+            this._svg_q.addClass('anno_hidden');
+            this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         }
 
         _hide_loading_notification_if_ready() {
             if (this._image_loaded && this._labels_loaded) {
-                this._svg.attr("style", "");
-                this._loading_notification.attr("style", "display: none");
+                this._svg_q.removeClass('anno_hidden');
+                this._loading_notification_q.addClass('anno_hidden');
             }
         }
 
@@ -1221,14 +1043,14 @@ module labelling_tool {
 
 
         lockLabels() {
-            this._lockableControls.attr('disabled', 'disable');
-            this._lockNotification.removeAttr('style');
+            this._lockNotification.removeClass('anno_hidden');
+            this._lockableControls.addClass('anno_hidden');
             this.set_current_tool(null);
         }
 
         unlockLabels() {
-            this._lockableControls.removeAttr('disabled');
-            this._lockNotification.attr('style', 'display: none;');
+            this._lockNotification.addClass('anno_hidden');
+            this._lockableControls.removeClass('anno_hidden');
             this.set_current_tool(new SelectEntityTool(this.root_view));
         }
 
@@ -1259,13 +1081,11 @@ module labelling_tool {
         };
 
         _update_label_class_menu(label_class: string) {
-            if (label_class === null) {
+            if (label_class === null || label_class === undefined) {
                 label_class = '__unclassified';
             }
 
-            this._label_class_selector_menu.find('option').each(function() {
-                this.selected = (this.value == label_class);
-            });
+            this._label_class_selector_menu.val(label_class);
         };
 
         _update_label_class_menu_from_views(selection: AbstractLabelEntity<AbstractLabelModel>[]) {
@@ -1370,11 +1190,11 @@ module labelling_tool {
             var on_key_down = function(event: any): boolean {
                 return self._overall_on_key_down(event);
             };
-            LabellingTool._global_key_handler = on_key_down;
+            DjangoAnnotator._global_key_handler = on_key_down;
         };
 
         _shutdown_key_handlers() {
-            LabellingTool._global_key_handler = null;
+            DjangoAnnotator._global_key_handler = null;
         };
 
         _overall_on_key_down(event: any): boolean {

@@ -59,14 +59,14 @@ var labelling_tool;
     /*
    Labelling tool view; links to the server side data structures
     */
-    var LabellingTool = /** @class */ (function () {
-        function LabellingTool(element, label_classes, tool_width, tool_height, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, config) {
+    var DjangoAnnotator = /** @class */ (function () {
+        function DjangoAnnotator(label_classes, colour_schemes, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, config) {
             var _this = this;
             var self = this;
-            if (LabellingTool._global_key_handler === undefined ||
-                LabellingTool._global_key_handler_connected === undefined) {
-                LabellingTool._global_key_handler = null;
-                LabellingTool._global_key_handler_connected = false;
+            if (DjangoAnnotator._global_key_handler === undefined ||
+                DjangoAnnotator._global_key_handler_connected === undefined) {
+                DjangoAnnotator._global_key_handler = null;
+                DjangoAnnotator._global_key_handler_connected = false;
             }
             config = config || {};
             config.tools = config.tools || {};
@@ -82,7 +82,10 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'colour_schemes', [{ name: 'default', human_name: 'Default' }]);
-            this._current_colour_scheme = config.tools.colour_schemes[0].name;
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{ name: 'default', human_name: 'Default' }];
+            }
+            this._current_colour_scheme = colour_schemes[0].name;
             config.settings = config.settings || {};
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
@@ -135,17 +138,14 @@ var labelling_tool;
             // Classes
             this.label_classes = labelling_tool.label_classes_from_json(label_classes);
             this.class_name_to_class = {};
-            for (var i_1 = 0; i_1 < this.label_classes.length; i_1++) {
-                this.label_classes[i_1].fill_name_to_class_table(this.class_name_to_class);
+            for (var i = 0; i < this.label_classes.length; i++) {
+                this.label_classes[i].fill_name_to_class_table(this.class_name_to_class);
             }
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
             // Button state
             this._button_down = false;
-            // Labelling tool dimensions
-            this._tool_width = tool_width;
-            this._tool_height = tool_height;
             // List of Image descriptors
             this._images = images;
             // Number of images in dataset
@@ -174,70 +174,7 @@ var labelling_tool;
             this._pushDataTimeout = null;
             // Frozen flag; while frozen, data will not be sent to backend
             this.frozen = false;
-            this.is_expanded = false;
-            var toolbar_width = 220;
-            this._labelling_area_width = this._tool_width - toolbar_width;
-            var labelling_area_x_pos = toolbar_width + 10;
-            this._lockableControls = $();
-            // A <div> element that surrounds the labelling tool
-            this.in_element_container = $('<div style="border: 1px solid gray; width: ' + this._tool_width + 'px;"/>')
-                .appendTo(element);
-            this.movable_container = $('<div style="background: #ffffff;"/>').appendTo(this.in_element_container);
-            /*
-             *
-             * FULL SCREEN CONTROLS
-             *
-             */
-            var fullscreen_controls_outer_container = $('<div style="position: relative"></div>');
-            fullscreen_controls_outer_container.appendTo(this.movable_container);
-            var fullscreen_controls_container = $('<div style="position: absolute; right: 0; padding: 3px; margin: 2px"></div>');
-            fullscreen_controls_container.appendTo(fullscreen_controls_outer_container);
-            this.full_screen_container = null;
-            var expand_button = $('<button>Full screen</button>');
-            expand_button.button({
-                text: false,
-                icons: { primary: "ui-icon-arrow-4-diag" }
-            });
-            expand_button.appendTo(fullscreen_controls_container);
-            expand_button.on('click', function () {
-                if (self.is_expanded) {
-                    self.movable_container.appendTo(self.in_element_container);
-                    self.full_screen_container.remove();
-                    self.labelling_area.css('width', self._labelling_area_width + 'px');
-                    self._svg.attr('width', self._labelling_area_width);
-                    self._svg.attr('height', self._tool_height);
-                    self._loading_notification.attr('width', self._labelling_area_width);
-                    self._loading_notification.attr('height', self._tool_height);
-                    self.is_expanded = false;
-                    $(this).button({ text: false, icons: { primary: 'ui-icon-arrow-4-diag' } });
-                }
-                else {
-                    self.full_screen_container = $('<div style="position: fixed; width: 100%; height: 100%; left: 0; top: 0; z-index: 1000; background: rgba(32, 32, 32, 0.7);"></div>');
-                    self.full_screen_container.appendTo($('body'));
-                    self.movable_container.appendTo(self.full_screen_container);
-                    setTimeout(function () {
-                        var width = self.full_screen_container[0].offsetWidth, height = self.full_screen_container[0].offsetHeight;
-                        var labelling_area_width = width - toolbar_width;
-                        console.log("Resizing to " + width + "x" + height + ';' + labelling_area_width);
-                        self.labelling_area.css('width', labelling_area_width + 'px');
-                        self._svg.attr('width', labelling_area_width);
-                        self._svg.attr('height', height);
-                        self._loading_notification.attr('width', labelling_area_width);
-                        self._loading_notification.attr('height', height);
-                    }, 0);
-                    self.is_expanded = true;
-                    $(this).button({ text: false, icons: { primary: 'ui-icon-arrowthick-1-sw' } });
-                }
-            });
-            /*
-             *
-             * MAIN CONTAINER
-             *
-             */
-            var toolbar_container = $('<div style="position: relative;">').appendTo(this.movable_container);
-            var toolbar = $('<div style="position: absolute; width: ' + toolbar_width +
-                'px; padding: 4px; display: inline-block; background: #d0d0d0; border: 1px solid #a0a0a0; font-family: sans-serif;"/>').appendTo(toolbar_container);
-            this.labelling_area = $('<div id="labelling_area" style="width:' + this._labelling_area_width + 'px; margin-left: ' + labelling_area_x_pos + 'px"/>').appendTo(this.movable_container);
+            this._lockableControls = $('.anno_lockable');
             /*
              *
              *
@@ -248,7 +185,6 @@ var labelling_tool;
             //
             // IMAGE SELECTOR
             //
-            $('<p style="background: #b0b0b0;">Current image</p>').appendTo(toolbar);
             if (config.tools.imageSelector) {
                 var _increment_image_index = function (offset) {
                     var image_id = self._get_current_image_id();
@@ -268,7 +204,7 @@ var labelling_tool;
                         self._getNextUnlockedImageIDCallback(image_id);
                     }
                 };
-                this._image_index_input = $('<input type="text" style="width: 30px; vertical-align: middle;" name="image_index"/>').appendTo(toolbar);
+                this._image_index_input = $('#image_index_input');
                 this._image_index_input.on('change', function () {
                     var index_str = self._image_index_input.val();
                     var index = parseInt(index_str) - 1;
@@ -277,9 +213,7 @@ var labelling_tool;
                         self.loadImage(self._images[index]);
                     }
                 });
-                $('<span>' + '/' + this._num_images + '</span>').appendTo(toolbar);
-                $('<br/>').appendTo(toolbar);
-                var prev_image_button = $('<button>Prev image</button>').appendTo(toolbar);
+                var prev_image_button = $('#btn_prev_image');
                 prev_image_button.button({
                     text: false,
                     icons: { primary: "ui-icon-seek-prev" }
@@ -287,7 +221,7 @@ var labelling_tool;
                     _increment_image_index(-1);
                     event.preventDefault();
                 });
-                var next_image_button = $('<button>Next image</button>').appendTo(toolbar);
+                var next_image_button = $('#btn_next_image');
                 next_image_button.button({
                     text: false,
                     icons: { primary: "ui-icon-seek-next" }
@@ -296,38 +230,26 @@ var labelling_tool;
                     event.preventDefault();
                 });
                 if (this._getNextUnlockedImageIDCallback !== null && this._getNextUnlockedImageIDCallback !== undefined) {
-                    var next_unlocked_image_button = $('<button>Next unlocked image</button>').appendTo(toolbar);
-                    next_unlocked_image_button.button({
-                        text: false,
-                        icons: { primary: "ui-icon-unlocked" }
-                    }).click(function (event) {
+                    var next_unlocked_image_button = $('#btn_next_unlocked_image');
+                    next_unlocked_image_button.click(function (event) {
+                        console.log('next...');
                         _next_unlocked_image();
                         event.preventDefault();
                     });
                 }
             }
-            this._lockNotification = $('<div style="display: none;"><p style="font-size: 0.75em; color: #c00000">' +
-                'These labels are locked and cannot be edited. Someone else got there first :). ' +
-                'Please choose another image (click the unlock button above to find the next unlocked image).</p></div>');
-            this._lockNotification.appendTo(toolbar);
-            $('<br/>').appendTo(toolbar);
-            this._complete_checkbox = $('<input type="checkbox">Finished</input>').appendTo(toolbar);
+            this._lockNotification = $('#lock_warning');
+            this._complete_checkbox = $('#task_finished');
             this._complete_checkbox.change(function (event, ui) {
                 self.root_view.set_complete(event.target.checked);
                 self.queue_push_label_data();
             });
-            this._lockableControls = this._lockableControls.add(this._complete_checkbox);
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
-            $('<p style="background: #b0b0b0;">Labels</p>').appendTo(toolbar);
             if (config.tools.labelClassSelector) {
-                this._label_class_selector_menu = $('<select name="label_class_selector"/>').appendTo(toolbar);
-                for (var i = 0; i < this.label_classes.length; i++) {
-                    var cls = this.label_classes[i];
-                    $(cls.to_html()).appendTo(this._label_class_selector_menu);
-                }
-                $('<option value="__unclassified" selected="false">UNCLASSIFIED</option>').appendTo(this._label_class_selector_menu);
+                this._label_class_selector_menu = $('#label_class_selector_menu');
+                var choice_btns = this._label_class_selector_menu.find('.choice_button');
                 this._label_class_selector_menu.change(function (event, ui) {
                     var label_class_name = event.target.value;
                     if (label_class_name == '__unclassified') {
@@ -338,24 +260,16 @@ var labelling_tool;
                         selection[i].set_label_class(label_class_name);
                     }
                 });
-                this._lockableControls = this._lockableControls.add(this._label_class_selector_menu);
             }
-            if (config.tools.colour_schemes.length > 1) {
-                $('<br/><span>Colour scheme:</span><br/>').appendTo(toolbar);
-                this._colour_scheme_selector_menu = $('<select name="colour_scheme_selector"/>').appendTo(toolbar);
-                for (var i = 0; i < this._config.tools.colour_schemes.length; i++) {
-                    var colour_scheme = this._config.tools.colour_schemes[i];
-                    $('<option value="' + colour_scheme.name + '">' + colour_scheme.human_name + '</option>').appendTo(this._colour_scheme_selector_menu);
-                }
+            if (colour_schemes.length > 1) {
+                this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme(event.target.value);
                 });
-                this._lockableControls = this._lockableControls.add(this._colour_scheme_selector_menu);
             }
-            $('<p style="background: #b0b0b0;">Label visibility</p>').appendTo(toolbar);
-            this.label_vis_hidden_radio = $('<input type="radio" name="labelvis" value="hidden">hidden</input>').appendTo(toolbar);
-            this.label_vis_faint_radio = $('<input type="radio" name="labelvis" value="faint">faint</input>').appendTo(toolbar);
-            this.label_vis_full_radio = $('<input type="radio" name="labelvis" value="full" checked>full</input>').appendTo(toolbar);
+            this.label_vis_hidden_radio = $('#label_vis_radio_hidden');
+            this.label_vis_faint_radio = $('#label_vis_radio_faint');
+            this.label_vis_full_radio = $('#label_vis_radio_full');
             this.label_vis_hidden_radio.change(function (event, ui) {
                 if (event.target.checked) {
                     self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, self.label_visibility_class_filter);
@@ -372,26 +286,21 @@ var labelling_tool;
                 }
             });
             if (config.tools.labelClassFilter) {
-                this._label_class_filter_menu = $('<select name="label_class_filter"/>').appendTo(toolbar);
-                self._label_class_filter_notification = $('<div id="__" style="color: #008000">All labels visible</div>').appendTo(toolbar);
-                $('<option value="__all" selected="false">-- ALL --</option>').appendTo(this._label_class_filter_menu);
-                for (var i = 0; i < this.label_classes.length; i++) {
-                    var cls = this.label_classes[i];
-                    $(cls.to_html()).appendTo(this._label_class_filter_menu);
-                }
-                $('<option value="__unclassified">UNCLASSIFIED</option>').appendTo(this._label_class_filter_menu);
+                this._label_class_filter_menu = $('#label_class_filter_menu');
                 this._label_class_filter_menu.change(function (event, ui) {
                     var label_filter_class = event.target.value;
                     if (label_filter_class === '__unclassified') {
                         label_filter_class = null;
                     }
                     self.set_label_visibility(self.label_visibility, label_filter_class);
-                    if (label_filter_class === '__all') {
-                        self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
-                    }
-                    else {
-                        self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
-                    }
+                    // if (label_filter_class === '__all') {
+                    //     self._label_class_filter_notification.attr('style', 'color: #008000').text(
+                    //         'All labels visible');
+                    // }
+                    // else {
+                    //     self._label_class_filter_notification.attr('style', 'color: #800000').text(
+                    //         'Some labels hidden');
+                    // }
                 });
                 if (config.tools.labelClassFilterInitial !== false) {
                     setTimeout(function () {
@@ -411,23 +320,20 @@ var labelling_tool;
             // Tool buttons:
             // Select, brush select, draw poly, composite, group, delete
             //
-            $('<p style="background: #b0b0b0;">Tools</p>').appendTo(toolbar);
-            var select_button = $('<button>Select</button>').appendTo(toolbar);
-            select_button.button().click(function (event) {
+            var select_button = $('#select_pick_button');
+            select_button.click(function (event) {
                 self.set_current_tool(new labelling_tool.SelectEntityTool(self.root_view));
                 event.preventDefault();
             });
-            this._lockableControls = this._lockableControls.add(select_button);
             if (config.tools.brushSelect) {
-                var brush_select_button = $('<button>Brush select</button>').appendTo(toolbar);
-                brush_select_button.button().click(function (event) {
+                var brush_select_button = $('#select_brush_button');
+                brush_select_button.click(function (event) {
                     self.set_current_tool(new labelling_tool.BrushSelectEntityTool(self.root_view));
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(brush_select_button);
             }
             if (config.tools.drawPointLabel) {
-                var draw_point_button = $('<button>Add point</button>').appendTo(toolbar);
+                var draw_point_button = $('#draw_point_button');
                 draw_point_button.button().click(function (event) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof labelling_tool.PointLabelEntity) {
@@ -438,11 +344,10 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_point_button);
             }
             if (config.tools.drawBoxLabel) {
-                var draw_box_button = $('<button>Draw box</button>').appendTo(toolbar);
-                draw_box_button.button().click(function (event) {
+                var draw_box_button = $('#draw_box_button');
+                draw_box_button.click(function (event) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof labelling_tool.BoxLabelEntity) {
                         self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, current));
@@ -452,11 +357,10 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_box_button);
             }
             if (config.tools.drawPolyLabel) {
-                var draw_polygon_button = $('<button>Draw poly</button>').appendTo(toolbar);
-                draw_polygon_button.button().click(function (event) {
+                var draw_polygon_button = $('#draw_poly_button');
+                draw_polygon_button.click(function (event) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof labelling_tool.PolygonalLabelEntity) {
                         self.set_current_tool(new labelling_tool.DrawPolygonTool(self.root_view, current));
@@ -466,26 +370,23 @@ var labelling_tool;
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(draw_polygon_button);
-            }
-            if (config.tools.compositeLabel) {
-                var composite_button = $('<button>Composite</button>').appendTo(toolbar);
-                composite_button.button().click(function (event) {
-                    self.root_view.create_composite_label_from_selection();
-                    event.preventDefault();
-                });
-                this._lockableControls = this._lockableControls.add(composite_button);
             }
             if (config.tools.groupLabel) {
-                var group_button = $('<button>Group</button>').appendTo(toolbar);
-                group_button.button().click(function (event) {
+                var group_button = $('#draw_group_button');
+                group_button.click(function (event) {
                     var group_entity = self.root_view.create_group_label_from_selection();
                     if (group_entity !== null) {
                         self.root_view.select_entity(group_entity, false, false);
                     }
                     event.preventDefault();
                 });
-                this._lockableControls = this._lockableControls.add(group_button);
+            }
+            if (config.tools.compositeLabel) {
+                var composite_button = $('#draw_composite_button');
+                composite_button.button().click(function (event) {
+                    self.root_view.create_composite_label_from_selection();
+                    event.preventDefault();
+                });
             }
             var canDelete = function (entity) {
                 var typeName = entity.get_label_type_name();
@@ -498,35 +399,15 @@ var labelling_tool;
                 }
             };
             if (config.tools.deleteLabel) {
-                var delete_label_button = $('<button>Delete</button>').appendTo(toolbar);
-                delete_label_button.button({
-                    text: false,
-                    icons: { primary: "ui-icon-trash" }
-                }).click(function (event) {
-                    if (!self._confirm_delete_visible) {
-                        var cancel_button = $('<button>Cancel</button>').appendTo(self._confirm_delete);
-                        var confirm_button = $('<button>Confirm delete</button>').appendTo(self._confirm_delete);
-                        var remove_confirm_ui = function () {
-                            cancel_button.remove();
-                            confirm_button.remove();
-                            self._confirm_delete_visible = false;
-                        };
-                        cancel_button.button().click(function (event) {
-                            remove_confirm_ui();
-                            event.preventDefault();
-                        });
-                        confirm_button.button().click(function (event) {
-                            self.root_view.delete_selection(canDelete);
-                            remove_confirm_ui();
-                            event.preventDefault();
-                        });
-                        self._confirm_delete_visible = true;
-                    }
-                    event.preventDefault();
+                this._confirm_delete = $('#confirm-delete');
+                var delete_label_button = $('#delete_label_button');
+                delete_label_button.click(function (event) {
+                    self._confirm_delete.modal({ show: true });
+                    var confirm_button = $('#btn_delete_confirm_delete');
+                    confirm_button.button().click(function (event) {
+                        self.root_view.delete_selection(canDelete);
+                    });
                 });
-                this._confirm_delete = $('<span/>').appendTo(toolbar);
-                this._confirm_delete_visible = false;
-                this._lockableControls = this._lockableControls.add(delete_label_button);
             }
             /*
              *
@@ -545,34 +426,14 @@ var labelling_tool;
             var zoom_behaviour = d3.behavior.zoom()
                 .on("zoom", zoomed);
             // Disable context menu so we can use right-click
-            this.labelling_area[0].oncontextmenu = function () {
+            $('#anno_canvas_container').contextmenu(function () {
                 return false;
-            };
+            });
+            this._svg_q = $('#anno_canvas');
+            this._loading_notification_q = $('#loading_annotation');
+            this._loading_notification_text = this._loading_notification_q.find('text');
             // Create SVG element of the appropriate dimensions
-            this._svg = d3.select(this.labelling_area[0])
-                .append("svg:svg")
-                .attr("width", this._labelling_area_width)
-                .attr("height", this._tool_height)
-                .call(zoom_behaviour);
-            this._loading_notification = d3.select(this.labelling_area[0])
-                .append("svg:svg")
-                .attr("width", this._labelling_area_width)
-                .attr("height", this._tool_height)
-                .attr("style", "display: none");
-            this._loading_notification.append("rect")
-                .attr("x", "0px")
-                .attr("y", "0px")
-                .attr("width", "" + this._labelling_area_width + "px")
-                .attr("height", "" + this._tool_height + "px")
-                .attr("fill", "#404040");
-            this._loading_notification_text = this._loading_notification.append("text")
-                .attr("x", "50%")
-                .attr("y", "50%")
-                .attr("text-anchor", "middle")
-                .attr("fill", "#e0e0e0")
-                .attr("font-family", "serif")
-                .attr("font-size", "20px")
-                .text("Loading...");
+            this._svg = d3.select(this._svg_q[0]).call(zoom_behaviour);
             var svg = this._svg;
             // Add the zoom transformation <g> element
             this._zoom_node = this._svg.append('svg:g').attr('transform', 'scale(1)');
@@ -711,21 +572,21 @@ var labelling_tool;
             };
             // Mouse leave
             this._svg.on("mouseout", function () {
-                on_mouse_out(_this.get_mouse_pos_screen_space(), _this._labelling_area_width, _this._tool_height);
+                on_mouse_out(_this.get_mouse_pos_screen_space(), _this._svg_q[0].clientWidth, _this._svg_q[0].clientHeight);
             });
             // Global key handler
-            if (!LabellingTool._global_key_handler_connected) {
+            if (!DjangoAnnotator._global_key_handler_connected) {
                 d3.select("body").on("keydown", function () {
                     self.notifyStopwatchChanges();
-                    if (LabellingTool._global_key_handler !== null) {
+                    if (DjangoAnnotator._global_key_handler !== null) {
                         var key_event = d3.event;
-                        var handled = LabellingTool._global_key_handler(key_event);
+                        var handled = DjangoAnnotator._global_key_handler(key_event);
                         if (handled) {
                             key_event.stopPropagation();
                         }
                     }
                 });
-                LabellingTool._global_key_handler_connected = true;
+                DjangoAnnotator._global_key_handler_connected = true;
             }
             // Create entities for the pre-existing labels
             if (initial_image_index < this._images.length) {
@@ -733,20 +594,23 @@ var labelling_tool;
             }
         }
         ;
-        LabellingTool.prototype.on_key_down = function (event) {
+        DjangoAnnotator.prototype.on_key_down = function (event) {
             var handled = false;
             if (event.keyCode === 186) {
                 if (this.label_visibility === labelling_tool.LabelVisibility.HIDDEN) {
                     this.set_label_visibility(labelling_tool.LabelVisibility.FULL, this.label_visibility_class_filter);
-                    this.label_vis_full_radio[0].checked = true;
+                    this.label_vis_full_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_full_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FAINT) {
                     this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, this.label_visibility_class_filter);
-                    this.label_vis_hidden_radio[0].checked = true;
+                    this.label_vis_hidden_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_hidden_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FULL) {
                     this.set_label_visibility(labelling_tool.LabelVisibility.FAINT, this.label_visibility_class_filter);
-                    this.label_vis_faint_radio[0].checked = true;
+                    this.label_vis_faint_radio.closest('div.btn-group').find('label.btn').removeClass('active');
+                    this.label_vis_faint_radio.closest('label.btn').addClass('active');
                 }
                 else {
                     throw "Unknown label visibility " + this.label_visibility;
@@ -756,7 +620,7 @@ var labelling_tool;
             return handled;
         };
         ;
-        LabellingTool.prototype._image_id_to_index = function (image_id) {
+        DjangoAnnotator.prototype._image_id_to_index = function (image_id) {
             for (var i = 0; i < this._images.length; i++) {
                 if (this._images[i].image_id === image_id) {
                     return i;
@@ -766,16 +630,16 @@ var labelling_tool;
             return 0;
         };
         ;
-        LabellingTool.prototype._update_image_index_input_by_id = function (image_id) {
+        DjangoAnnotator.prototype._update_image_index_input_by_id = function (image_id) {
             var image_index = this._image_id_to_index(image_id);
             this._image_index_input.val((image_index + 1).toString());
         };
         ;
-        LabellingTool.prototype._get_current_image_id = function () {
+        DjangoAnnotator.prototype._get_current_image_id = function () {
             return this.root_view.get_current_image_id();
         };
         ;
-        LabellingTool.prototype.loadImageUrl = function (url) {
+        DjangoAnnotator.prototype.loadImageUrl = function (url) {
             var self = this;
             var img = new Image();
             var onload = function () {
@@ -789,7 +653,7 @@ var labelling_tool;
             img.src = url;
             return img;
         };
-        LabellingTool.prototype.loadImage = function (image) {
+        DjangoAnnotator.prototype.loadImage = function (image) {
             var self = this;
             // Update the image SVG element if the image URL is available
             if (image.img_url !== null) {
@@ -820,7 +684,7 @@ var labelling_tool;
             this._labels_loaded = false;
             this._show_loading_notification();
         };
-        LabellingTool.prototype.loadLabels = function (label_header, image) {
+        DjangoAnnotator.prototype.loadLabels = function (label_header, image) {
             var self = this;
             if (!this._image_initialised) {
                 if (image !== null && image !== undefined) {
@@ -853,28 +717,28 @@ var labelling_tool;
             this._hide_loading_notification_if_ready();
         };
         ;
-        LabellingTool.prototype._notify_image_loaded = function () {
+        DjangoAnnotator.prototype._notify_image_loaded = function () {
             this._image_loaded = true;
             this._hide_loading_notification_if_ready();
         };
-        LabellingTool.prototype._notify_image_error = function () {
+        DjangoAnnotator.prototype._notify_image_error = function () {
             var src = this._image.attr('xlink:href');
             console.log("Error loading image " + src);
             this._show_loading_notification();
             this._loading_notification_text.text("Error loading " + src);
         };
-        LabellingTool.prototype._show_loading_notification = function () {
-            this._svg.attr("style", "display: none");
-            this._loading_notification.attr("style", "");
+        DjangoAnnotator.prototype._show_loading_notification = function () {
+            this._svg_q.addClass('anno_hidden');
+            this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         };
-        LabellingTool.prototype._hide_loading_notification_if_ready = function () {
+        DjangoAnnotator.prototype._hide_loading_notification_if_ready = function () {
             if (this._image_loaded && this._labels_loaded) {
-                this._svg.attr("style", "");
-                this._loading_notification.attr("style", "display: none");
+                this._svg_q.removeClass('anno_hidden');
+                this._loading_notification_q.addClass('anno_hidden');
             }
         };
-        LabellingTool.prototype.goToImageById = function (image_id) {
+        DjangoAnnotator.prototype.goToImageById = function (image_id) {
             if (image_id !== null && image_id !== undefined) {
                 // Convert to string in case we go something else
                 image_id = image_id.toString();
@@ -885,7 +749,7 @@ var labelling_tool;
                 }
             }
         };
-        LabellingTool.prototype.notifyLabelUpdateResponse = function (msg) {
+        DjangoAnnotator.prototype.notifyLabelUpdateResponse = function (msg) {
             if (msg.error === undefined) {
                 // All good
             }
@@ -894,7 +758,7 @@ var labelling_tool;
                 this.lockLabels();
             }
         };
-        LabellingTool.prototype.notifyStopwatchChanges = function () {
+        DjangoAnnotator.prototype.notifyStopwatchChanges = function () {
             var self = this;
             var current = new Date().getTime();
             // Start the stopwatch if its not going
@@ -910,7 +774,7 @@ var labelling_tool;
                 self._onStopwatchInactivity();
             }, this._config.settings.inactivityTimeoutMS);
         };
-        LabellingTool.prototype._onStopwatchInactivity = function () {
+        DjangoAnnotator.prototype._onStopwatchInactivity = function () {
             if (this._stopwatchHandle !== null) {
                 clearTimeout(this._stopwatchHandle);
                 this._stopwatchHandle = null;
@@ -919,14 +783,14 @@ var labelling_tool;
             this._stopwatchStart = this._stopwatchCurrent = null;
             this._notifyStopwatchElapsed(elapsed);
         };
-        LabellingTool.prototype._resetStopwatch = function () {
+        DjangoAnnotator.prototype._resetStopwatch = function () {
             this._stopwatchStart = this._stopwatchCurrent = null;
             if (this._stopwatchHandle !== null) {
                 clearTimeout(this._stopwatchHandle);
                 this._stopwatchHandle = null;
             }
         };
-        LabellingTool.prototype._notifyStopwatchElapsed = function (elapsed) {
+        DjangoAnnotator.prototype._notifyStopwatchElapsed = function (elapsed) {
             var t = this.root_view.model.timeElapsed;
             if (t === undefined || t === null) {
                 t = 0.0;
@@ -934,7 +798,7 @@ var labelling_tool;
             t += (elapsed * 0.001);
             this.root_view.model.timeElapsed = t;
         };
-        LabellingTool.prototype._commitStopwatch = function () {
+        DjangoAnnotator.prototype._commitStopwatch = function () {
             if (this._stopwatchStart !== null) {
                 var current = new Date().getTime();
                 var elapsed = current - this._stopwatchStart;
@@ -942,27 +806,27 @@ var labelling_tool;
                 this._stopwatchStart = this._stopwatchCurrent = current;
             }
         };
-        LabellingTool.prototype.lockLabels = function () {
-            this._lockableControls.attr('disabled', 'disable');
-            this._lockNotification.removeAttr('style');
+        DjangoAnnotator.prototype.lockLabels = function () {
+            this._lockNotification.removeClass('anno_hidden');
+            this._lockableControls.addClass('anno_hidden');
             this.set_current_tool(null);
         };
-        LabellingTool.prototype.unlockLabels = function () {
-            this._lockableControls.removeAttr('disabled');
-            this._lockNotification.attr('style', 'display: none;');
+        DjangoAnnotator.prototype.unlockLabels = function () {
+            this._lockNotification.addClass('anno_hidden');
+            this._lockableControls.removeClass('anno_hidden');
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
         };
         /*
         Change colour_scheme
          */
-        LabellingTool.prototype.set_current_colour_scheme = function (name) {
+        DjangoAnnotator.prototype.set_current_colour_scheme = function (name) {
             this._current_colour_scheme = name;
             this.root_view.notify_colour_scheme_changed();
         };
         /*
         Get colour for a given label class
          */
-        LabellingTool.prototype.colour_for_label_class = function (label_class_name) {
+        DjangoAnnotator.prototype.colour_for_label_class = function (label_class_name) {
             var label_class = this.class_name_to_class[label_class_name];
             if (label_class !== undefined) {
                 return label_class.colours[this._current_colour_scheme];
@@ -973,16 +837,14 @@ var labelling_tool;
             }
         };
         ;
-        LabellingTool.prototype._update_label_class_menu = function (label_class) {
-            if (label_class === null) {
+        DjangoAnnotator.prototype._update_label_class_menu = function (label_class) {
+            if (label_class === null || label_class === undefined) {
                 label_class = '__unclassified';
             }
-            this._label_class_selector_menu.find('option').each(function () {
-                this.selected = (this.value == label_class);
-            });
+            this._label_class_selector_menu.val(label_class);
         };
         ;
-        LabellingTool.prototype._update_label_class_menu_from_views = function (selection) {
+        DjangoAnnotator.prototype._update_label_class_menu_from_views = function (selection) {
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
             }
@@ -991,7 +853,7 @@ var labelling_tool;
             }
         };
         ;
-        LabellingTool.prototype.get_label_class_for_new_label = function () {
+        DjangoAnnotator.prototype.get_label_class_for_new_label = function () {
             if (this.label_visibility_class_filter === '__all') {
                 return null;
             }
@@ -1005,12 +867,12 @@ var labelling_tool;
         /*
         Set label visibility
          */
-        LabellingTool.prototype.set_label_visibility = function (visibility, filter_class) {
+        DjangoAnnotator.prototype.set_label_visibility = function (visibility, filter_class) {
             this.label_visibility = visibility;
             this.label_visibility_class_filter = filter_class;
             this.root_view.set_label_visibility(visibility, filter_class);
         };
-        LabellingTool.prototype.get_label_visibility = function (label_class) {
+        DjangoAnnotator.prototype.get_label_visibility = function (label_class) {
             var vis = this.label_visibility;
             if (this.label_visibility_class_filter !== '__all') {
                 if (label_class !== this.label_visibility_class_filter) {
@@ -1022,7 +884,7 @@ var labelling_tool;
         /*
         Set the current tool; switch the old one out and a new one in
          */
-        LabellingTool.prototype.set_current_tool = function (tool) {
+        DjangoAnnotator.prototype.set_current_tool = function (tool) {
             if (this._current_tool !== null) {
                 if (this._mouse_within) {
                     this._current_tool.on_switch_out(this._last_mouse_pos);
@@ -1038,13 +900,13 @@ var labelling_tool;
             }
         };
         ;
-        LabellingTool.prototype.freeze = function () {
+        DjangoAnnotator.prototype.freeze = function () {
             this.frozen = true;
         };
-        LabellingTool.prototype.thaw = function () {
+        DjangoAnnotator.prototype.thaw = function () {
             this.frozen = false;
         };
-        LabellingTool.prototype.queue_push_label_data = function () {
+        DjangoAnnotator.prototype.queue_push_label_data = function () {
             var _this = this;
             if (!this.frozen) {
                 if (this._pushDataTimeout === null) {
@@ -1057,30 +919,30 @@ var labelling_tool;
         };
         ;
         // Function for getting the current mouse position
-        LabellingTool.prototype.get_mouse_pos_world_space = function () {
+        DjangoAnnotator.prototype.get_mouse_pos_world_space = function () {
             var pos_screen = d3.mouse(this._svg[0][0]);
             return { x: (pos_screen[0] - this._zoom_xlat[0]) / this._zoom_scale,
                 y: (pos_screen[1] - this._zoom_xlat[1]) / this._zoom_scale };
         };
         ;
-        LabellingTool.prototype.get_mouse_pos_screen_space = function () {
+        DjangoAnnotator.prototype.get_mouse_pos_screen_space = function () {
             var pos = d3.mouse(this._svg[0][0]);
             return { x: pos[0], y: pos[1] };
         };
         ;
-        LabellingTool.prototype._init_key_handlers = function () {
+        DjangoAnnotator.prototype._init_key_handlers = function () {
             var self = this;
             var on_key_down = function (event) {
                 return self._overall_on_key_down(event);
             };
-            LabellingTool._global_key_handler = on_key_down;
+            DjangoAnnotator._global_key_handler = on_key_down;
         };
         ;
-        LabellingTool.prototype._shutdown_key_handlers = function () {
-            LabellingTool._global_key_handler = null;
+        DjangoAnnotator.prototype._shutdown_key_handlers = function () {
+            DjangoAnnotator._global_key_handler = null;
         };
         ;
-        LabellingTool.prototype._overall_on_key_down = function (event) {
+        DjangoAnnotator.prototype._overall_on_key_down = function (event) {
             if (this._mouse_within) {
                 var handled = false;
                 if (this._current_tool !== null) {
@@ -1095,8 +957,8 @@ var labelling_tool;
                 return false;
             }
         };
-        return LabellingTool;
+        return DjangoAnnotator;
     }());
-    labelling_tool.LabellingTool = LabellingTool;
+    labelling_tool.DjangoAnnotator = DjangoAnnotator;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=main_tool.js.map
+//# sourceMappingURL=main_anno.js.map

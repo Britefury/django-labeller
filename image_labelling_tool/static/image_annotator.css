@@ -1,0 +1,97 @@
+html, body {
+    min-width: 100% !important;
+    width: 100%;
+    min-height: 100% !important;
+    height: 100%;
+    overflow: hidden;
+}
+
+div.image_annotator {
+    width: inherit;
+    height: inherit;
+    overflow: hidden;
+}
+
+nav.anno_menu_bar {
+    padding: 3px;
+    width: inherit;
+    border-bottom: #5c637a 1px solid;
+    background-color: #383c4a;
+    color: #e8ecf0;
+}
+
+.anno_menu_bar_right {
+    position: fixed;
+    display: inline-block;
+    right: 0;
+}
+
+.anno_menu_bar_right > h4 {
+    display: inline-block;
+}
+
+.anno_menu_sep {
+    display: inline-block;
+    width: 50px;
+}
+
+
+aside.tool_bar {
+    position: fixed;
+    background-color: #51576b;
+    width: 300px;
+    height: inherit;
+    margin: 0;
+    border-right: #727b97 1px solid;
+    overflow: hidden;
+}
+
+.tool_bar_header {
+    /*background-color: #5b6177;*/
+    /*margin: 4px 4px;*/
+    /*border-left: #727b97 15px solid;*/
+    /*border-right: #727b97 15px solid;*/
+    /*padding: 0 4px;*/
+    /*text-align: center;*/
+    background-color: #3f4457;
+    margin: 4px 0;
+    border-top: #62687d 1px solid;
+    border-bottom: #62687d 1px solid;
+    padding: 0 0;
+    text-align: center;
+}
+
+.tool_bar_content {
+    width: inherit;
+    padding: 0 10px 0 10px;
+    margin: 1px 0;
+}
+
+
+.tool_canvas_container {
+    position: relative;
+    width: inherit;
+    height: inherit;
+    margin-left: 300px;
+    overflow: hidden;
+    background-color: #22242d;
+}
+
+.tool_canvas {
+    width: inherit;
+    height: inherit;
+}
+
+.anno_hidden {
+    display: none;
+}
+
+.anno_lockable {
+}
+
+
+.image-chooser-control {
+    display: inline-block;
+    width: 15em;
+    vertical-align: middle;
+}

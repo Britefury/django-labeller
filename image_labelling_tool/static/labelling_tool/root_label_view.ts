@@ -107,7 +107,9 @@ module labelling_tool {
             for (var i = 0; i < labels.length; i++) {
                 var label = labels[i];
                 var entity = this.get_or_create_entity_for_model(label);
-                this.register_child(entity);
+                if (entity !== null) {
+                    this.register_child(entity);
+                }
             }
         }
 
@@ -222,14 +224,14 @@ module labelling_tool {
         /*
         Get selected entities
          */
-        get_selection() {
+        get_selection(): AbstractLabelEntity<AbstractLabelModel>[] {
             return this.selected_entities;
         };
 
         /*
         Get all entities
          */
-        get_entities() {
+        get_entities(): AbstractLabelEntity<AbstractLabelModel>[] {
             return this.root_entities;
         };
 
@@ -334,7 +336,6 @@ module labelling_tool {
          */
         delete_selection(delete_filter_fn: (entity: AbstractLabelEntity<AbstractLabelModel>) => boolean) {
             var entities_to_remove: AbstractLabelEntity<AbstractLabelModel>[] = this.selected_entities.slice();
-            var can_delete: boolean;
 
             this.unselect_all_entities();
 
@@ -392,6 +393,7 @@ module labelling_tool {
 
         shutdown_entity(entity: AbstractLabelEntity<AbstractLabelModel>) {
             entity.detach();
+            this.view.notify_entity_deleted(entity);
         };
 
 
@@ -403,26 +405,23 @@ module labelling_tool {
         };
 
         /*
-        Get entity for model
-         */
-        get_entity_for_model(model: AbstractLabelModel) {
-            var model_id = ObjectIDTable.get_id(model);
-            return this._label_model_id_to_entity[model_id];
-        };
-
-        /*
         Get or create entity for model
          */
         get_or_create_entity_for_model(model: AbstractLabelModel) {
             var model_id = ObjectIDTable.get_id(model);
             if (model_id === null ||
-                !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
+                    !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
                 var entity = new_entity_for_model(this, model);
-                this.initialise_entity(entity);
+                if (entity !== null) {
+                    this.initialise_entity(entity);
+                }
+                else {
+                    this._label_model_id_to_entity[model_id] = null;
+                }
                 return entity;
             }
             else {
-                return this._label_model_id_to_entity[model_id];
+                return this.get_entity_for_model_id(model_id);
             }
         };
 

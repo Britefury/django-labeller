@@ -285,56 +285,86 @@ class PointLabel (AbstractLabel):
 class PolygonLabel (AbstractLabel):
     __json_type_name__ = 'polygon'
 
-    def __init__(self, vertices, object_id=None, classification=None):
+    def __init__(self, regions, object_id=None, classification=None):
         """
         Constructor
 
-        :param vertices: vertices as a (N,2) NumPy array providing the [x, y] co-ordinates
+        :param regions: list of regions where each region is an array of vertices as a (N,2) NumPy array providing the [x, y] co-ordinates
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
         """
         super(PolygonLabel, self).__init__(object_id, classification)
-        vertices = np.array(vertices).astype(float)
-        self.vertices = vertices
+        regions = [np.array(region).astype(float) for region in regions]
+        self.regions = regions
 
     @property
     def dependencies(self):
         return []
 
     def bounding_box(self, ctx=None):
-        return self.vertices.min(axis=0), self.vertices.max(axis=0)
+        all_verts = np.concatenate(self.regions, axis=0)
+        return all_verts.min(axis=0), all_verts.max(axis=0)
 
     def _warp(self, xform_fn, object_table):
-        warped_verts = xform_fn(self.vertices)
-        return PolygonLabel(warped_verts, self.object_id, self.classification)
+        warped_regions = [xform_fn(region) for region in self.regions]
+        return PolygonLabel(warped_regions, self.object_id, self.classification)
 
     def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
         # Rendering helper function: create a binary mask for a given label
 
         # Polygonal label
-        if len(self.vertices) >= 3:
-            vertices = self.vertices + np.array([[dx, dy]])
-            polygon = [tuple(v) for v in vertices]
+        if fill:
+            # Filled
+            if len(self.regions) == 1:
+                # Simplest case: 1 region
+                region = self.regions[0]
+                if len(region) >= 3:
+                    vertices = region + np.array([[dx, dy]])
+                    polygon = [tuple(v) for v in vertices]
 
-            if fill:
-                ImageDraw.Draw(img).polygon(polygon, outline=1, fill=1)
+                    ImageDraw.Draw(img).polygon(polygon, outline=1, fill=1)
             else:
-                ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
+                # Need to combine regions
+                mask = np.zeros(img.size[::-1], dtype=bool)
+                for region in self.regions:
+                    if len(region) >= 3:
+                        vertices = region + np.array([[dx, dy]])
+                        polygon = [tuple(v) for v in vertices]
+
+                        region_img = Image.new('L', img.size, 0)
+                        ImageDraw.Draw(region_img).polygon(polygon, outline=1, fill=1)
+                        region_img = np.array(region_img) > 0
+                        mask = mask ^ region_img
+                img_arr = np.array(img) | mask
+                img.putdata(Image.fromarray(img_arr).getdata())
+        else:
+            # Outline only
+            for region in self.regions:
+                if len(region) >= 3:
+                    vertices = region + np.array([[dx, dy]])
+                    polygon = [tuple(v) for v in vertices]
+
+                    ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
 
     def to_json(self):
         js = super(PolygonLabel, self).to_json()
-        js['vertices'] = [dict(x=self.vertices[i,0], y=self.vertices[i,1]) for i in range(len(self.vertices))]
+        js['regions'] = [[dict(x=region[i,0], y=region[i,1]) for i in range(len(region))]
+                         for region in self.regions]
         return js
 
     def __str__(self):
-        return 'PolygonLabel(object_id={}, classification={}, vertices={})'.format(
-            self.object_id, self.classification, self.vertices
+        return 'PolygonLabel(object_id={}, classification={}, regions={})'.format(
+            self.object_id, self.classification, self.regions
         )
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
-        verts = np.array([[v['x'], v['y']] for v in label_json['vertices']])
-        return PolygonLabel(verts, label_json.get('object_id'), label_json['label_class'])
+        if 'vertices' in label_json:
+            regions_json = [label_json['vertices']]
+        else:
+            regions_json = label_json['regions']
+        regions = [np.array([[v['x'], v['y']] for v in region_json]) for region_json in regions_json]
+        return PolygonLabel(regions, label_json.get('object_id'), label_json['label_class'])
 
 
 @label_cls
@@ -860,19 +890,10 @@ class ImageLabels (object):
         if isinstance(label_classes, str) or label_classes is None:
             label_classes = itertools.repeat(label_classes)
         for contours_in_label, lcls in zip(label_contours, label_classes):
-            polygons = []
-            for contour in contours_in_label:
-                vertices = np.array([[contour[i][1], contour[i][0]] for i in range(len(contour))])
-                poly = PolygonLabel(vertices, classification=lcls)
-                polygons.append(poly)
-                obj_table.register(poly)
-
-            if len(polygons) == 1:
-                labels.append(polygons[0])
-            else:
-                group = GroupLabel(polygons, classification=lcls)
-                obj_table.register(group)
-                labels.append(group)
+            regions = [contour[:, ::-1] for contour in contours_in_label]
+            poly = PolygonLabel(regions, classification=lcls)
+            obj_table.register(poly)
+            labels.append(poly)
 
         return cls(labels, obj_table=obj_table)
 
@@ -943,7 +964,7 @@ class ImageLabels (object):
         mask_areas = []
         image_contours_and_labels = []
         for lab_msk, label_cls in zip(masks, label_classes):
-            _, region_contours, _ = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_EXTERNAL,
+            _, region_contours, _ = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_LIST,
                                                      cv2.CHAIN_APPROX_TC89_L1)
             region_contours = [contour[:, 0, ::-1] for contour in region_contours if len(contour) >= 3]
 
@@ -953,7 +974,7 @@ class ImageLabels (object):
                 mask_areas.append(float(areas.sum()))
 
                 if sort_decreasing_area:
-                    # Sort in order of decreasing order
+                    # Sort in order of decreasing area
                     order = np.argsort(areas)[::-1]
                     region_contours = [region_contours[i] for i in order]
 

@@ -169,7 +169,6 @@ var labelling_tool;
         DrawPointTool.prototype.on_left_click = function (pos, event) {
             this.create_entity(pos);
             this.entity.update();
-            this.entity.commit();
         };
         ;
         DrawPointTool.prototype.create_entity = function (position) {
@@ -177,23 +176,11 @@ var labelling_tool;
             var model = new_PointLabelModel(position, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
-            // Freeze to prevent this temporary change from being sent to the backend
-            this._view.view.freeze();
             this._view.add_child(entity);
             this._view.select_entity(entity, false, false);
-            this._view.view.thaw();
-        };
-        ;
-        DrawPointTool.prototype.destroy_entity = function () {
-            // Freeze to prevent this temporary change from being sent to the backend
-            this._view.view.freeze();
-            this.entity.destroy();
-            this.entity = null;
-            this._view.view.thaw();
         };
         ;
         return DrawPointTool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPointTool = DrawPointTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=point_label.js.map

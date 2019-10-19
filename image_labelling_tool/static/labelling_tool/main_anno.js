@@ -338,8 +338,9 @@ var labelling_tool;
                 }
             }
             //
-            // Tool buttons:
-            // Select, brush select, draw poly, composite, group, delete
+            // Select section
+            // Pick, brush select, delete
+            // Label class selector
             //
             var select_button = $('#select_pick_button');
             select_button.click(function (event) {
@@ -438,10 +439,18 @@ var labelling_tool;
                 draw_polygon_button.click(function (event) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof labelling_tool.PolygonalLabelEntity) {
-                        self.set_current_tool(new labelling_tool.DrawPolygonTool(self.root_view, current));
+                        self.set_current_tool(new labelling_tool.EditPolyTool(self.root_view, current));
                     }
                     else {
-                        self.set_current_tool(new labelling_tool.DrawPolygonTool(self.root_view, null));
+                        self.set_current_tool(new labelling_tool.EditPolyTool(self.root_view, null));
+                    }
+                    event.preventDefault();
+                });
+                var merge_button = $('#merge_poly_labels_button');
+                merge_button.click(function (event) {
+                    var merged_entity = labelling_tool.PolygonalLabelEntity.merge_polygonal_labels(self.root_view);
+                    if (merged_entity !== null) {
+                        self.root_view.select_entity(merged_entity, false, false);
                     }
                     event.preventDefault();
                 });
@@ -567,7 +576,7 @@ var labelling_tool;
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
                 if (self._button_down) {
                     if (_this._current_tool !== null) {
-                        _this._current_tool.on_drag(self._last_mouse_pos);
+                        _this._current_tool.on_drag(self._last_mouse_pos, move_event);
                     }
                     move_event.stopPropagation();
                 }
@@ -959,6 +968,14 @@ var labelling_tool;
             }
         };
         ;
+        /*
+        Notify of entity deletion
+         */
+        DjangoAnnotator.prototype.notify_entity_deleted = function (entity) {
+            if (this._current_tool !== null) {
+                this._current_tool.notify_entity_deleted(entity);
+            }
+        };
         DjangoAnnotator.prototype.freeze = function () {
             this.frozen = true;
         };

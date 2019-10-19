@@ -233,6 +233,11 @@ module labelling_tool {
      */
     export function new_entity_for_model(root_view: RootLabelView, label_model: AbstractLabelModel) {
         var factory = label_type_to_entity_factory[label_model.label_type];
-        return factory(root_view, label_model);
+        if (factory !== undefined) {
+            return factory(root_view, label_model);
+        }
+        else {
+            return null;
+        }
     }
 }

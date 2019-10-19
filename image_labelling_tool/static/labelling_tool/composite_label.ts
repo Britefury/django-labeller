@@ -113,7 +113,7 @@ module labelling_tool {
 
         update() {
             var component_centroids = this._compute_component_centroids();
-            this._centroid = compute_centroid_of_points(component_centroids);
+            this._centroid = mean_of_points(component_centroids);
 
             this.circle
                 .attr('cx', this._centroid.x)
@@ -211,8 +211,10 @@ module labelling_tool {
             for (var i = 0; i < this.model.components.length; i++) {
                 var model_id = this.model.components[i];
                 var entity = this.root_view.get_entity_for_model_id(model_id);
-                var centroid = entity.compute_centroid();
-                component_centroids.push(centroid);
+                if (entity !== null) {
+                    var centroid = entity.compute_centroid();
+                    component_centroids.push(centroid);
+                }
             }
             return component_centroids;
         }

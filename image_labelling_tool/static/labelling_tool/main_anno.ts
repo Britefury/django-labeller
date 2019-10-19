@@ -498,8 +498,9 @@ module labelling_tool {
 
 
             //
-            // Tool buttons:
-            // Select, brush select, draw poly, composite, group, delete
+            // Select section
+            // Pick, brush select, delete
+            // Label class selector
             //
 
             var select_button: any = $('#select_pick_button');
@@ -614,11 +615,21 @@ module labelling_tool {
                 draw_polygon_button.click(function (event: any) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof PolygonalLabelEntity) {
-                        self.set_current_tool(new DrawPolygonTool(self.root_view, current));
+                        self.set_current_tool(new EditPolyTool(self.root_view, current));
                     }
                     else {
-                        self.set_current_tool(new DrawPolygonTool(self.root_view, null));
+                        self.set_current_tool(new EditPolyTool(self.root_view, null));
                     }
+                    event.preventDefault();
+                });
+                var merge_button: any = $('#merge_poly_labels_button');
+                merge_button.click(function (event: any) {
+                    var merged_entity = PolygonalLabelEntity.merge_polygonal_labels(self.root_view);
+
+                    if (merged_entity !== null) {
+                        self.root_view.select_entity(merged_entity, false, false);
+                    }
+
                     event.preventDefault();
                 });
             }
@@ -776,7 +787,7 @@ module labelling_tool {
                 self._last_mouse_pos = self.get_mouse_pos_world_space();
                 if (self._button_down) {
                     if (this._current_tool !== null) {
-                        this._current_tool.on_drag(self._last_mouse_pos);
+                        this._current_tool.on_drag(self._last_mouse_pos, move_event);
                     }
                     move_event.stopPropagation();
                 }
@@ -1225,6 +1236,16 @@ module labelling_tool {
                 }
             }
         };
+
+
+        /*
+        Notify of entity deletion
+         */
+        notify_entity_deleted(entity: AbstractLabelEntity<AbstractLabelModel>) {
+            if (this._current_tool !== null) {
+                this._current_tool.notify_entity_deleted(entity);
+            }
+        }
 
 
         freeze() {

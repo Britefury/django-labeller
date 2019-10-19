@@ -78,6 +78,21 @@ aside.tool_bar {
     text-align: center;
 }
 
+.tool_bar_tool_header {
+    /*background-color: #5b6177;*/
+    /*margin: 4px 4px;*/
+    /*border-left: #727b97 15px solid;*/
+    /*border-right: #727b97 15px solid;*/
+    /*padding: 0 4px;*/
+    /*text-align: center;*/
+    background-color: #415252;
+    margin: 4px 0;
+    border-top: #627575 1px solid;
+    border-bottom: #627575 1px solid;
+    padding: 0 0;
+    text-align: center;
+}
+
 .tool_bar_content {
     width: inherit;
     padding: 0 10px 0 10px;

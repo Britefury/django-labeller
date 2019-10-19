@@ -98,7 +98,7 @@ var labelling_tool;
         };
         CompositeLabelEntity.prototype.update = function () {
             var component_centroids = this._compute_component_centroids();
-            this._centroid = labelling_tool.compute_centroid_of_points(component_centroids);
+            this._centroid = labelling_tool.mean_of_points(component_centroids);
             this.circle
                 .attr('cx', this._centroid.x)
                 .attr('cy', this._centroid.y);
@@ -183,8 +183,10 @@ var labelling_tool;
             for (var i = 0; i < this.model.components.length; i++) {
                 var model_id = this.model.components[i];
                 var entity = this.root_view.get_entity_for_model_id(model_id);
-                var centroid = entity.compute_centroid();
-                component_centroids.push(centroid);
+                if (entity !== null) {
+                    var centroid = entity.compute_centroid();
+                    component_centroids.push(centroid);
+                }
             }
             return component_centroids;
         };
@@ -214,4 +216,3 @@ var labelling_tool;
         return new CompositeLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=composite_label.js.map

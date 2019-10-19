@@ -73,7 +73,9 @@ var labelling_tool;
             for (var i = 0; i < labels.length; i++) {
                 var label = labels[i];
                 var entity = this.get_or_create_entity_for_model(label);
-                this.register_child(entity);
+                if (entity !== null) {
+                    this.register_child(entity);
+                }
             }
         };
         /*
@@ -271,7 +273,6 @@ var labelling_tool;
          */
         RootLabelView.prototype.delete_selection = function (delete_filter_fn) {
             var entities_to_remove = this.selected_entities.slice();
-            var can_delete;
             this.unselect_all_entities();
             for (var i = 0; i < entities_to_remove.length; i++) {
                 if (delete_filter_fn !== undefined && delete_filter_fn !== null) {
@@ -320,20 +321,13 @@ var labelling_tool;
         ;
         RootLabelView.prototype.shutdown_entity = function (entity) {
             entity.detach();
+            this.view.notify_entity_deleted(entity);
         };
         ;
         /*
         Get entity for model ID
          */
         RootLabelView.prototype.get_entity_for_model_id = function (model_id) {
-            return this._label_model_id_to_entity[model_id];
-        };
-        ;
-        /*
-        Get entity for model
-         */
-        RootLabelView.prototype.get_entity_for_model = function (model) {
-            var model_id = labelling_tool.ObjectIDTable.get_id(model);
             return this._label_model_id_to_entity[model_id];
         };
         ;
@@ -345,11 +339,16 @@ var labelling_tool;
             if (model_id === null ||
                 !this._label_model_id_to_entity.hasOwnProperty(model_id)) {
                 var entity = labelling_tool.new_entity_for_model(this, model);
-                this.initialise_entity(entity);
+                if (entity !== null) {
+                    this.initialise_entity(entity);
+                }
+                else {
+                    this._label_model_id_to_entity[model_id] = null;
+                }
                 return entity;
             }
             else {
-                return this._label_model_id_to_entity[model_id];
+                return this.get_entity_for_model_id(model_id);
             }
         };
         ;
@@ -415,4 +414,3 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=root_label_view.js.map

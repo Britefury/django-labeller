@@ -169,7 +169,12 @@ var labelling_tool;
      */
     function new_entity_for_model(root_view, label_model) {
         var factory = label_type_to_entity_factory[label_model.label_type];
-        return factory(root_view, label_model);
+        if (factory !== undefined) {
+            return factory(root_view, label_model);
+        }
+        else {
+            return null;
+        }
     }
     labelling_tool.new_entity_for_model = new_entity_for_model;
 })(labelling_tool || (labelling_tool = {}));

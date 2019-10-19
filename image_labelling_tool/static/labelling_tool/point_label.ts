@@ -192,7 +192,6 @@ module labelling_tool {
         on_left_click(pos: Vector2, event: any) {
             this.create_entity(pos);
             this.entity.update();
-            this.entity.commit();
         };
 
 
@@ -201,19 +200,8 @@ module labelling_tool {
             var model = new_PointLabelModel(position, label_class);
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
-            // Freeze to prevent this temporary change from being sent to the backend
-            this._view.view.freeze();
             this._view.add_child(entity);
             this._view.select_entity(entity, false, false);
-            this._view.view.thaw();
-        };
-
-        destroy_entity() {
-            // Freeze to prevent this temporary change from being sent to the backend
-            this._view.view.freeze();
-            this.entity.destroy();
-            this.entity = null;
-            this._view.view.thaw();
         };
     }
 }

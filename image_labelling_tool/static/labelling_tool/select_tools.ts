@@ -254,7 +254,7 @@ module labelling_tool {
             this._brush_circle.attr("cy", pos.y);
         };
 
-        on_drag(pos: Vector2): boolean {
+        on_drag(pos: Vector2, event: any): boolean {
             var entities = this._get_entities_in_range(pos);
             for (var i = 0; i < entities.length; i++) {
                 this._view.select_entity(entities[i], true, false);

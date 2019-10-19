@@ -34,7 +34,23 @@ var labelling_tool;
         return x[flag_name];
     }
     labelling_tool.ensure_config_option_exists = ensure_config_option_exists;
-    function compute_centroid_of_points(vertices) {
+    function add_Vector2(a, b) {
+        return { x: a.x + b.x, y: a.y + b.y };
+    }
+    labelling_tool.add_Vector2 = add_Vector2;
+    function sub_Vector2(a, b) {
+        return { x: a.x - b.x, y: a.y - b.y };
+    }
+    labelling_tool.sub_Vector2 = sub_Vector2;
+    function mul_Vector2(a, b) {
+        return { x: a.x * b, y: a.y * b };
+    }
+    labelling_tool.mul_Vector2 = mul_Vector2;
+    function dot_Vector2(a, b) {
+        return a.x * b.x + a.y * b.y;
+    }
+    labelling_tool.dot_Vector2 = dot_Vector2;
+    function mean_of_points(vertices) {
         var sum = [0.0, 0.0];
         var N = vertices.length;
         if (N === 0) {
@@ -50,7 +66,7 @@ var labelling_tool;
             return { x: sum[0] * scale, y: sum[1] * scale };
         }
     }
-    labelling_tool.compute_centroid_of_points = compute_centroid_of_points;
+    labelling_tool.mean_of_points = mean_of_points;
     function compute_sqr_length(v) {
         return v.x * v.x + v.y * v.y;
     }

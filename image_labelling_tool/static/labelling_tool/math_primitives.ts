@@ -26,14 +26,6 @@ Dr. M. Mackiewicz.
  */
 
 module labelling_tool {
-    /*
-    2D Vector
-     */
-    export interface Vector2 {
-        x: number;
-        y: number;
-    }
-
     export function ensure_config_option_exists(x: any, flag_name: string, default_value: any) {
         var v = x[flag_name];
         if (v === undefined) {
@@ -42,7 +34,32 @@ module labelling_tool {
         return x[flag_name];
     }
 
-    export function compute_centroid_of_points(vertices: Vector2[]): Vector2 {
+
+    /*
+    2D Vector
+     */
+    export interface Vector2 {
+        x: number;
+        y: number;
+    }
+
+    export function add_Vector2(a: Vector2, b: Vector2): Vector2 {
+        return {x: a.x + b.x, y: a.y + b.y};
+    }
+
+    export function sub_Vector2(a: Vector2, b: Vector2): Vector2 {
+        return {x: a.x - b.x, y: a.y - b.y};
+    }
+
+    export function mul_Vector2(a: Vector2, b: number): Vector2 {
+        return {x: a.x * b, y: a.y * b};
+    }
+
+    export function dot_Vector2(a: Vector2, b: Vector2): number {
+        return a.x * b.x + a.y * b.y;
+    }
+
+    export function mean_of_points(vertices: Vector2[]): Vector2 {
         var sum = [0.0, 0.0];
         var N = vertices.length;
         if (N === 0) {

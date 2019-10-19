@@ -153,7 +153,10 @@
             <div class="tool_bar_content">
                 {% if not labelling_tool_config.tools.drawPolyLabel == False %}
                     <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-toggle="tooltip"
-                        data-placement="top" title="Draw a polygonal label">Draw</button>
+                        data-placement="top" title="Draw a polygonal label">Poly</button>
+                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-toggle="tooltip"
+                        data-placement="top" title="Merge polygonal labels; select labels first then
+                        click here to merge them">MergeP</button>
                 {% endif %}
                 {% if not labelling_tool_config.tools.drawBoxLabel == False %}
                     <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-toggle="tooltip"
@@ -173,6 +176,56 @@
                         data-placement="top" title="Associate labels; select labels first then
                         click here to associate them">Assoc.</button>
                 {% endif %}
+            </div>
+        </div>
+
+        <!-- Edit multi-polygon !-->
+        <div class="tool_edit_multi_poly anno_hidden">
+            <div class="tool_bar_tool_header">Multi-polygon</div>
+
+            <div class="tool_bar_content">
+                Mode:
+                <div class="btn-group btn-group-toggle mb-1" data-toggle="buttons">
+                    <label class="btn btn-sm btn-warning active" data-toggle="tooltip" data-placement="top"
+                           title="The drawn region creates a new label">
+                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_boolean_new"
+                               autocomplete="off">
+                        New
+                    </label>
+                    <label class="btn btn-sm btn-warning" data-toggle="tooltip" data-placement="top"
+                           title="Joins the new region with the existing label">
+                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_boolean_add"
+                               autocomplete="off">
+                        Add
+                    </label>
+                    <label class="btn btn-sm btn-warning" data-toggle="tooltip" data-placement="top"
+                           title="Cuts the new region away from the current label">
+                        <input type="radio" name="labelvis" value="faint" id="multi_poly_boolean_subtract" autocomplete="off">
+                        Subtract
+                    </label>
+                    <label class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top"
+                           title="Splits the part of the current label under the drawn region into a separate label">
+                        <input type="radio" name="labelvis" value="faint" id="multi_poly_boolean_split" autocomplete="off">
+                        Split
+                    </label>
+                </div>
+            </div>
+
+            <div class="tool_bar_content">
+                Draw:
+                <div class="btn-group btn-group-toggle mb-1" data-toggle="buttons">
+                    <label class="btn btn-sm btn-info active" data-toggle="tooltip" data-placement="top"
+                           title="Draw polygon vertex by vertex">
+                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_draw_poly"
+                               autocomplete="off">
+                        Polygon
+                    </label>
+                    <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
+                           title="Brush">
+                        <input type="radio" name="labelvis" value="faint" id="multi_poly_draw_brush" autocomplete="off">
+                        Brush
+                    </label>
+                </div>
             </div>
         </div>
     </aside>
@@ -281,24 +334,30 @@
                     <p>To label regions of the image:</p>
                     <ul>
                         {% if not labelling_tool_config.tools.drawPolyLabel == False %}
-                            <li><strong>Drawing polygonal regions onto the image:</strong>
+                            <li><strong>To draw polygonal labels onto the image, click the <em>Poly</em> button:</strong>
                                 <ul>
-                                    <li>Click the <em>Draw</em> button</li>
-                                    <li>Within the image pane, left-click to draw polygonal corners of your region</li>
-                                    <li>When you have finished the region, right-click to stop</li>
-                                    <li>You are still in <em>draw poly</em> mode, so you can start left-clicking again to draw the next region</li>
-                                    <li>To exit <em>draw poly</em> mode, right-click a second time.</li>
-                                    <li>Fixing mistakes while in drawing mode:
+                                    <li>You can now either draw the outlines of regions or brush regions the; at the bottom
+                                        you will find two buttons; <em>Polygon</em> and <em>Draw</em></li>
                                         <ul>
-                                            <li>The previous vertex is highlighted with a small pink circle. To delete it, press the
-                                                '<code>/</code>' key.
-                                            </li>
-                                            <li>To insert vertices at a different point in the polygon, press the '<code>,</code>'
-                                                and '<code>.</code>' keys to cycle through. This also cycles the vertex that is
-                                                highlighted as the previous vertex (above), allowing you to select vertices to
-                                                delete.</li>
+                                            <li><strong>Polygon:</strong> <em>left-click</em> to draw polygonal corners of your region, or
+                                                <em>&lt;shift&gt;-left-click-drag</em> to free-hand draw sections, <em>right-click</em> to finish</li>
+                                            <li><strong>Brush:</strong> Click and drag to brush-paint over an area. Use either the
+                                                <code>[</code> and <code>]</code> keys or <em>&lt;shift&gt;-scroll-wheel</em> to
+                                                change the size of the brush.</li>
+                                        </ul>
+                                    <li>There are four modes:
+                                        <ul>
+                                            <li><strong>New:</strong> creates a new label for each region drawn or brushed</li>
+                                            <li><strong>Add:</strong> joins the drawn region with the currently selected one</li>
+                                            <li><strong>Subtract:</strong> cuts the drawn region away from the currently selected one and discards it</li>
+                                            <li><strong>Split:</strong> splits the parts of the currently selected label that are inside the drawn region
+                                                away into a new separate label, leaving the parts outside the drawn region in the selected label</li>
                                         </ul>
                                     </li>
+                                    <li>You can merge multiple polygonal labels with the <em>MergeP</em> button, found to
+                                        the right of the <em>Poly</em> button in the <em>Tools</em> section. Select the labels
+                                        (see below) that you want to merge and click <em>MergeP</em>. If you select any labels that are not
+                                        polygonal labels, nothing will happen.</li>
                                 </ul>
                             </li>
                         {% endif %}

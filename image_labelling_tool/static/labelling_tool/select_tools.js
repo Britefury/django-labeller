@@ -247,7 +247,7 @@ var labelling_tool;
             this._brush_circle.attr("cy", pos.y);
         };
         ;
-        BrushSelectEntityTool.prototype.on_drag = function (pos) {
+        BrushSelectEntityTool.prototype.on_drag = function (pos, event) {
             var entities = this._get_entities_in_range(pos);
             for (var i = 0; i < entities.length; i++) {
                 this._view.select_entity(entities[i], true, false);
@@ -295,4 +295,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.BrushSelectEntityTool = BrushSelectEntityTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=select_tools.js.map

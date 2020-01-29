@@ -85,8 +85,10 @@ def run_app(slic, readonly):
         'tools': {
             'imageSelector': True,
             'labelClassSelector': True,
+            'drawPointLabel': False,
+            'drawBoxLabel': True,
             'drawPolyLabel': True,
-            'compositeLabel': True,
+            'compositeLabel': False,
             'deleteLabel': True,
             'deleteConfig': {
                 'typePermissions': {

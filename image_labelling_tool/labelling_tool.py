@@ -639,19 +639,22 @@ class ImageLabels (object):
         return  ImageLabels(warped_labels, obj_table=warped_obj_table)
 
 
-    def render_labels(self, label_classes, image_shape, pixels_as_vectors=False, fill=True, ctx=None):
+    def render_label_classes(self, label_classes, image_shape, multichannel_mask=False, fill=True, ctx=None):
         """
-        Render the labels to create a label image
+        Render label classes to a create a label class image suitable for use as a
+        semantic segmentation ground truth image.
 
         :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index.
-            Each class should be a `LabelClass` instance, a string.
+            within are mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
-        :param pixels_as_vectors: If `False`, return an (height,width) array of dtype=int with pixels numbered
-            according to their label. If `True`, return a (height,width,n_labels) array of dtype=float32 with each pixel
-            being a feature vector that gives the weight of each label, where n_labels is `len(label_classes)`
+        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
+            background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
+            class as it appears in `label_classes. If True, return a (height, width, n_classes) array of dtype=bool
+            that is a stack of per-channel masks where each mask indicates coverage by one or more labels of that class.
+            Classes are specified in `label_classes`.
         :param fill: if True, labels will be filled, otherwise they will be outlined
-        :return: (H,W) array with dtype=int if pixels_as_vectors is False, otherwise (H,W,n_labels) with dtype=float32
+        :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
         """
         if isinstance(label_classes, list) or isinstance(label_classes, tuple):
             cls_to_index = {}
@@ -679,8 +682,8 @@ class ImageLabels (object):
 
         height, width = image_shape
 
-        if pixels_as_vectors:
-            label_image = np.zeros((height, width, len(label_classes)), dtype='float32')
+        if multichannel_mask:
+            label_image = np.zeros((height, width, len(label_classes)), dtype=bool)
         else:
             label_image = np.zeros((height, width), dtype=int)
 
@@ -689,27 +692,30 @@ class ImageLabels (object):
             if label_cls_n is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
                 if mask is not None:
-                    if pixels_as_vectors:
-                        label_image[:,:,label_cls_n] += mask
-                        label_image[:,:,label_cls_n] = np.clip(label_image[:,:,label_cls_n], 0.0, 1.0)
+                    mask = mask >= 0.5
+                    if multichannel_mask:
+                        label_image[:,:,label_cls_n] |= mask
                     else:
-                        label_image[mask >= 0.5] = label_cls_n + 1
+                        label_image[mask] = label_cls_n + 1
 
         return label_image
 
 
-    def render_individual_labels(self, label_classes, image_shape, fill=True, ctx=None):
+    def render_label_instances(self, label_classes, image_shape, multichannel_mask=False,
+                               fill=True, ctx=None):
         """
-        Render individual labels to create a label image.
-        The resulting image is a multi-channel image, with a channel for each class in `label_classes`.
-        Each individual label's class is used to select the channel that it is rendered into.
-        Each label is given a different index that is rendered into the resulting image.
+        Render a label instance image suitable for use as an instance segmentation ground truth image.
+
+        To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
 
         :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index.
-            Each class should be a `LabelClass` instance, a string.
-            Each entry within label_classes will have a corresponding channel in the output image
+            within are mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
+        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
+            background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
+            is they are ordered. If True, return a (height, width, n_labels) array of dtype=bool that is a stack
+            of masks, with one mask corresponding to each label.
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
         :return: tuple of (label_image, label_index_to_cls) where:
@@ -745,7 +751,12 @@ class ImageLabels (object):
 
         height, width = image_shape
 
-        label_image = np.zeros((height, width), dtype=int)
+        if multichannel_mask:
+            label_image = None
+            label_image_stack = []
+        else:
+            label_image = np.zeros((height, width), dtype=int)
+            label_image_stack = None
 
         label_i = 1
         label_index_to_cls = [0]
@@ -754,9 +765,16 @@ class ImageLabels (object):
             if label_cls is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
                 if mask is not None:
+                    mask = mask >= 0.5
+                    if multichannel_mask:
+                        label_image_stack.append(mask)
+                    else:
+                        label_image[mask] = label_i
                     label_index_to_cls.append(label_cls + 1)
-                    label_image[mask >= 0.5] = label_i
                     label_i += 1
+
+        if label_image_stack:
+            label_image = np.stack(label_image_stack, axis=2)
 
         return label_image, np.array(label_index_to_cls)
 
@@ -1058,43 +1076,48 @@ class AbsractLabelledImage (object):
         return InMemoryLabelledImage(warped_pixels, warped_labels)
 
 
-    def render_labels(self, label_classes, pixels_as_vectors=False, fill=True):
+    def render_label_classes(self, label_classes, multichannel_mask=False, fill=True):
         """
-        Render the labels to create a label image
+        Render label classes to a create a label class image suitable for use as a
+        semantic segmentation ground truth image.
 
         :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index.
-            Each class should be a `LabelClass` instance, a string.
-        :param pixels_as_vectors: If `False`, return an (height,width) array of dtype=int with pixels numbered
-            according to their label. If `True`, return a (height,width,n_labels) array of dtype=float32 with each pixel
-            being a feature vector that gives the weight of each label, where n_labels is `len(label_classes)`
+            within are mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
+        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
+            background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
+            class as it appears in `label_classes. If True, return a (height, width, n_classes) array of dtype=bool
+            that is a stack of per-channel masks where each mask indicates coverage by one or more labels of that class.
+            Classes are specified in `label_classes`.
         :param fill: if True, labels will be filled, otherwise they will be outlined
-        :return: (H,W) array with dtype=int if pixels_as_vectors is False, otherwise (H,W,n_labels) with dtype=float32
+        :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
         """
-        return self.labels.render_labels(label_classes, self.image_size,
-                                         pixels_as_vectors=pixels_as_vectors, fill=fill)
+        return self.labels.render_label_classes(label_classes, self.image_size,
+                                                multichannel_mask=multichannel_mask, fill=fill)
 
 
-    def render_individual_labels(self, label_classes, fill=True):
+    def render_label_instances(self, label_classes, multichannel_mask=False, fill=True):
         """
-        Render individual labels to create a label image.
-        The resulting image is a multi-channel image, with a channel for each class in `label_classes`.
-        Each individual label's class is used to select the channel that it is rendered into.
-        Each label is given a different index that is rendered into the resulting image.
+        Render a label instance image suitable for use as an instance segmentation ground truth image.
+
+        To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
 
         :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index.
-            Each class should be a `LabelClass` instance, a string.
-            Each entry within label_classes will have a corresponding channel in the output image
+            within are mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
+        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
+            background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
+            is they are ordered. If True, return a (height, width, n_labels) array of dtype=bool that is a stack
+            of masks, with one mask corresponding to each label.
         :param fill: if True, labels will be filled, otherwise they will be outlined
-        :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
         :return: tuple of (label_image, label_index_to_cls) where:
             label_image is a (H,W) array with dtype=int
             label_index_to_cls is a 1D array that gives the class index of each labels. The first entry
                 at index 0 will have a value of 0 as it is the background label. The class indices are the
                 index of the class in `label_class` + 1.
         """
-        return self.labels.render_individual_labels(label_classes, self.image_size, fill=fill)
+        return self.labels.render_label_instances(label_classes, self.image_size, multichannel_mask=multichannel_mask,
+                                                  fill=fill)
 
 
     def extract_label_images(self, label_class_set=None):

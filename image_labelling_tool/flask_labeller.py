@@ -61,7 +61,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
         socketio = None
 
 
-    def dextr_js(image, dextr_points_js):
+    def apply_dextr_js(image, dextr_points_js):
         pixels = image.read_pixels()
         dextr_points = np.array([[p['x'], p['y']] for p in dextr_points_js])
         if dextr_fn is not None:
@@ -83,7 +83,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
                 'labelClassSelector': True,
                 'labelClassFilterInitial': None,
                 'drawPolyLabel': True,
-                'compositeLabel': True,
+                'compositeLabel': False,
                 'deleteLabel': True,
                 'deleteConfig': {
                     'typePermissions': {
@@ -143,18 +143,27 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
 
 
         @socketio.on('dextr')
-        def handle_dextr(dextr_request_js):
-            image_id = dextr_request_js['image_id']
-            dextr_id = dextr_request_js['dextr_id']
-            dextr_points = dextr_request_js['dextr_points']
+        def handle_dextr(dextr_js):
+            if 'request' in dextr_js:
+                dextr_request_js = dextr_js['request']
+                image_id = dextr_request_js['image_id']
+                dextr_id = dextr_request_js['dextr_id']
+                dextr_points = dextr_request_js['dextr_points']
 
-            image = images_table[image_id]
+                image = images_table[image_id]
 
-            regions_js = dextr_js(image, dextr_points)
+                regions_js = apply_dextr_js(image, dextr_points)
 
-            dextr_reply = dict(dextr_id=dextr_id, regions=regions_js)
+                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
+                dextr_reply = dict(labels=[dextr_labels])
 
-            socketio_emit('dextr_reply', dextr_reply)
+                socketio_emit('dextr_reply', dextr_reply)
+            elif 'poll' in dextr_js:
+                dextr_reply = dict(labels=[])
+                socketio_emit('dextr_reply', dextr_reply)
+            else:
+                dextr_reply = {'error': 'unknown_command'}
+                socketio_emit('dextr_reply', dextr_reply)
 
 
     else:
@@ -192,17 +201,25 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
 
         @app.route('/labelling/dextr', methods=['POST'])
         def dextr():
-            dextr_request_js = json.loads(request.form['dextr_request'])
-            image_id = dextr_request_js['image_id']
-            dextr_id = dextr_request_js['dextr_id']
-            dextr_points = dextr_request_js['dextr_points']
+            dextr_js = json.loads(request.form['dextr'])
+            if 'request' in dextr_js:
+                dextr_request_js = dextr_js['request']
+                image_id = dextr_request_js['image_id']
+                dextr_id = dextr_request_js['dextr_id']
+                dextr_points = dextr_request_js['dextr_points']
 
-            image = images_table[image_id]
-            regions_js = dextr_js(image, dextr_points)
+                image = images_table[image_id]
+                regions_js = apply_dextr_js(image, dextr_points)
 
-            dextr_reply = dict(dextr_id=dextr_id, regions=regions_js)
+                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
+                dextr_reply = dict(labels=[dextr_labels])
 
-            return make_response(json.dumps(dextr_reply))
+                return make_response(json.dumps(dextr_reply))
+            elif 'poll' in dextr_js:
+                dextr_reply = dict(labels=[])
+                return make_response(json.dumps(dextr_reply))
+            else:
+                return make_response(json.dumps({'error': 'unknown_command'}))
 
 
     @app.route('/image/<image_id>')

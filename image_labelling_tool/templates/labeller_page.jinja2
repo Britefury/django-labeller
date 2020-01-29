@@ -38,7 +38,9 @@
 
             {% if dextr_available %}
                 socket.on('dextr_reply', function(msg) {
-                    tool.dextrSuccess(msg.dextr_id, msg.regions);
+                    if (msg.labels !== undefined) {
+                        tool.dextrSuccess(msg.labels);
+                    }
                 });
             {% endif %}
 
@@ -96,11 +98,9 @@
             {% if dextr_available %}
                 // set labels callback function
                 var dextr_request = function(dextr_request) {
-                    var dextr_request_str = JSON.stringify(dextr_request);
-
                     // Create the POST data
                     var post_data = {
-                        dextr_request: dextr_request_str
+                        dextr: JSON.stringify(dextr_request)
                     };
 
                     $.ajax({
@@ -108,7 +108,9 @@
                         url: '/labelling/dextr',
                         data: post_data,
                         success: function(msg) {
-                            tool.dextrSuccess(msg.dextr_id, msg.regions);
+                            if (msg.labels !== undefined) {
+                                tool.dextrSuccess(msg.labels);
+                            }
                         },
                         dataType: 'json'
                     });
@@ -127,6 +129,7 @@
                 {{ initial_image_index | safe }},
                 get_labels,
                 set_labels,
+                null,
                 dextr_request,
                 null,
                 {{ labelling_tool_config | tojson | safe }}

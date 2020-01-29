@@ -146,11 +146,9 @@ LABELLING_TOOL_CONFIG = {
         'labelClassSelector': True,
         'brushSelect': True,
         'labelClassFilter': True,
-        'drawPointLabel': True,
+        'drawPointLabel': False,
         'drawBoxLabel': True,
         'drawPolyLabel': True,
-        'compositeLabel': True,
-        'groupLabel': True,
         'deleteLabel': True,
         'deleteConfig': {
             'typePermissions': {
@@ -165,3 +163,5 @@ LABELLING_TOOL_CONFIG = {
 }
 
 LABELLING_TOOL_ENABLE_LOCKING = False
+LABELLING_TOOL_DEXTR_AVAILABLE = False
+LABELLING_TOOL_DEXTR_POLLING_INTERVAL = None

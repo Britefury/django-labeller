@@ -48,6 +48,7 @@ module labelling_tool {
         private _all_entities: AbstractLabelEntity<AbstractLabelModel>[];
         private root_entities: AbstractLabelEntity<AbstractLabelModel>[];
         private selected_entities: AbstractLabelEntity<AbstractLabelModel>[];
+        private _placeholders: PlaceHolderEntity[];
         private _label_model_obj_table: ObjectIDTable;
         private _label_model_id_to_entity: any;
 
@@ -66,6 +67,7 @@ module labelling_tool {
             this._all_entities = [];
             this.root_entities = [];
             this.selected_entities = [];
+            this._placeholders = [];
 
             // Label model object table
             this._label_model_obj_table = new ObjectIDTable();
@@ -88,6 +90,12 @@ module labelling_tool {
             var entites_to_shutdown = this.root_entities.slice();
             for (var i = 0; i < entites_to_shutdown.length; i++) {
                 this.shutdown_entity(entites_to_shutdown[i]);
+            }
+
+            // Remove place holders
+            var place_holders_to_shutdown = this._placeholders.slice();
+            for (var i = 0; i < place_holders_to_shutdown.length; i++) {
+                place_holders_to_shutdown[i].detach();
             }
 
             // Update the labels
@@ -426,6 +434,23 @@ module labelling_tool {
         };
 
 
+        /*
+        Register place holder
+         */
+        _register_placeholder(placeholder: PlaceHolderEntity) {
+            this._placeholders.push(placeholder);
+        };
+
+        _unregister_placeholder(placeholder: PlaceHolderEntity) {
+            var index = this._placeholders.indexOf(placeholder);
+
+            if (index === -1) {
+                throw "Attempting to unregister placeholder that is not in _placeholders";
+            }
+
+            // Remove
+            this._placeholders.splice(index, 1);
+        };
 
 
         /*

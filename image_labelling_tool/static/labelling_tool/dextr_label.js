@@ -55,32 +55,23 @@ var labelling_tool;
                 dextr_points: state._points
             };
             this._sent = false;
-            this._interval_id = null;
             this._state = state;
             DextrRequestState._id_counter += 1;
         }
-        DextrRequestState.prototype.poll_with = function (fn, interval_time) {
-            if (interval_time === undefined) {
-                interval_time = 1000;
-            }
-            var self = this;
-            this._polling_function = fn;
-            this._interval_id = setInterval(function () {
-                self._polling_function(self.req.dextr_id);
-            }, interval_time);
-        };
         DextrRequestState.dextr_success = function (dextr_id, regions) {
             var request = DextrRequestState._openRequests[dextr_id];
             if (request !== undefined) {
-                if (regions.length > 0) {
-                    var model = labelling_tool.new_PolygonalLabelModel(request._label_class);
-                    model.regions = regions;
-                    var entity = request._view.get_or_create_entity_for_model(model);
-                    request._view.add_child(entity);
-                    request._view.select_entity(entity, false, false);
+                if (request._state.is_attached()) {
+                    if (regions.length > 0) {
+                        var model = labelling_tool.new_PolygonalLabelModel(request._label_class);
+                        model.regions = regions;
+                        var entity = request._view.get_or_create_entity_for_model(model);
+                        request._view.add_child(entity);
+                        request._view.select_entity(entity, false, false);
+                    }
+                    request._state.detach();
                 }
                 request.shutdown();
-                request._state.detach();
             }
         };
         DextrRequestState.prototype.shutdown = function () {
@@ -88,21 +79,36 @@ var labelling_tool;
                 // Remove from list of open requests
                 delete DextrRequestState._openRequests[this.req.dextr_id];
             }
-            if (this._interval_id !== null) {
-                clearInterval(this._interval_id);
-                this._interval_id = null;
+            if (Object.keys(DextrRequestState._openRequests).length == 0) {
+                if (DextrRequestState._interval_id !== null) {
+                    clearInterval(DextrRequestState._interval_id);
+                    DextrRequestState._interval_id = null;
+                }
             }
         };
         DextrRequestState.prototype.send = function () {
-            console.log("Sending...");
-            this._sent = this._view.view.dextrRequest(this.req);
+            this._sent = this._view.view.sendDextrRequest(this.req);
             if (this._sent) {
                 // Add to list of open requests
                 DextrRequestState._openRequests[this.req.dextr_id] = this;
             }
+            var polling_interval = this._view.view.dextrPollingInterval();
+            if (polling_interval !== undefined) {
+                this.enable_polling(polling_interval);
+            }
+        };
+        DextrRequestState.prototype.enable_polling = function (interval_time) {
+            if (DextrRequestState._interval_id !== null) {
+                // Polling not yet enabled
+                var self_1 = this;
+                DextrRequestState._interval_id = setInterval(function () {
+                    self_1._view.view.sendDextrPoll();
+                }, interval_time);
+            }
         };
         DextrRequestState._id_counter = 1;
         DextrRequestState._openRequests = {};
+        DextrRequestState._interval_id = null;
         return DextrRequestState;
     }());
     labelling_tool.DextrRequestState = DextrRequestState;
@@ -141,15 +147,18 @@ var labelling_tool;
     /*
     Dextr marker
      */
-    var DextrState = /** @class */ (function () {
+    var DextrState = /** @class */ (function (_super) {
+        __extends(DextrState, _super);
         function DextrState(view) {
-            this.root_view = view;
-            this._points = [];
-            this._group = null;
-            this._point_markers = [];
-            this._path = null;
+            var _this = _super.call(this, view) || this;
+            _this._points = [];
+            _this._group = null;
+            _this._point_markers = [];
+            _this._path = null;
+            return _this;
         }
         DextrState.prototype.attach = function () {
+            _super.prototype.attach.call(this);
             this._group = this.root_view.world.append("g");
             this._path = this._group.append("path");
             this._path.style("stroke-width", "1.5");
@@ -158,9 +167,15 @@ var labelling_tool;
         };
         ;
         DextrState.prototype.detach = function () {
-            this._path.remove();
-            this._group.remove();
-            this._group = null;
+            if (this._path !== null) {
+                this._path.remove();
+                this._path = null;
+            }
+            if (this._group !== null) {
+                this._group.remove();
+                this._group = null;
+            }
+            _super.prototype.detach.call(this);
         };
         DextrState.prototype.add_point = function (p) {
             var point_marker = this._group.append("circle");
@@ -232,7 +247,7 @@ var labelling_tool;
             this._path.style("stroke-dasharray", "3,3");
         };
         return DextrState;
-    }());
+    }(labelling_tool.PlaceHolderEntity));
     labelling_tool.DextrState = DextrState;
     /*
     Draw box tool

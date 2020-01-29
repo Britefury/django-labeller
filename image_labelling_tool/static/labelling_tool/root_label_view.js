@@ -41,6 +41,7 @@ var labelling_tool;
             this._all_entities = [];
             this.root_entities = [];
             this.selected_entities = [];
+            this._placeholders = [];
             // Label model object table
             this._label_model_obj_table = new labelling_tool.ObjectIDTable();
             // Label model object ID to entity
@@ -58,6 +59,11 @@ var labelling_tool;
             var entites_to_shutdown = this.root_entities.slice();
             for (var i = 0; i < entites_to_shutdown.length; i++) {
                 this.shutdown_entity(entites_to_shutdown[i]);
+            }
+            // Remove place holders
+            var place_holders_to_shutdown = this._placeholders.slice();
+            for (var i = 0; i < place_holders_to_shutdown.length; i++) {
+                place_holders_to_shutdown[i].detach();
             }
             // Update the labels
             this.model = model;
@@ -350,6 +356,22 @@ var labelling_tool;
             else {
                 return this.get_entity_for_model_id(model_id);
             }
+        };
+        ;
+        /*
+        Register place holder
+         */
+        RootLabelView.prototype._register_placeholder = function (placeholder) {
+            this._placeholders.push(placeholder);
+        };
+        ;
+        RootLabelView.prototype._unregister_placeholder = function (placeholder) {
+            var index = this._placeholders.indexOf(placeholder);
+            if (index === -1) {
+                throw "Attempting to unregister placeholder that is not in _placeholders";
+            }
+            // Remove
+            this._placeholders.splice(index, 1);
         };
         ;
         /*

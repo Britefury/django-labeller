@@ -203,13 +203,49 @@ module labelling_tool {
     }
 
 
-        /*
+    /*
     Container entity
      */
     export interface ContainerEntity {
         add_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
         remove_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
     }
+
+    /*
+    Place holder entity
+
+    Used to represent an entity that waits for some response for the server before being
+    replaced by e.g. a label generated automatically on the server
+     */
+    export class PlaceHolderEntity {
+        protected root_view: RootLabelView;
+        protected _attached: boolean;
+
+        constructor(view: RootLabelView) {
+            this.root_view = view;
+            this._attached = false;
+
+        }
+
+        attach() {
+            if (!this._attached) {
+                this.root_view._register_placeholder(this);
+                this._attached = true;
+            }
+        }
+
+        detach() {
+            if (this._attached) {
+                this._attached = false;
+                this.root_view._unregister_placeholder(this);
+            }
+        }
+
+        is_attached(): boolean {
+            return this._attached;
+        }
+    }
+
 
 
 

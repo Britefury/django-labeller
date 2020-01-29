@@ -62,7 +62,7 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoAnnotator = /** @class */ (function () {
-        function DjangoAnnotator(label_classes, colour_schemes, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, dextrCallback, getNextUnlockedImageIDCallback, config) {
+        function DjangoAnnotator(label_classes, colour_schemes, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
@@ -81,17 +81,27 @@ var labelling_tool;
                 available(e.g. when the HTTP request succeeds), reply by invoking the `notifyLabelUpdateResponse`
                 method, passing a message of the form `{error: undefined}` if everything is okay,
                 or `{error: 'locked'}` to indicate that these labels are locked
-            dextrCallback: (optional, can be null) a function of the form `function(dextr_api)` that the annotator
-                uses to asynchronously request an automatically generated label for an object identified by four
-                points in the image. The DextrRequestState object contains the image ID, the points and a unique ID.
-                When the label becomes available (e.g. when the HTTP request succeeds),
-                invoke the `dextrSuccess(dextr_id, regions)` method where `dextr_id` is obtained
-                from the DextrRequestState object provided by the annotator, and regions is an array of arrays of Vector2,
-                that gives the contours/regions that define the label.
             getNextUnlockedImageIDCallback: (optional, can be null) a function of the form
                 `function(current_image_id)` that the annotator uses to asynchronously request the ID of the next
                 available unlocked image. When the image ID become available (e.g. when the HTTP request succeeds),
                 give it to the annotator by invoking the `goToImageById(next_unlocked_image_id)` method.
+            dextrCallback: (optional, can be null) a function of the form `function(dextr_api)` that the annotator
+                uses to asynchronously request an automatically generated label for an object identified by four
+                points in the image. The callback will be used on one of two ways:
+                (1) a new request will be sent in the form of
+                `{request: {image_id: string, dextr_id: int, dextr_points: Vector2[]}}`. `image_id` is a string
+                used to identify the image, `dextr_id` is an integer that identifies this DEXTR request
+                and `dextr_points` is a list of Vector2s that gives the four points specified by the user.
+                (2) polling, in the form of `{poll: true}` that should prod the server into replying with any
+                completed requests. Polling will only be sent if it is enabled.
+                When the server replies that one or more DEXTR requests have succeeded with labels ready,
+                invoke the `dextrSuccess(labels)` method where labels is a list of `DextrLabels`, each
+                of which has the following fields:
+                    image_id: (same as the request) image ID (so we can check if it pertains to the current image)
+                    dextr_id: (same as the request) the request ID provided by the annotator
+                    regions: contours/regions that define the label, as an array of arrays of Vector2
+            dextrPollingInterval: (optional, can be null) if not `null` and non-zero, this gives the interval
+                at which the client side annotation tool should poll the server for replies to DEXTR requests
              */
             var self = this;
             if (DjangoAnnotator._global_key_handler === undefined ||
@@ -109,8 +119,8 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
-            labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', true);
-            labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', false);
+            labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'colour_schemes', [{ name: 'default', human_name: 'Default' }]);
             if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
@@ -189,6 +199,7 @@ var labelling_tool;
             this._labels_loaded = false;
             this._image_initialised = false;
             // Stopwatch
+            // Stopwatch
             this._stopwatchStart = null;
             this._stopwatchCurrent = null;
             this._stopwatchHandle = null;
@@ -203,6 +214,8 @@ var labelling_tool;
             this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
             // Dextr label request callback; labelling tool will call this when it needs a new image to show
             this._dextrCallback = dextrCallback;
+            // Dextr pooling interval
+            this._dextrPollingInterval = dextrPollingInterval;
             // Send data interval for storing interval ID for queued label send
             this._pushDataTimeout = null;
             // Frozen flag; while frozen, data will not be sent to backend
@@ -839,17 +852,39 @@ var labelling_tool;
             this._hide_loading_notification_if_ready();
         };
         ;
-        DjangoAnnotator.prototype.dextrRequest = function (request) {
+        DjangoAnnotator.prototype.sendDextrRequest = function (request) {
             if (this._dextrCallback !== null && this._dextrCallback !== undefined) {
-                this._dextrCallback(request);
+                this._dextrCallback({ 'request': request });
                 return true;
             }
             else {
                 return false;
             }
         };
-        DjangoAnnotator.prototype.dextrSuccess = function (dextr_id, regions) {
-            labelling_tool.DextrRequestState.dextr_success(dextr_id, regions);
+        DjangoAnnotator.prototype.sendDextrPoll = function () {
+            if (this._dextrCallback !== null && this._dextrCallback !== undefined) {
+                this._dextrCallback({ 'poll': true });
+                return true;
+            }
+            else {
+                return false;
+            }
+        };
+        DjangoAnnotator.prototype.dextrPollingInterval = function () {
+            if (this._dextrPollingInterval !== null && this._dextrPollingInterval !== undefined &&
+                this._dextrPollingInterval > 0) {
+                return this._dextrPollingInterval;
+            }
+            else {
+                return undefined;
+            }
+        };
+        DjangoAnnotator.prototype.dextrSuccess = function (labels) {
+            for (var i = 0; i < labels.length; i++) {
+                if (labels[i].image_id == this._get_current_image_id()) {
+                    labelling_tool.DextrRequestState.dextr_success(labels[i].dextr_id, labels[i].regions);
+                }
+            }
         };
         DjangoAnnotator.prototype._notify_image_loaded = function () {
             this._image_loaded = true;

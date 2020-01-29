@@ -59,6 +59,30 @@
                 });
             };
 
+            {% if dextr_available %}
+                // set labels callback function
+                var dextr_request = function(dextr_request) {
+                    // Create the POST data
+                    var post_data = {
+                        dextr: JSON.stringify(dextr_request)
+                    };
+
+                    $.ajax({
+                        type: 'POST',
+                        url: '{{ labelling_tool_url }}',
+                        data: post_data,
+                        success: function(msg) {
+                            if (msg.labels !== undefined) {
+                                tool.dextrSuccess(msg.labels);
+                            }
+                        },
+                        dataType: 'json'
+                    });
+                };
+            {% else %}
+                var dextr_request = null;
+            {% endif %}
+
             var tool = new labelling_tool.DjangoAnnotator(
                 {{ label_class_groups | as_json | safe }},
                 {{ colour_schemes | as_json | safe }},
@@ -66,8 +90,9 @@
                 {{ initial_image_index | safe }},
                 get_labels,
                 update_labels,
-                null,
                 get_next_unlocked_image_id,
+                dextr_request,
+                {{ dextr_polling_interval | safe }},
                 {{ labelling_tool_config | as_json | safe }}
             );
         });

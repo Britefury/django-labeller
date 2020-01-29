@@ -62,6 +62,29 @@ class LabellingToolView (View):
         labels.update_labels(labels, complete, time_elapsed, request.user, save=True, check_lock=False)
         return labels
 
+    def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
+        """
+        :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param dextr_id: an ID number the identifies the DEXTR request
+        :param dextr_points: the 4 points as a list of 2D vectors ({'x': <x>, 'y': <y>}) in the order
+            top edge, left edge, bottom edge, right edge
+        :return: contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
+        """
+        raise NotImplementedError('abstract: dextr_request not implemented for {}'.format(type(self)))
+
+    def dextr_poll(self, request):
+        """
+        :param request: HTTP request
+        :return: a list of dicts where each dict takes the form:
+            {
+                'image_id': image ID string that identifies the image that the label applies to
+                'dextr_id': the ID number that identifies the dextr job/request
+                'regions': contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
+            }
+        """
+        raise NotImplementedError('abstract: dextr_poll not implemented for {}'.format(type(self)))
+
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):
         if 'labels_for_image_id' in request.GET:
@@ -105,19 +128,45 @@ class LabellingToolView (View):
             return JsonResponse({'error': 'unknown_operation'})
 
     def post(self, request, *args, **kwargs):
-        labels = json.loads(request.POST['labels'])
-        image_id = labels['image_id']
-        complete = labels['complete']
-        time_elapsed = labels['timeElapsed']
-        label_data = labels['labels']
+        if 'labels' in request.POST:
+            # Write labels
+            labels = json.loads(request.POST['labels'])
+            image_id = labels['image_id']
+            complete = labels['complete']
+            time_elapsed = labels['timeElapsed']
+            label_data = labels['labels']
 
-        try:
-            self.update_labels(request, str(image_id), label_data, complete, time_elapsed, *args, **kwargs)
-        except models.LabelsLockedError:
-            return JsonResponse({'error': 'locked'})
-        else:
-            return JsonResponse({'response': 'success'})
+            try:
+                self.update_labels(request, str(image_id), label_data, complete, time_elapsed, *args, **kwargs)
+            except models.LabelsLockedError:
+                return JsonResponse({'error': 'locked'})
+            else:
+                return JsonResponse({'response': 'success'})
+        elif 'dextr' in request.POST:
+            # DEXTR
+            dextr_js = json.loads(request.POST['dextr'])
+            if 'request' in dextr_js:
+                dextr_request_js = dextr_js['request']
+                image_id = dextr_request_js['image_id']
+                dextr_id = dextr_request_js['dextr_id']
+                dextr_points = dextr_request_js['dextr_points']
 
+                regions_js = self.dextr_request(request, str(image_id), dextr_id, dextr_points)
+
+                if regions_js is not None:
+                    dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
+                    dextr_reply = dict(labels=[dextr_labels])
+                    return JsonResponse(dextr_reply)
+                else:
+                    return JsonResponse({'response': 'success'})
+            elif 'poll' in dextr_js:
+                labels_js = self.dextr_poll(request)
+
+                if labels_js is not None:
+                    dextr_reply = dict(labels=labels_js)
+                    return JsonResponse(dextr_reply)
+                else:
+                    return JsonResponse({'response': 'success'})
 
 
 class LabellingToolViewWithLocking (LabellingToolView):

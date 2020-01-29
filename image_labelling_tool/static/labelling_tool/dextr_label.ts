@@ -42,13 +42,12 @@ module labelling_tool {
     export class DextrRequestState {
         private static _id_counter: number = 1;
         private static _openRequests: any = {};
+        private static _interval_id: number = null;
 
         public req: DextrRequest;
         private _sent: boolean;
         private _view: RootLabelView;
         private _label_class: string;
-        private _polling_function: (dextr_id: number) => null;
-        private _interval_id: number;
         private _state: DextrState;
 
         constructor(view: RootLabelView, state: DextrState) {
@@ -60,39 +59,27 @@ module labelling_tool {
                 dextr_points: state._points
             };
             this._sent = false;
-            this._interval_id = null;
             this._state = state;
 
             DextrRequestState._id_counter += 1;
         }
 
 
-        poll_with(fn: (dextr_id: number) => null, interval_time: number) {
-            if (interval_time === undefined) {
-                interval_time = 1000;
-            }
-            let self = this;
-            this._polling_function = fn;
-            this._interval_id = setInterval(function() {
-                self._polling_function(self.req.dextr_id);
-            }, interval_time);
-        }
-
-
-
         static dextr_success(dextr_id: number, regions: Vector2[][]) {
             let request: DextrRequestState = DextrRequestState._openRequests[dextr_id];
             if (request !== undefined) {
-                if (regions.length > 0) {
-                    var model = new_PolygonalLabelModel(request._label_class);
-                    model.regions = regions;
-                    var entity = request._view.get_or_create_entity_for_model(model);
-                    request._view.add_child(entity);
-                    request._view.select_entity(entity, false, false);
-                }
+                if (request._state.is_attached()) {
+                    if (regions.length > 0) {
+                        var model = new_PolygonalLabelModel(request._label_class);
+                        model.regions = regions;
+                        var entity = request._view.get_or_create_entity_for_model(model);
+                        request._view.add_child(entity);
+                        request._view.select_entity(entity, false, false);
+                    }
 
+                    request._state.detach();
+                }
                 request.shutdown();
-                request._state.detach();
             }
         }
 
@@ -103,19 +90,34 @@ module labelling_tool {
                 delete DextrRequestState._openRequests[this.req.dextr_id];
             }
 
-            if (this._interval_id !== null) {
-                clearInterval(this._interval_id);
-                this._interval_id = null;
+            if (Object.keys(DextrRequestState._openRequests).length == 0) {
+                if (DextrRequestState._interval_id !== null) {
+                    clearInterval(DextrRequestState._interval_id);
+                    DextrRequestState._interval_id = null;
+                }
             }
         }
 
 
         send() {
-            console.log("Sending...");
-            this._sent = this._view.view.dextrRequest(this.req);
+            this._sent = this._view.view.sendDextrRequest(this.req);
             if (this._sent) {
                 // Add to list of open requests
                 DextrRequestState._openRequests[this.req.dextr_id] = this;
+            }
+            let polling_interval = this._view.view.dextrPollingInterval();
+            if (polling_interval !== undefined) {
+                this.enable_polling(polling_interval);
+            }
+        }
+
+        private enable_polling(interval_time: number) {
+            if (DextrRequestState._interval_id !== null) {
+                // Polling not yet enabled
+                let self = this;
+                DextrRequestState._interval_id = setInterval(function() {
+                    self._view.view.sendDextrPoll();
+                }, interval_time);
             }
         }
     }
@@ -159,8 +161,7 @@ module labelling_tool {
     /*
     Dextr marker
      */
-    export class DextrState {
-        root_view: RootLabelView;
+    export class DextrState extends PlaceHolderEntity {
         _points: Vector2[];
         _group: any;
         _point_markers: any[];
@@ -168,7 +169,7 @@ module labelling_tool {
 
 
         constructor(view: RootLabelView) {
-            this.root_view = view;
+            super(view);
             this._points = [];
             this._group = null;
             this._point_markers = [];
@@ -177,6 +178,7 @@ module labelling_tool {
 
 
         attach() {
+            super.attach();
             this._group = this.root_view.world.append("g");
             this._path = this._group.append("path");
             this._path.style("stroke-width", "1.5");
@@ -185,9 +187,15 @@ module labelling_tool {
         };
 
         detach() {
-            this._path.remove();
-            this._group.remove();
-            this._group = null;
+            if (this._path !== null) {
+                this._path.remove();
+                this._path = null;
+            }
+            if (this._group !== null) {
+                this._group.remove();
+                this._group = null;
+            }
+            super.detach();
         }
 
         add_point(p: Vector2) {

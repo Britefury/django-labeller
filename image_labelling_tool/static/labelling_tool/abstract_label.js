@@ -153,6 +153,35 @@ var labelling_tool;
     }());
     labelling_tool.AbstractLabelEntity = AbstractLabelEntity;
     /*
+    Place holder entity
+
+    Used to represent an entity that waits for some response for the server before being
+    replaced by e.g. a label generated automatically on the server
+     */
+    var PlaceHolderEntity = /** @class */ (function () {
+        function PlaceHolderEntity(view) {
+            this.root_view = view;
+            this._attached = false;
+        }
+        PlaceHolderEntity.prototype.attach = function () {
+            if (!this._attached) {
+                this.root_view._register_placeholder(this);
+                this._attached = true;
+            }
+        };
+        PlaceHolderEntity.prototype.detach = function () {
+            if (this._attached) {
+                this._attached = false;
+                this.root_view._unregister_placeholder(this);
+            }
+        };
+        PlaceHolderEntity.prototype.is_attached = function () {
+            return this._attached;
+        };
+        return PlaceHolderEntity;
+    }());
+    labelling_tool.PlaceHolderEntity = PlaceHolderEntity;
+    /*
     Map label type to entity constructor
      */
     var label_type_to_entity_factory = {};

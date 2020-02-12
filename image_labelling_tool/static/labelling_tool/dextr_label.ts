@@ -112,7 +112,7 @@ module labelling_tool {
         }
 
         private enable_polling(interval_time: number) {
-            if (DextrRequestState._interval_id !== null) {
+            if (DextrRequestState._interval_id == null) {
                 // Polling not yet enabled
                 let self = this;
                 DextrRequestState._interval_id = setInterval(function() {

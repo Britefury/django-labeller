@@ -98,7 +98,7 @@ var labelling_tool;
             }
         };
         DextrRequestState.prototype.enable_polling = function (interval_time) {
-            if (DextrRequestState._interval_id !== null) {
+            if (DextrRequestState._interval_id == null) {
                 // Polling not yet enabled
                 var self_1 = this;
                 DextrRequestState._interval_id = setInterval(function () {

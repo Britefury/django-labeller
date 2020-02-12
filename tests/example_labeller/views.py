@@ -1,17 +1,17 @@
 import os, datetime, json
-
-import numpy as np
+import celery.result
 
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from django.conf import settings
+import django.utils.timezone
 
 from image_labelling_tool import labelling_tool
 from image_labelling_tool import models as lt_models
 from image_labelling_tool import labelling_tool_views
 
-from . import models
+from . import models, tasks
 
 
 @ensure_csrf_cookie
@@ -52,37 +52,6 @@ def tool(request):
 
 
 class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
-    def _apply_dextr(self, image, dextr_points_np):
-        if settings.LABELLING_TOOL_DEXTR_WEIGHTS_PATH is not None:
-            if not hasattr(self, '_dextr_model'):
-                import os
-                from dextr.dextr import ResNet101DeepLabDEXTR
-                import torch
-
-                dextr_weights = os.path.expanduser(settings.LABELLING_TOOL_DEXTR_WEIGHTS_PATH)
-
-                dextr_model = ResNet101DeepLabDEXTR()
-                dextr_model.load_weights(dextr_weights)
-
-                device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-                dextr_model.eval()
-                dextr_model.to(device)
-
-                self._dextr_model = dextr_model
-
-            import numpy as np
-            from PIL import Image
-
-            im = np.array(Image.open(image.image.path))
-
-            mask = self._dextr_model.inference(im, dextr_points_np)
-            regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)
-            regions_js = labelling_tool.PolygonLabel.regions_to_json(regions)
-            return regions_js
-        else:
-            return None
-
-
     def get_labels(self, request, image_id_str, *args, **kwargs):
         image = get_object_or_404(models.ImageWithLabels, id=int(image_id_str))
         return image.labels
@@ -112,11 +81,10 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
         """
         if settings.LABELLING_TOOL_DEXTR_AVAILABLE:
             image = get_object_or_404(models.ImageWithLabels, id=int(image_id_str))
-            dextr_points = np.array([[p['x'], p['y']] for p in dextr_points])
-            regions_js = self._apply_dextr(image, dextr_points)
-            return regions_js
-        else:
-            return None
+            cel_result = tasks.dextr.delay(image.image.path, dextr_points)
+            dtask = models.DextrTask(image=image, image_id_str=image_id_str, dextr_id=dextr_id, celery_task_id=cel_result.id)
+            dtask.save()
+        return None
 
     def dextr_poll(self, request):
         """
@@ -128,4 +96,22 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
                 'regions': contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
             }
         """
-        return None
+        oldest = django.utils.timezone.now() - datetime.timedelta(minutes=10)
+        to_remove = []
+        dextr_labels = []
+        for dtask in models.DextrTask.objects.all():
+            if dtask.creation_timestamp < oldest:
+                to_remove.append(dtask)
+            else:
+                uuid = dtask.celery_task_id
+                res = celery.result.AsyncResult(uuid)
+                if res.ready():
+                    regions = res.get()
+                    dextr_label = dict(image_id=dtask.image_id_str, dextr_id=dtask.dextr_id, regions=regions)
+                    dextr_labels.append(dextr_label)
+                    to_remove.append(dtask)
+
+        for r in to_remove:
+            r.delete()
+
+        return dextr_labels

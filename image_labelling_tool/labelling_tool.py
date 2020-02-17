@@ -639,14 +639,59 @@ class ImageLabels (object):
         return  ImageLabels(warped_labels, obj_table=warped_obj_table)
 
 
+    @staticmethod
+    def _label_class_list_to_mapping(label_classes, start_at=0):
+        """
+        Coerce label_classes to a mapping.
+
+        If it is a dict, leave it as is.
+
+        If it is a list, map class names to indices as per `render_label_classes` and `render_label_instances`.
+
+        :param label_classes:
+        :param start_at: Label offset
+        :return: `(cls_to_name, n_classes)`
+        """
+        if isinstance(label_classes, dict):
+            return label_classes, max(label_classes.values()) + 1
+        elif isinstance(label_classes, list) or isinstance(label_classes, tuple):
+            cls_to_index = {}
+            for i, cls in enumerate(label_classes):
+                if isinstance(cls, LabelClass):
+                    cls_to_index[cls.name] = i + start_at
+                elif isinstance(cls, six.string_types)  or  cls is None:
+                    cls_to_index[cls] = i + start_at
+                elif isinstance(cls, list)  or  isinstance(cls, tuple):
+                    for c in cls:
+                        if isinstance(c, LabelClass):
+                            cls_to_index[c.name] = i + start_at
+                        elif isinstance(c, six.string_types)  or  c is None:
+                            cls_to_index[c] = i + start_at
+                        else:
+                            raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
+                                            'LabelClass or a string but a {1}'.format(i, type(c).__name__))
+                else:
+                    raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
+                                    'but a {1}'.format(i, type(cls).__name__))
+            return cls_to_index, len(label_classes)
+        else:
+            raise TypeError('label_classes must be a dict or a sequence. The sequence can contain LabelClass '
+                            'instances, strings or nested sequences of the former')
+
+
     def render_label_classes(self, label_classes, image_shape, multichannel_mask=False, fill=True, ctx=None):
         """
         Render label classes to a create a label class image suitable for use as a
         semantic segmentation ground truth image.
 
-        :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
+        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
+            If a dictionary is used, note that the background of a non-multichannel image will be filled with 0,
+            so avoid using values of zero.
+            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
+            within the item to be mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present `label_classes` are ignored.
+            E.g. [['tree', 'grass'], ['building']] will render labels of class 'tree' or 'grass' with the value 1
+            and labels of class 'building' with the value 2
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
         :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
             background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
@@ -656,34 +701,12 @@ class ImageLabels (object):
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
         """
-        if isinstance(label_classes, list) or isinstance(label_classes, tuple):
-            cls_to_index = {}
-            for i, cls in enumerate(label_classes):
-                if isinstance(cls, LabelClass):
-                    cls_to_index[cls.name] = i
-                elif isinstance(cls, six.string_types)  or  cls is None:
-                    cls_to_index[cls] = i
-                elif isinstance(cls, list)  or  isinstance(cls, tuple):
-                    for c in cls:
-                        if isinstance(c, LabelClass):
-                            cls_to_index[c.name] = i
-                        elif isinstance(c, six.string_types)  or  c is None:
-                            cls_to_index[c] = i
-                        else:
-                            raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
-                                            'LabelClass or a string but a {1}'.format(i, type(c).__name__))
-                else:
-                    raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
-                                    'but a {1}'.format(i, type(cls).__name__))
-        else:
-            raise TypeError('label_classes must be a sequence that can contain LabelClass instances, strings or '
-                            'sub-sequences of the former')
-
+        cls_to_index, n_classes = self._label_class_list_to_mapping(label_classes, 0 if multichannel_mask else 1)
 
         height, width = image_shape
 
         if multichannel_mask:
-            label_image = np.zeros((height, width, len(label_classes)), dtype=bool)
+            label_image = np.zeros((height, width, n_classes), dtype=bool)
         else:
             label_image = np.zeros((height, width), dtype=int)
 
@@ -696,7 +719,7 @@ class ImageLabels (object):
                     if multichannel_mask:
                         label_image[:,:,label_cls_n] |= mask
                     else:
-                        label_image[mask] = label_cls_n + 1
+                        label_image[mask] = label_cls_n
 
         return label_image
 
@@ -708,9 +731,13 @@ class ImageLabels (object):
 
         To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
 
-        :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
+        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
+            If a dictionary is used, note that the background of a non-multichannel image will be filled with 0.
+            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
+            within the item to be mapped to the same label index. Each class should be a string giving the class name
+            or a `LabelClass` instance. Labels whose class are not present `label_classes` are ignored.
+            E.g. [['tree', 'grass'], ['building']] will render labels of class 'tree' or 'grass' with the value 1
+            and labels of class 'building' with the value 2
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
         :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
             background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
@@ -720,34 +747,11 @@ class ImageLabels (object):
         :param image_shape: `None`, or a `(height, width)` tuple specifying the shape of the image to be rendered
         :return: tuple of (label_image, label_index_to_cls) where:
             label_image is a (H,W) array with dtype=int
-            label_index_to_cls is a 1D array that gives the class index of each labels. The first entry
-                at index 0 will have a value of 0 as it is the background label. The class indices are the
-                index of the class in `label_class` + 1.
+            label_index_to_cls is a 1D array that gives the class index of each labels. If `multichannel_mask` is
+                False, the first entry at index 0 will have a value of 0 as it is the background label.
+                The class indices are the index of the class in `label_class` + 1. Otherwise
         """
-        # Create `cls_to_channel`
-        if isinstance(label_classes, list) or isinstance(label_classes, tuple):
-            cls_to_index = {}
-            for i, cls in enumerate(label_classes):
-                if isinstance(cls, LabelClass):
-                    cls_to_index[cls.name] = i
-                elif isinstance(cls, six.string_types)  or  cls is None:
-                    cls_to_index[cls] = i
-                elif isinstance(cls, list)  or  isinstance(cls, tuple):
-                    for c in cls:
-                        if isinstance(c, LabelClass):
-                            cls_to_index[c.name] = i
-                        elif isinstance(c, six.string_types):
-                            cls_to_index[c] = i
-                        else:
-                            raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
-                                            'LabelClass or a string but a {1}'.format(i, type(c).__name__))
-                else:
-                    raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
-                                    'but a {1}'.format(i, type(cls).__name__))
-        else:
-            raise TypeError('label_classes must be a sequence that can contain LabelClass instances, strings or '
-                            'sub-sequences of the former')
-
+        cls_to_index, _ = self._label_class_list_to_mapping(label_classes, 1)
 
         height, width = image_shape
 
@@ -758,8 +762,12 @@ class ImageLabels (object):
             label_image = np.zeros((height, width), dtype=int)
             label_image_stack = None
 
-        label_i = 1
-        label_index_to_cls = [0]
+        if multichannel_mask:
+            label_i = 0
+            label_index_to_cls = []
+        else:
+            label_i = 1
+            label_index_to_cls = [0]
         for label in self.labels:
             label_cls = cls_to_index.get(label.classification, None)
             if label_cls is not None:
@@ -770,7 +778,7 @@ class ImageLabels (object):
                         label_image_stack.append(mask)
                     else:
                         label_image[mask] = label_i
-                    label_index_to_cls.append(label_cls + 1)
+                    label_index_to_cls.append(label_cls)
                     label_i += 1
 
         if label_image_stack:
@@ -1081,8 +1089,9 @@ class AbsractLabelledImage (object):
         Render label classes to a create a label class image suitable for use as a
         semantic segmentation ground truth image.
 
-        :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index. Each class should be a string giving the class name
+        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
+            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
+            within the item to be mapped to the same label index. Each class should be a string giving the class name
             or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
         :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
             background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
@@ -1102,8 +1111,9 @@ class AbsractLabelledImage (object):
 
         To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
 
-        :param label_classes: a sequence of classes. If an item is a list or tuple, the classes contained
-            within are mapped to the same label index. Each class should be a string giving the class name
+        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
+            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
+            within the item to be mapped to the same label index. Each class should be a string giving the class name
             or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
         :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
             background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
@@ -1333,8 +1343,11 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
 
     @classmethod
-    def for_directory(cls, dir_path, image_filename_pattern='*.png', with_labels_only=False, labels_dir=None, readonly=False):
-        image_paths = glob.glob(os.path.join(dir_path, image_filename_pattern))
+    def for_directory(cls, dir_path, image_filename_patterns=['*.png'], with_labels_only=False,
+                      labels_dir=None, readonly=False):
+        image_paths = []
+        for pat in image_filename_patterns:
+            image_paths.extend(glob.glob(os.path.join(dir_path, pat)))
         limgs = []
         for img_path in image_paths:
             labels_path = cls.__compute_labels_path(img_path, labels_dir=labels_dir)

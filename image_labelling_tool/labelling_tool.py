@@ -25,6 +25,7 @@
 
 
 import mimetypes, json, os, glob, io, math, six, traceback, itertools
+import copy
 
 import numpy as np
 
@@ -624,6 +625,17 @@ class ImageLabels (object):
         return histogram
 
 
+    def retain(self, indices):
+        """
+        Create a clone of the labels listed in `indices`
+
+        :param indices: A list of indices that lists the labels that are to be returned
+        :return: `ImageLabels` instance
+        """
+        retained_labels = copy.deepcopy([self.labels[i] for i in indices])
+        return ImageLabels(retained_labels)
+
+
     def warp(self, xform_fn):
         """
         Warp the labels given a warping function
@@ -636,7 +648,7 @@ class ImageLabels (object):
         """
         warped_obj_table = ObjectTable()
         warped_labels = [lab.warped(xform_fn, warped_obj_table) for lab in self.labels]
-        return  ImageLabels(warped_labels, obj_table=warped_obj_table)
+        return ImageLabels(warped_labels, obj_table=warped_obj_table)
 
 
     @staticmethod
@@ -855,6 +867,21 @@ class ImageLabels (object):
         return {'image_filename': image_filename,
                 'complete': complete,
                 'labels': self.to_json()}
+
+
+    @classmethod
+    def merge(cls, *image_labels):
+        """
+        Merge multiple `ImageLabel` label collections.
+
+        :param image_labels: `ImageLabel` instances to merge
+        :return: `ImageLabels` instance
+        """
+        merged_labels = []
+        for il in image_labels:
+            merged_labels.extend(copy.deepcopy(il.labels))
+        return ImageLabels(merged_labels)
+
 
     @staticmethod
     def from_json(label_data_js):

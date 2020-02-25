@@ -23,7 +23,8 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, use_reloader=True, debug=True):
+def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, use_reloader=True, debug=True,
+                   port=None):
     import json
 
     from flask import Flask, render_template, request, make_response, send_from_directory
@@ -167,13 +168,8 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
 
 
 
-    @app.route('/ext_static/<path:filename>')
-    def base_static(filename):
-        return send_from_directory(app.root_path + '/../ext_static/', filename)
-
-
     if socketio is not None:
-        socketio.run(app, debug=debug, use_reloader=use_reloader)
+        socketio.run(app, debug=debug, port=port, use_reloader=use_reloader)
     else:
-        app.run(debug=debug, use_reloader=use_reloader)
+        app.run(debug=debug, port=port, use_reloader=use_reloader)
 

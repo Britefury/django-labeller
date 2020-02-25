@@ -507,6 +507,7 @@ class GroupLabel (AbstractLabel):
         for comp in self.component_labels:
             for f in comp.flatten():
                 yield f
+        yield self
 
     def bounding_box(self, ctx=None):
         lowers, uppers = list(zip(*[comp.bounding_box(ctx) for comp in self.component_labels]))
@@ -880,6 +881,9 @@ class ImageLabels (object):
         merged_labels = []
         for il in image_labels:
             merged_labels.extend(copy.deepcopy(il.labels))
+        for label in merged_labels:
+            for f_label in label.flatten():
+                f_label.object_id = None
         return ImageLabels(merged_labels)
 
 

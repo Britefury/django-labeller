@@ -32,71 +32,80 @@
     <aside class="tool_bar text-light">
         <!-- Tasks section !-->
         <div class="anno_lockable">
-            <div class="tool_bar_header">Tasks</div>
-            <div class="tool_bar_content">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="task_finished" name="task_finished">
-                    <label class="form-check-label" for="task_finished">Finished</label>
+            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Tasks</div>
+
+            <div class="collapse show tool_bar_group" id="tool_group_tasks">
+                <div class="tool_bar_content">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="task_finished" name="task_finished">
+                        <label class="form-check-label" for="task_finished">Finished</label>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Label visibility section !-->
-        <div class="tool_bar_header" data-toggle="tooltip" data-placement="right"
+{#        <div class="tool_bar_header" data-toggle="tooltip" data-placement="right"#}
+{#                   title="Control overall appearance, filter by class">Label visibility</div>#}
+        <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_label_vis"
                    title="Control overall appearance, filter by class">Label visibility</div>
-        <!-- Labels hidden, faint or full !-->
-        <div class="btn-group btn-group-toggle tool_bar_content" data-toggle="buttons">
-            <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
-                   title="Make labels completely invisible">
-                <input type="radio" name="labelvis" value="hidden" id="label_vis_radio_hidden"
-                       autocomplete="off">
-                Hidden
-            </label>
-            <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
-                   title="Make labels faint, revealing image underneath">
-                <input type="radio" name="labelvis" value="faint" id="label_vis_radio_faint" autocomplete="off">
-                Faint
-            </label>
-            <label class="btn btn-sm btn-info active" data-toggle="tooltip" data-placement="top"
-                   title="Labels fully visible">
-                <input type="radio" name="labelvis" value="full" id="label_vis_radio_full" autocomplete="off"
-                       checked> Full
-            </label>
-        </div>
+        <div class="collapse show tool_bar_group" id="tool_group_label_vis">
 
-        {% if not labelling_tool_config.tools.labelClassFilter == False %}
-            <!-- Filter labels by class !-->
-            <div class="tool_bar_content">
-                Filter by label class:
-                {% if not labelling_tool_config.useClassSelectorPopup == False %}
-                    <button class="btn btn-sm btn-secondary w-100" id="label_class_filter_menu_btn"><span class="menu_choice">-- ALL --</span> <span class="oi oi-chevron-bottom"></span></button>
-                {% else %}
-                    <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_select">
-                        <option value="__all" selected="true">-- ALL --</option>
-                        {% for group in label_class_groups %}
-                            <optgroup label="{{ group.group_name }}">
-                            {% for lcls in group.group_classes %}
-                                <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+            <!-- Labels hidden, faint or full !-->
+            <div class="btn-group btn-group-toggle tool_bar_content" data-toggle="buttons">
+                <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
+                       title="Make labels completely invisible">
+                    <input type="radio" name="labelvis" value="hidden" id="label_vis_radio_hidden"
+                           autocomplete="off">
+                    Hidden
+                </label>
+                <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
+                       title="Make labels faint, revealing image underneath">
+                    <input type="radio" name="labelvis" value="faint" id="label_vis_radio_faint" autocomplete="off">
+                    Faint
+                </label>
+                <label class="btn btn-sm btn-info active" data-toggle="tooltip" data-placement="top"
+                       title="Labels fully visible">
+                    <input type="radio" name="labelvis" value="full" id="label_vis_radio_full" autocomplete="off"
+                           checked> Full
+                </label>
+            </div>
+
+            {% if not labelling_tool_config.tools.labelClassFilter == False %}
+                <!-- Filter labels by class !-->
+                <div class="tool_bar_content">
+                    Filter by label class:
+                    {% if not labelling_tool_config.useClassSelectorPopup == False %}
+                        <button class="btn btn-sm btn-secondary w-100" id="label_class_filter_menu_btn"><span class="menu_choice">-- ALL --</span> <span class="oi oi-chevron-bottom"></span></button>
+                    {% else %}
+                        <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_select">
+                            <option value="__all" selected="true">-- ALL --</option>
+                            {% for group in label_class_groups %}
+                                <optgroup label="{{ group.group_name }}">
+                                {% for lcls in group.group_classes %}
+                                    <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+                                {% endfor %}
+                                </optgroup>
                             {% endfor %}
-                            </optgroup>
+                            <option value="__unclassified">UNCLASSIFIED</option>
+                        </select>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+
+            <!-- Colour scheme !-->
+            <div class="tool_bar_content">
+                {% if colour_schemes %}
+                    Colour scheme:
+                    <select class="form-control btn-sm bg-secondary border-secondary text-light" id="colour_scheme_menu">
+                        {% for cs in colour_schemes %}
+                            <option value="{{ cs.name }}">{{ cs.human_name }}</option>
                         {% endfor %}
-                        <option value="__unclassified">UNCLASSIFIED</option>
                     </select>
                 {% endif %}
             </div>
-        {% endif %}
 
-
-        <!-- Colour scheme !-->
-        <div class="tool_bar_content">
-            {% if colour_schemes %}
-                Colour scheme:
-                <select class="form-control btn-sm bg-secondary border-secondary text-light" id="colour_scheme_menu">
-                    {% for cs in colour_schemes %}
-                        <option value="{{ cs.name }}">{{ cs.human_name }}</option>
-                    {% endfor %}
-                </select>
-            {% endif %}
         </div>
 
 
@@ -110,76 +119,85 @@
 
         <!-- Tools section !-->
         <div class="anno_lockable">
-            <div class="tool_bar_header">Select</div>
+            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_select">Select</div>
 
-            <div class="tool_bar_content">
-                {% if not labelling_tool_config.tools.deleteLabel == False %}
-                    <button class="btn btn-sm btn-danger w-25 float-right" type="button" id="delete_label_button" data-toggle="tooltip"
-                            data-placement="top" title="Delete selected labels (groups will be opened; the group will
-                            be deleted but its members will remain)">
-                        <span class="oi oi-trash"></span></button>
-                {% endif %}
+            <div class="collapse show tool_bar_group" id="tool_group_select">
 
-                <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
-                        data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
-                        selection">Pick</button>
-                {% if not labelling_tool_config.tools.brushSelect == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_brush_button" data-toggle="tooltip"
-                        data-placement="top" title="Select labels by sweeping a brush over them,
-                        change brush size with &lt;shift&gt;+scroll">Brush</button>
-                {% endif %}
-            </div>
-
-            {% if not labelling_tool_config.tools.labelClassSelector == False %}
                 <div class="tool_bar_content">
-                    Change class:
+                    {% if not labelling_tool_config.tools.deleteLabel == False %}
+                        <button class="btn btn-sm btn-danger w-25 float-right" type="button" id="delete_label_button" data-toggle="tooltip"
+                                data-placement="top" title="Delete selected labels (groups will be opened; the group will
+                                be deleted but its members will remain)">
+                            <span class="oi oi-trash"></span></button>
+                    {% endif %}
 
-                    <!-- Change class drop-down !-->
-                    {% if not labelling_tool_config.useClassSelectorPopup == False %}
-                        <button class="btn btn-sm btn-secondary w-100" id="label_class_selector_menu_btn"><span class="menu_choice">UNCLASSIFIED</span> <span class="oi oi-chevron-bottom"></span></button>
-                    {% else %}
-                        <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_select">
-                            {% for group in label_class_groups %}
-                                <optgroup label="{{ group.group_name }}">
-                                {% for lcls in group.group_classes %}
-                                    <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
-                                {% endfor %}
-                                </optgroup>
-                            {% endfor %}
-                            <option value="__unclassified" selected="true">UNCLASSIFIED</option>
-                        </select>
+                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
+                            data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
+                            selection">Pick</button>
+                    {% if not labelling_tool_config.tools.brushSelect == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_brush_button" data-toggle="tooltip"
+                            data-placement="top" title="Select labels by sweeping a brush over them,
+                            change brush size with &lt;shift&gt;+scroll">Brush</button>
                     {% endif %}
                 </div>
-            {% endif %}
+
+                {% if not labelling_tool_config.tools.labelClassSelector == False %}
+                    <div class="tool_bar_content">
+                        Change class:
+
+                        <!-- Change class drop-down !-->
+                        {% if not labelling_tool_config.useClassSelectorPopup == False %}
+                            <button class="btn btn-sm btn-secondary w-100" id="label_class_selector_menu_btn"><span class="menu_choice">UNCLASSIFIED</span> <span class="oi oi-chevron-bottom"></span></button>
+                        {% else %}
+                            <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_select">
+                                {% for group in label_class_groups %}
+                                    <optgroup label="{{ group.group_name }}">
+                                    {% for lcls in group.group_classes %}
+                                        <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
+                                    {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                                <option value="__unclassified" selected="true">UNCLASSIFIED</option>
+                            </select>
+                        {% endif %}
+                    </div>
+                {% endif %}
+
+            </div>
 
 
-            <div class="tool_bar_header">Edit labels</div>
-            <div class="tool_bar_content">
-                {% if not labelling_tool_config.tools.drawPolyLabel == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-toggle="tooltip"
-                        data-placement="top" title="Draw a polygonal label">Poly</button>
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-toggle="tooltip"
-                        data-placement="top" title="Merge polygonal labels; select labels first then
-                        click here to merge them">MergeP</button>
-                {% endif %}
-                {% if not labelling_tool_config.tools.drawBoxLabel == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-toggle="tooltip"
-                        data-placement="top" title="Draw a box label">Box</button>
-                {% endif %}
-                {% if not labelling_tool_config.tools.drawPointLabel == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_point_button" data-toggle="tooltip"
-                        data-placement="top" title="Draw a point label">Point</button>
-                {% endif %}
-                {% if not labelling_tool_config.tools.groupLabel == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_group_button" data-toggle="tooltip"
-                        data-placement="top" title="Group labels together; select labels first then
-                        click here to group them">Group</button>
-                {% endif %}
-                {% if not labelling_tool_config.tools.compositeLabel == False %}
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_composite_button" data-toggle="tooltip"
-                        data-placement="top" title="Associate labels; select labels first then
-                        click here to associate them">Assoc.</button>
-                {% endif %}
+            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_edit">Edit labels</div>
+
+            <div class="collapse show tool_bar_group" id="tool_group_edit">
+
+                <div class="tool_bar_content">
+                    {% if not labelling_tool_config.tools.drawPolyLabel == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-toggle="tooltip"
+                            data-placement="top" title="Draw a polygonal label">Poly</button>
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-toggle="tooltip"
+                            data-placement="top" title="Merge polygonal labels; select labels first then
+                            click here to merge them">MergeP</button>
+                    {% endif %}
+                    {% if not labelling_tool_config.tools.drawBoxLabel == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-toggle="tooltip"
+                            data-placement="top" title="Draw a box label">Box</button>
+                    {% endif %}
+                    {% if not labelling_tool_config.tools.drawPointLabel == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_point_button" data-toggle="tooltip"
+                            data-placement="top" title="Draw a point label">Point</button>
+                    {% endif %}
+                    {% if not labelling_tool_config.tools.groupLabel == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_group_button" data-toggle="tooltip"
+                            data-placement="top" title="Group labels together; select labels first then
+                            click here to group them">Group</button>
+                    {% endif %}
+                    {% if not labelling_tool_config.tools.compositeLabel == False %}
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_composite_button" data-toggle="tooltip"
+                            data-placement="top" title="Associate labels; select labels first then
+                            click here to associate them">Assoc.</button>
+                    {% endif %}
+                </div>
+
             </div>
         </div>
 

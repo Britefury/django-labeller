@@ -377,6 +377,36 @@ module labelling_tool {
 
             this._lockNotification = $('#lock_warning');
 
+
+            // Full screen button
+            var fullscreen_button = $('#btn_fullscreen');
+
+            fullscreen_button.click(function (event: any) {
+                if (document.fullscreenElement) {
+                    // In full screen mode
+                    document.exitFullscreen();
+                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
+                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
+                }
+                else {
+                    var elem = $(event.target).closest("div.image_annotator")[0];
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
+                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
+                    }
+                }
+                event.preventDefault();
+            });
+
+
+
+           /*
+            *
+            * TOOL PANEL
+            *
+            */
+
             this._complete_checkbox = $('#task_finished');
             this._complete_checkbox.change(function(event, ui) {
                 self.root_view.set_complete((event.target as any).checked);

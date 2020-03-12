@@ -39,8 +39,8 @@ module labelling_tool {
         position: Vector2;
     }
 
-    function new_PointLabelModel(position: Vector2, label_class: string): PointLabelModel {
-        return {label_type: 'point', label_class: label_class, position: position};
+    function new_PointLabelModel(position: Vector2, label_class: string, source: string): PointLabelModel {
+        return {label_type: 'point', label_class: label_class, source: source, position: position};
     }
 
 
@@ -197,7 +197,7 @@ module labelling_tool {
 
         create_entity(position: Vector2) {
             var label_class = this._view.view.get_label_class_for_new_label();
-            var model = new_PointLabelModel(position, label_class);
+            var model = new_PointLabelModel(position, label_class, "manual");
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             this._view.add_child(entity);

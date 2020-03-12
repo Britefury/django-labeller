@@ -44,8 +44,8 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_PointLabelModel(position, label_class) {
-        return { label_type: 'point', label_class: label_class, position: position };
+    function new_PointLabelModel(position, label_class, source) {
+        return { label_type: 'point', label_class: label_class, source: source, position: position };
     }
     /*
     Point label entity
@@ -173,7 +173,7 @@ var labelling_tool;
         ;
         DrawPointTool.prototype.create_entity = function (position) {
             var label_class = this._view.view.get_label_class_for_new_label();
-            var model = new_PointLabelModel(position, label_class);
+            var model = new_PointLabelModel(position, label_class, "manual");
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             this._view.add_child(entity);

@@ -40,8 +40,8 @@ module labelling_tool {
         size: Vector2;
     }
 
-    function new_BoxLabelModel(centre: Vector2, size: Vector2, label_class: string): BoxLabelModel {
-        return {label_type: 'box', label_class: label_class, centre: centre, size: size};
+    function new_BoxLabelModel(centre: Vector2, size: Vector2, label_class: string, source: string): BoxLabelModel {
+        return {label_type: 'box', label_class: label_class, source: source, centre: centre, size: size};
     }
 
     function BoxLabel_box(label: BoxLabelModel): AABox {
@@ -243,7 +243,7 @@ module labelling_tool {
 
         create_entity(pos: Vector2) {
             var label_class = this._view.view.get_label_class_for_new_label();
-            var model = new_BoxLabelModel(pos, {x: 0.0, y: 0.0}, label_class);
+            var model = new_BoxLabelModel(pos, {x: 0.0, y: 0.0}, label_class, "manual");
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend

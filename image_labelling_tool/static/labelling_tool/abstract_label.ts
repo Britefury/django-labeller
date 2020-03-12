@@ -27,6 +27,7 @@ Dr. M. Mackiewicz.
 
 /// <reference path="../d3.d.ts" />
 /// <reference path="./math_primitives.ts" />
+/// <reference path="./root_label_view.ts" />
 
 module labelling_tool {
     /*
@@ -35,6 +36,7 @@ module labelling_tool {
     export interface AbstractLabelModel {
         label_type: string;
         label_class: string;
+        source: string;
     }
 
 

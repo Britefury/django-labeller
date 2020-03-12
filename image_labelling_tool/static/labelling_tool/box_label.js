@@ -44,8 +44,8 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_BoxLabelModel(centre, size, label_class) {
-        return { label_type: 'box', label_class: label_class, centre: centre, size: size };
+    function new_BoxLabelModel(centre, size, label_class, source) {
+        return { label_type: 'box', label_class: label_class, source: source, centre: centre, size: size };
     }
     function BoxLabel_box(label) {
         var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
@@ -214,7 +214,7 @@ var labelling_tool;
         ;
         DrawBoxTool.prototype.create_entity = function (pos) {
             var label_class = this._view.view.get_label_class_for_new_label();
-            var model = new_BoxLabelModel(pos, { x: 0.0, y: 0.0 }, label_class);
+            var model = new_BoxLabelModel(pos, { x: 0.0, y: 0.0 }, label_class, "manual");
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             // Freeze to prevent this temporary change from being sent to the backend
@@ -253,4 +253,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=box_label.js.map

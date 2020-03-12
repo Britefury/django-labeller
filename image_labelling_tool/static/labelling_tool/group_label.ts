@@ -36,8 +36,8 @@ module labelling_tool {
         component_models: AbstractLabelModel[];
     }
 
-    export function new_GroupLabelModel(label_class: string): GroupLabelModel {
-        return {label_type: 'group', label_class: label_class, component_models: []};
+    export function new_GroupLabelModel(label_class: string, source: string): GroupLabelModel {
+        return {label_type: 'group', label_class: label_class, source: source, component_models: []};
     }
 
 

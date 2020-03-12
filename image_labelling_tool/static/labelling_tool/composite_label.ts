@@ -36,8 +36,8 @@ module labelling_tool {
         components: number[];
     }
 
-    export function new_CompositeLabelModel(label_class: string): CompositeLabelModel {
-        return {label_type: 'composite', label_class: label_class, components: []};
+    export function new_CompositeLabelModel(label_class: string, source: string): CompositeLabelModel {
+        return {label_type: 'composite', label_class: label_class, source: source, components: []};
     }
 
 

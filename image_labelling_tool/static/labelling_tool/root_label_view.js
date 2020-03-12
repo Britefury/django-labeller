@@ -214,7 +214,7 @@ var labelling_tool;
             var N = this.selected_entities.length;
             if (N > 0) {
                 var label_class = this.view.get_label_class_for_new_label();
-                var model = labelling_tool.new_CompositeLabelModel(label_class);
+                var model = labelling_tool.new_CompositeLabelModel(label_class, "manual");
                 for (var i = 0; i < this.selected_entities.length; i++) {
                     var model_id = labelling_tool.ObjectIDTable.get_id(this.selected_entities[i].model);
                     model.components.push(model_id);
@@ -260,7 +260,7 @@ var labelling_tool;
                     }
                     label_class = best_class;
                 }
-                var model = labelling_tool.new_GroupLabelModel(label_class);
+                var model = labelling_tool.new_GroupLabelModel(label_class, "manual");
                 for (var i = 0; i < selection.length; i++) {
                     var entity = selection[i];
                     model.component_models.push(entity.model);

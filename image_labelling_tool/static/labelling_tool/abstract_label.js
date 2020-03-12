@@ -26,6 +26,7 @@ Dr. M. Mackiewicz.
  */
 /// <reference path="../d3.d.ts" />
 /// <reference path="./math_primitives.ts" />
+/// <reference path="./root_label_view.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     /*

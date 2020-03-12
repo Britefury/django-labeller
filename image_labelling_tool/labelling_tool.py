@@ -163,15 +163,18 @@ class LabelContext (object):
 class AbstractLabel (object):
     __json_type_name__ = None
 
-    def __init__(self, object_id=None, classification=None):
+    def __init__(self, object_id=None, classification=None, source=None):
         """
         Constructor
 
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
         self.object_id = object_id
         self.classification = classification
+        self.source = source
 
     @property
     def dependencies(self):
@@ -205,7 +208,10 @@ class AbstractLabel (object):
         return np.array(img)
 
     def to_json(self):
-        return dict(label_type=self.__json_type_name__, object_id=self.object_id, label_class=self.classification)
+        return dict(label_type=self.__json_type_name__,
+                    object_id=self.object_id,
+                    label_class=self.classification,
+                    source=self.source)
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
@@ -227,15 +233,17 @@ class AbstractLabel (object):
 class PointLabel (AbstractLabel):
     __json_type_name__ = 'point'
 
-    def __init__(self, position_xy, object_id=None, classification=None):
+    def __init__(self, position_xy, object_id=None, classification=None, source=None):
         """
         Constructor
 
         :param position_xy: position of point as a (2,) NumPy array providing the x and y co-ordinates
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
-        super(PointLabel, self).__init__(object_id, classification)
+        super(PointLabel, self).__init__(object_id, classification, source)
         self.position_xy = np.array(position_xy).astype(float)
 
     @property
@@ -279,22 +287,26 @@ class PointLabel (AbstractLabel):
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
         pos_xy = np.array([label_json['position']['x'], label_json['position']['y']])
-        return PointLabel(pos_xy, label_json.get('object_id'), label_json['label_class'])
+        return PointLabel(pos_xy, label_json.get('object_id'),
+                          classification=label_json['label_class'],
+                          source=label_json.get('source'))
 
 
 @label_cls
 class PolygonLabel (AbstractLabel):
     __json_type_name__ = 'polygon'
 
-    def __init__(self, regions, object_id=None, classification=None):
+    def __init__(self, regions, object_id=None, classification=None, source=None):
         """
         Constructor
 
         :param regions: list of regions where each region is an array of vertices as a (N,2) NumPy array providing the [x, y] co-ordinates
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
-        super(PolygonLabel, self).__init__(object_id, classification)
+        super(PolygonLabel, self).__init__(object_id, classification, source)
         regions = [np.array(region).astype(float) for region in regions]
         self.regions = regions
 
@@ -369,7 +381,9 @@ class PolygonLabel (AbstractLabel):
         else:
             regions_json = label_json['regions']
         regions = [np.array([[v['x'], v['y']] for v in region_json]) for region_json in regions_json]
-        return PolygonLabel(regions, label_json.get('object_id'), label_json['label_class'])
+        return PolygonLabel(regions, label_json.get('object_id'),
+                            classification=label_json['label_class'],
+                            source=label_json.get('source'))
 
 
     @staticmethod
@@ -435,7 +449,7 @@ class PolygonLabel (AbstractLabel):
 class BoxLabel (AbstractLabel):
     __json_type_name__ = 'box'
 
-    def __init__(self, centre_xy, size_xy, object_id=None, classification=None):
+    def __init__(self, centre_xy, size_xy, object_id=None, classification=None, source=None):
         """
         Constructor
 
@@ -443,8 +457,10 @@ class BoxLabel (AbstractLabel):
         :param size_xy: size of box as a (2,) NumPy array providing the x and y co-ordinates
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
-        super(BoxLabel, self).__init__(object_id, classification)
+        super(BoxLabel, self).__init__(object_id, classification, source)
         self.centre_xy = np.array(centre_xy).astype(float)
         self.size_xy = np.array(size_xy).astype(float)
 
@@ -496,22 +512,25 @@ class BoxLabel (AbstractLabel):
     def new_instance_from_json(cls, label_json, object_table):
         centre = np.array([label_json['centre']['x'], label_json['centre']['y']])
         size = np.array([label_json['size']['x'], label_json['size']['y']])
-        return BoxLabel(centre, size, label_json.get('object_id'), label_json['label_class'])
+        return BoxLabel(centre, size, label_json.get('object_id'),
+                        classification=label_json['label_class'], source=label_json.get('source'))
 
 
 @label_cls
 class CompositeLabel (AbstractLabel):
     __json_type_name__ = 'composite'
 
-    def __init__(self, components, object_id=None, classification=None):
+    def __init__(self, components, object_id=None, classification=None, source=None):
         """
         Constructor
 
         :param components: a list of label objects that are members of the composite label
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
-        super(CompositeLabel, self).__init__(object_id, classification)
+        super(CompositeLabel, self).__init__(object_id, classification, source)
         self.components = components
 
     @property
@@ -548,22 +567,26 @@ class CompositeLabel (AbstractLabel):
     def new_instance_from_json(cls, label_json, object_table):
         components = [object_table.get(obj_id) for obj_id in label_json['components']]
         components = [comp for comp in components if comp is not None]
-        return CompositeLabel(components, label_json.get('object_id'), label_json['label_class'])
+        return CompositeLabel(components, label_json.get('object_id'),
+                              classification=label_json['label_class'],
+                              source=label_json.get('source'))
 
 
 @label_cls
 class GroupLabel (AbstractLabel):
     __json_type_name__ = 'group'
 
-    def __init__(self, component_labels, object_id=None, classification=None):
+    def __init__(self, component_labels, object_id=None, classification=None, source=None):
         """
         Constructor
 
         :param component_labels: a list of label objects that are members of the group label
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
         """
-        super(GroupLabel, self).__init__(object_id, classification)
+        super(GroupLabel, self).__init__(object_id, classification, source)
         self.component_labels = component_labels
 
     def flatten(self):
@@ -603,7 +626,9 @@ class GroupLabel (AbstractLabel):
     def new_instance_from_json(cls, label_json, object_table):
         components = [AbstractLabel.from_json(comp, object_table)
                       for comp in label_json['component_models']]
-        return GroupLabel(components, label_json.get('object_id'), label_json['label_class'])
+        return GroupLabel(components, label_json.get('object_id'),
+                          classification=label_json['label_class'],
+                          source=label_json.get('source'))
 
 
 
@@ -991,7 +1016,7 @@ class ImageLabels (object):
 
 
     @classmethod
-    def from_contours(cls, label_contours, label_classes=None):
+    def from_contours(cls, label_contours, label_classes=None, sources=None):
         """
         Convert a list of contours to an `ImageLabels` instance.
 
@@ -1002,24 +1027,50 @@ class ImageLabels (object):
                 If it contains more than one, a polygonal label is created for each member contour
                 and they are combined with a group.
         :param label_classes: [optional] a list of the same length as `list_of_contours` that provides
-                the label class of each contour
+                the label class of each contour, or a string to assign the same class to every label
+        :param sources: [optional] a list of the same length as `list_of_contours` that provides
+                the source of each contour, or a string to assign the same source to every label
         :return: an `ImageLabels` instance containing the labels extracted from the contours
         """
         obj_table = ObjectTable()
         labels = []
         if isinstance(label_classes, str) or label_classes is None:
             label_classes = itertools.repeat(label_classes)
-        for contours_in_label, lcls in zip(label_contours, label_classes):
+        if isinstance(sources, str) or sources is None:
+            sources = itertools.repeat(sources)
+        for contours_in_label, lcls, lsrc in zip(label_contours, label_classes, sources):
             regions = [contour[:, ::-1] for contour in contours_in_label]
-            poly = PolygonLabel(regions, classification=lcls)
+            poly = PolygonLabel(regions, classification=lcls, source=lsrc)
             obj_table.register(poly)
             labels.append(poly)
 
         return cls(labels, obj_table=obj_table)
 
 
+    @staticmethod
+    def _get_label_meta(meta, label_i):
+        """
+        Get label metadata from a metadata mapping:
+        - if `meta` is None, will return `None`
+        - if `meta` is a str, will return `meta`
+        - if `meta` is a dict, will return `meta.get(label_i)`
+        - if `meta` is a list, will return `meta[label_i]`
+
+        :param meta: metadata mapping
+        :param label_i: label index
+        :return: label metadatga
+        """
+        if meta is None or isinstance(meta, str):
+            return meta
+        elif isinstance(meta, dict):
+            return meta.get(label_i)
+        elif isinstance(meta, list):
+            return meta[label_i]
+        else:
+            raise TypeError
+
     @classmethod
-    def from_label_image(cls, labels):
+    def from_label_image(cls, labels, label_classes=None, sources=None):
         """
         Convert a integer label image to an `ImageLabels` instance.
 
@@ -1028,9 +1079,20 @@ class ImageLabels (object):
         :param labels: a `(h,w)` numpy array of dtype `int32` that gives an integer label for each
                 pixel in the image. Label values start at 1; pixels with a value of 0 will not be
                 included in the returned labels.
+        :param label_classes: [optional] either:
+                - a list that provides the class of each integer label (element 0 will be ignored)
+                - a dict that maps label index to class
+                - a string to assign the same class to every label
+        :param sources: [optional] provides label sources; has the same format as `label_classes`
         :return: an `ImageLabels` instance containing the labels extracted from the label mask image
         """
+        if label_classes is not None and not isinstance(label_classes, (str, dict, list)):
+            raise TypeError('label_classes should be None, a str, a dict or a list, not {}'.format(type(label_classes)))
+        if sources is not None and not isinstance(sources, (str, dict, list)):
+            raise TypeError('sources should be None, a str, a dict or a list, not {}'.format(type(sources)))
         contours = []
+        lcls = []
+        lsrc = []
         for i in range(1, labels.max()+1):
             lmask = labels == i
 
@@ -1042,11 +1104,16 @@ class ImageLabels (object):
                     mask_trim = lmask[ystart:ystop, xstart:xstop]
                     mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
                     cs = find_contours(mask_trim, 0.5)
+                    regions = []
                     for contour in cs:
                         simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
                         if simp is not None:
-                            contours.append([simp])
-        return cls.from_contours(contours)
+                            regions.append([simp])
+                    contours.append(regions)
+                    lcls.append(cls._get_label_meta(label_classes, i))
+                    lsrc.append(cls._get_label_meta(sources, i))
+
+        return cls.from_contours(contours, lcls, lsrc)
 
 
     @staticmethod
@@ -1061,29 +1128,29 @@ class ImageLabels (object):
         return np.array(contour_areas)
 
     @classmethod
-    def from_mask_images_cv(cls, masks, label_classes=None, sort_decreasing_area=True):
+    def from_mask_images_cv(cls, masks, label_classes=None, sources=None, sort_decreasing_area=True):
         """
         Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
         Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
 
         Raises RuntimeError is OpenCV is not available.
 
-        :param masks: a sequence of mask images - can be a generator. Each mask is a `(H,W)` array
+        :param masks: a sequence of mask images - can be a generator or a 3D array. Each mask is a `(H,W)` array
             with non-zero values indicating pixels that are part of the label
-        :param label_classes: a sequence of strings identifying the class of the label represented by
-            each mask
+        :param label_classes: [optional] either:
+                - a list that provides the class of each mask
+                - a dict that maps mask index to class
+                - a string to assign the same class to every label
+        :param sources: [optional] provides label sources; has the same format as `label_classes`
+        :param sort_decreasing_area: (default True) if True, sort regions and labels in order of decreasing area
         :return: an `ImageLabels` instance
         """
         if cv2 is None:
             raise RuntimeError('OpenCV is not available!')
 
-        if label_classes is None:
-            # Default to all None
-            label_classes = itertools.repeat(None)
-
         mask_areas = []
-        image_contours_and_labels = []
-        for lab_msk, label_cls in zip(masks, label_classes):
+        contours_classes_sources = []
+        for mask_i, lab_msk in enumerate(masks):
             _, region_contours, _ = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_LIST,
                                                      cv2.CHAIN_APPROX_TC89_L1)
             region_contours = [contour[:, 0, ::-1] for contour in region_contours if len(contour) >= 3]
@@ -1098,16 +1165,18 @@ class ImageLabels (object):
                     order = np.argsort(areas)[::-1]
                     region_contours = [region_contours[i] for i in order]
 
-                image_contours_and_labels.append((region_contours, label_cls))
+                contours_classes_sources.append((region_contours,
+                                                 cls._get_label_meta(label_classes, mask_i),
+                                                 cls._get_label_meta(sources, mask_i)))
         mask_areas = np.array(mask_areas)
 
-        if sort_decreasing_area and len(image_contours_and_labels) > 0:
+        if sort_decreasing_area and len(contours_classes_sources) > 0:
             order = np.argsort(mask_areas)[::-1]
-            image_contours_and_labels = [image_contours_and_labels[i] for i in order]
+            contours_classes_sources = [contours_classes_sources[i] for i in order]
 
-        if len(image_contours_and_labels) > 0:
-            image_contours, image_labels = list(zip(*image_contours_and_labels))
-            return cls.from_contours(image_contours, image_labels)
+        if len(contours_classes_sources) > 0:
+            image_contours, lcls, lsrc = list(zip(*contours_classes_sources))
+            return cls.from_contours(image_contours, lcls, lsrc)
         else:
             return cls.from_contours([])
 

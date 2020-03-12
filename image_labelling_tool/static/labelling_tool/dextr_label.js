@@ -63,7 +63,7 @@ var labelling_tool;
             if (request !== undefined) {
                 if (request._state.is_attached()) {
                     if (regions.length > 0) {
-                        var model = labelling_tool.new_PolygonalLabelModel(request._label_class);
+                        var model = labelling_tool.new_PolygonalLabelModel(request._label_class, "auto:dextr");
                         model.regions = regions;
                         var entity = request._view.get_or_create_entity_for_model(model);
                         request._view.add_child(entity);

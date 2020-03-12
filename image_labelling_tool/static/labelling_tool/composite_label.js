@@ -41,8 +41,8 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./abstract_label.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_CompositeLabelModel(label_class) {
-        return { label_type: 'composite', label_class: label_class, components: [] };
+    function new_CompositeLabelModel(label_class, source) {
+        return { label_type: 'composite', label_class: label_class, source: source, components: [] };
     }
     labelling_tool.new_CompositeLabelModel = new_CompositeLabelModel;
     /*

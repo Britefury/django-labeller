@@ -41,8 +41,8 @@ var __extends = (this && this.__extends) || (function () {
 /// <reference path="./abstract_label.ts" />
 var labelling_tool;
 (function (labelling_tool) {
-    function new_GroupLabelModel(label_class) {
-        return { label_type: 'group', label_class: label_class, component_models: [] };
+    function new_GroupLabelModel(label_class, source) {
+        return { label_type: 'group', label_class: label_class, source: source, component_models: [] };
     }
     labelling_tool.new_GroupLabelModel = new_GroupLabelModel;
     /*
@@ -254,4 +254,3 @@ var labelling_tool;
         return new GroupLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=group_label.js.map

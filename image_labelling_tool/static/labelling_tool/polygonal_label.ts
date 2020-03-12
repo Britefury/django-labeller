@@ -42,8 +42,8 @@ module labelling_tool {
         regions: Vector2[][];
     }
 
-    export function new_PolygonalLabelModel(label_class: string): PolygonalLabelModel {
-        return {label_type: 'polygon', label_class: label_class, regions: []};
+    export function new_PolygonalLabelModel(label_class: string, source: string): PolygonalLabelModel {
+        return {label_type: 'polygon', label_class: label_class, source: source, regions: []};
     }
 
     let shape_line: any = d3.svg.line()
@@ -312,7 +312,7 @@ module labelling_tool {
                         }
                     }
 
-                    var merged_model = new_PolygonalLabelModel(best_class);
+                    var merged_model = new_PolygonalLabelModel(best_class, "manual");
                     merged_model.regions = EditPolyTool._polybool_to_model(merged_pb);
 
                     for (var i = 0; i < selection.length; i++) {
@@ -571,7 +571,7 @@ module labelling_tool {
 
         create_entity() {
             var label_class = this._view.view.get_label_class_for_new_label();
-            var model = new_PolygonalLabelModel(label_class);
+            var model = new_PolygonalLabelModel(label_class, "manual");
             var entity = this._view.get_or_create_entity_for_model(model);
             this.entity = entity;
             this._view.add_child(entity);
@@ -585,6 +585,7 @@ module labelling_tool {
                 if (this.boolean_mode === BooleanMode.NEW || this.boolean_mode === BooleanMode.ADD) {
                     this.create_entity();
                     this.entity.model.regions = regions;
+                    this.entity.model.source = "manual";
                     this.entity.update();
                 }
             }
@@ -594,6 +595,7 @@ module labelling_tool {
                 if (this.boolean_mode === BooleanMode.ADD) {
                     let composite_pb = PolyBool.union(existing_pb,  new_pb);
                     this.entity.model.regions = EditPolyTool._polybool_to_model(composite_pb);
+                    this.entity.model.source = "manual";
                     this.entity.commit();
                     this.entity.update();
                 }
@@ -606,6 +608,7 @@ module labelling_tool {
                     }
                     else {
                         this.entity.model.regions = EditPolyTool._polybool_to_model(composite_pb);
+                        this.entity.model.source = "manual";
                         this.entity.commit();
                         this.entity.update();
                     }
@@ -620,10 +623,11 @@ module labelling_tool {
                     // a new entity.
                     if (remaining_pb.regions.length > 0 && split_pb.regions.length > 0) {
                         this.entity.model.regions = EditPolyTool._polybool_to_model(remaining_pb);
+                        this.entity.model.source = "manual";
                         // No need to commit this entity as adding the new one below will send the changes
                         this.entity.update();
 
-                        var split_model = new_PolygonalLabelModel(this.entity.model.label_class);
+                        var split_model = new_PolygonalLabelModel(this.entity.model.label_class, "manual");
                         split_model.regions = EditPolyTool._polybool_to_model(split_pb);
                         var split_entity = this._view.get_or_create_entity_for_model(split_model);
                         this._view.add_child(split_entity);
@@ -633,6 +637,7 @@ module labelling_tool {
                     // Default: Add
                     let composite_pb = PolyBool.union(existing_pb,  new_pb);
                     this.entity.model.regions = EditPolyTool._polybool_to_model(composite_pb);
+                    this.entity.model.source = "manual";
                     this.entity.commit();
                     this.entity.update();
                 }

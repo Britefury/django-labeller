@@ -261,6 +261,28 @@ module labelling_tool {
 
 
         /*
+        Set label class of selection
+         */
+        set_selection_label_class(label_class_name: string) {
+            var selection = this.get_selection();
+            for (var i = 0; i < selection.length; i++) {
+                selection[i].set_label_class(label_class_name);
+            }
+        }
+
+
+        /*
+        Set annotation data of selection
+         */
+        set_selection_anno_data_value(anno_identifier: string, value: any) {
+            var selection = this.get_selection();
+            for (var i = 0; i < selection.length; i++) {
+                selection[i].set_anno_data_value(anno_identifier, value);
+            }
+        }
+
+
+        /*
         Create composite label
          */
         create_composite_label_from_selection(): CompositeLabelEntity {

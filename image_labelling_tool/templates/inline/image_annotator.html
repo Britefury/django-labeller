@@ -86,6 +86,7 @@
             var tool = new labelling_tool.DjangoAnnotator(
                 {{ label_class_groups | as_json | safe }},
                 {{ colour_schemes | as_json | safe }},
+                {{ anno_controls | as_json | safe }},
                 {{ image_descriptors | as_json | safe }},
                 {{ initial_image_index | safe }},
                 get_labels,

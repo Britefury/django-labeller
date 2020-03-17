@@ -37,6 +37,7 @@ module labelling_tool {
         label_type: string;
         label_class: string;
         source: string;
+        anno_data: any;
     }
 
 
@@ -155,6 +156,14 @@ module labelling_tool {
         set_label_class(label_class: string) {
             this.model.label_class = label_class;
             this._update_style();
+            this.commit();
+        }
+
+        set_anno_data_value(anno_identifier: string, value: any) {
+            if (this.model.anno_data === undefined) {
+                this.model.anno_data = {};
+            }
+            this.model.anno_data[anno_identifier] = value;
             this.commit();
         }
 

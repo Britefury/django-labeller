@@ -25,7 +25,7 @@ def _update_config(dest, src):
 
 @register.inclusion_tag('inline/image_annotator.html', name='labelling_tool')
 def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial_image_index,
-                   labelling_tool_url, enable_locking, dextr_available=False, dextr_polling_interval=None,
+                   labelling_tool_url, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
                    config=None):
     if config is None:
         config = {}
@@ -33,9 +33,14 @@ def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial
         dextr_polling_interval = str(dextr_polling_interval)
     else:
         dextr_polling_interval = 'null'
+
+    if anno_controls is None:
+        anno_controls = []
+
     return {
         'colour_schemes': color_schemes,
         'label_class_groups': label_class_groups,
+        'anno_controls': anno_controls,
         'image_descriptors': image_descriptors,
         'num_images': len(image_descriptors),
         'initial_image_index': str(initial_image_index),

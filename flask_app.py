@@ -79,6 +79,37 @@ def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights)
                                                                    artificial=[255, 128, 0])),
         ])]
 
+    anno_controls = [
+        labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality'),
+        labelling_tool.AnnoControlRadioButtons('visibility', 'Visible', choices=[
+            labelling_tool.AnnoControlRadioButtons.choice(value='full', label_text='Fully',
+                                                          tooltip='Object is fully visible'),
+            labelling_tool.AnnoControlRadioButtons.choice(value='mostly', label_text='Mostly',
+                                                          tooltip='Object is mostly visible'),
+            labelling_tool.AnnoControlRadioButtons.choice(value='obscured', label_text='Obscured',
+                                                          tooltip='Object is significantly obscured'),
+        ], label_on_own_line=False),
+        labelling_tool.AnnoControlPopupMenu('material', 'Material', groups=[
+            labelling_tool.AnnoControlPopupMenu.group(label_text='Artifical/buildings', choices=[
+                labelling_tool.AnnoControlPopupMenu.choice(value='concrete', label_text='Concrete',
+                                                           tooltip='Concrete objects'),
+                labelling_tool.AnnoControlPopupMenu.choice(value='plastic', label_text='Plastic',
+                                                           tooltip='Plastic objects'),
+                labelling_tool.AnnoControlPopupMenu.choice(value='asphalt', label_text='Asphalt',
+                                                           tooltip='Road, pavement, etc.'),
+            ]),
+            labelling_tool.AnnoControlPopupMenu.group(label_text='Flat natural', choices=[
+                labelling_tool.AnnoControlPopupMenu.choice(value='grass', label_text='Grass',
+                                                           tooltip='Grass covered ground'),
+                labelling_tool.AnnoControlPopupMenu.choice(value='water', label_text='Water', tooltip='Water/lake')]),
+            labelling_tool.AnnoControlPopupMenu.group(label_text='Vegetation', choices=[
+                labelling_tool.AnnoControlPopupMenu.choice(value='trees', label_text='Trees', tooltip='Trees'),
+                labelling_tool.AnnoControlPopupMenu.choice(value='shrubbery', label_text='Shrubs',
+                                                           tooltip='Shrubs/bushes'),
+                labelling_tool.AnnoControlPopupMenu.choice(value='ivy', label_text='Ivy', tooltip='Ivy')]),
+        ])
+    ]
+
     if images_pat.strip() == '':
         image_paths = glob.glob('images/*.jpg') + glob.glob('images/*.png')
     else:
@@ -130,8 +161,8 @@ def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights)
         }
     }
 
-    flask_labeller.flask_labeller(label_classes, labelled_images, colour_schemes, config=config,
-                                  dextr_fn=dextr_fn)
+    flask_labeller.flask_labeller(label_classes, labelled_images, colour_schemes, anno_controls=anno_controls,
+                                  config=config, dextr_fn=dextr_fn)
 
 
 if __name__ == '__main__':

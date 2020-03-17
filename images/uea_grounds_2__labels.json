@@ -1669,7 +1669,12 @@
                   "y": 424.9516296386719
                }
             ]
-         ]
+         ],
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "concrete"
+         }
       },
       {
          "label_type": "polygon",
@@ -1694,7 +1699,12 @@
                   "x": 82.66462707519531
                }
             ]
-         ]
+         ],
+         "anno_data": {
+            "good_quality": false,
+            "material": "trees",
+            "visibility": "obscured"
+         }
       },
       {
          "label_type": "polygon",
@@ -1839,7 +1849,12 @@
                   "x": 370.8827819824219
                }
             ]
-         ]
+         ],
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "shrubbery"
+         }
       },
       {
          "label_type": "polygon",
@@ -2068,7 +2083,12 @@
                   "x": 99.39566802978516
                }
             ]
-         ]
+         ],
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "trees"
+         }
       },
       {
          "label_type": "polygon",
@@ -2913,7 +2933,12 @@
                }
             ]
          ],
-         "object_id": 20
+         "object_id": 20,
+         "anno_data": {
+            "good_quality": true,
+            "material": "trees",
+            "visibility": "mostly"
+         }
       },
       {
          "label_type": "polygon",
@@ -3174,7 +3199,67 @@
                }
             ]
          ],
-         "object_id": 22
+         "object_id": 22,
+         "anno_data": {
+            "good_quality": false,
+            "material": "water",
+            "visibility": "obscured"
+         }
+      },
+      {
+         "label_type": "polygon",
+         "label_class": null,
+         "source": "manual",
+         "regions": [
+            [
+               {
+                  "x": 747.2823836838751,
+                  "y": 527.7659892845761
+               },
+               {
+                  "x": 738.1154469407265,
+                  "y": 539.5772347036329
+               },
+               {
+                  "x": 735.2948510197577,
+                  "y": 562.1420020713831
+               },
+               {
+                  "x": 756.8018949171448,
+                  "y": 572.0140877947739
+               },
+               {
+                  "x": 759.2699163479924,
+                  "y": 560.2028423757171
+               },
+               {
+                  "x": 767.2028423757171,
+                  "y": 548.3915969566604
+               },
+               {
+                  "x": 770.728587276928,
+                  "y": 534.6411918419375
+               },
+               {
+                  "x": 770.728587276928,
+                  "y": 530.939159695666
+               },
+               {
+                  "x": 757.3307566523264,
+                  "y": 525.8268295889101
+               },
+               {
+                  "x": 754.3338734862971,
+                  "y": 527.9422765296367
+               }
+            ]
+         ],
+         "object_id": 23,
+         "anno_data": {
+            "good_quality": true,
+            "visibility": "full",
+            "material": "plastic"
+         }
       }
    ]
 }

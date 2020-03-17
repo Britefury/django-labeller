@@ -40,6 +40,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
 /// <reference path="./popup_menu.ts" />
+/// <reference path="./anno_controls.ts" />
 var labelling_tool;
 (function (labelling_tool) {
     labelling_tool.get_label_header_labels = function (label_header) {
@@ -62,7 +63,7 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoAnnotator = /** @class */ (function () {
-        function DjangoAnnotator(label_classes, colour_schemes, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
+        function DjangoAnnotator(label_classes, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
@@ -156,9 +157,9 @@ var labelling_tool;
             Root view listener
              */
             this.root_view_listener = {
-                // Selection changed; update class selector dropdown
+                // Selection changed; update annotation controls
                 on_selection_changed: function (root_view) {
-                    _this._update_label_class_menu_from_views(root_view.get_selection());
+                    _this._update_annotation_controls_from_views(root_view.get_selection());
                 },
                 // Root list changed; queue push
                 root_list_changed: function (root_view) {
@@ -179,8 +180,8 @@ var labelling_tool;
             // Classes
             this.label_classes = labelling_tool.label_classes_from_json(label_classes);
             this.class_name_to_class = {};
-            for (var i = 0; i < this.label_classes.length; i++) {
-                this.label_classes[i].fill_name_to_class_table(this.class_name_to_class);
+            for (var i_1 = 0; i_1 < this.label_classes.length; i_1++) {
+                this.label_classes[i_1].fill_name_to_class_table(this.class_name_to_class);
             }
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
@@ -403,9 +404,10 @@ var labelling_tool;
                 }
             }
             //
-            // Select section
+            // Select / annotate section
             // Pick, brush select, delete
             // Label class selector
+            // Annotation controls
             //
             var select_button = $('#select_pick_button');
             select_button.click(function (event) {
@@ -449,10 +451,7 @@ var labelling_tool;
                         if (label_class_name == '__unclassified') {
                             label_class_name = null;
                         }
-                        var selection = self.root_view.get_selection();
-                        for (var i = 0; i < selection.length; i++) {
-                            selection[i].set_label_class(label_class_name);
-                        }
+                        self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
                 else if (cls_sel_menu_btn.length > 0) {
@@ -462,12 +461,18 @@ var labelling_tool;
                         if (label_class_name == '__unclassified') {
                             label_class_name = null;
                         }
-                        var selection = self.root_view.get_selection();
-                        for (var i = 0; i < selection.length; i++) {
-                            selection[i].set_label_class(label_class_name);
-                        }
+                        self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
+            }
+            var anno_ctrl_on_change = function (identifier, value) {
+                console.log("DjangoAnnotator: setting " + identifier + " to " + value);
+                self.root_view.set_selection_anno_data_value(identifier, value);
+            };
+            this._anno_controls = [];
+            for (var i = 0; i < anno_controls_json.length; i++) {
+                var ctrl = labelling_tool.AnnotationControl.from_json(anno_controls_json[i], anno_ctrl_on_change);
+                this._anno_controls.push(ctrl);
             }
             //
             // Draw section
@@ -1018,12 +1023,18 @@ var labelling_tool;
             }
         };
         ;
-        DjangoAnnotator.prototype._update_label_class_menu_from_views = function (selection) {
+        DjangoAnnotator.prototype._update_annotation_controls_from_views = function (selection) {
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
+                for (var i = 0; i < this._anno_controls.length; i++) {
+                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data);
+                }
             }
             else {
                 this._update_label_class_menu(null);
+                for (var i = 0; i < this._anno_controls.length; i++) {
+                    this._anno_controls[i].update_from_anno_data(null);
+                }
             }
         };
         ;

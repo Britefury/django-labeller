@@ -44,6 +44,7 @@ def tool(request):
         'image_descriptors': image_descriptors,
         'initial_image_index': str(0),
         'labelling_tool_config': settings.LABELLING_TOOL_CONFIG,
+        'anno_controls': [c.to_json() for c in settings.ANNO_CONTROLS],
         'enable_locking': settings.LABELLING_TOOL_ENABLE_LOCKING,
         'dextr_available': settings.LABELLING_TOOL_DEXTR_AVAILABLE,
         'dextr_polling_interval': settings.LABELLING_TOOL_DEXTR_POLLING_INTERVAL,

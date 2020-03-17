@@ -137,6 +137,28 @@ LABEL_CLASSES = [
                                                                artificial=[255, 128, 0])),
     ])]
 
+ANNO_CONTROLS = [
+    labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality'),
+    labelling_tool.AnnoControlRadioButtons('visibility', 'Visible', choices=[
+        labelling_tool.AnnoControlRadioButtons.choice(value='full', label_text='Fully', tooltip='Object is fully visible'),
+        labelling_tool.AnnoControlRadioButtons.choice(value='mostly', label_text='Mostly', tooltip='Object is mostly visible'),
+        labelling_tool.AnnoControlRadioButtons.choice(value='obscured', label_text='Obscured', tooltip='Object is significantly obscured'),
+    ], label_on_own_line=False),
+    labelling_tool.AnnoControlPopupMenu('material', 'Material', groups=[
+        labelling_tool.AnnoControlPopupMenu.group(label_text='Artifical/buildings', choices=[
+            labelling_tool.AnnoControlPopupMenu.choice(value='concrete', label_text='Concrete', tooltip='Concrete objects'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='plastic', label_text='Plastic', tooltip='Plastic objects'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='asphalt', label_text='Asphalt', tooltip='Road, pavement, etc.'),
+        ]),
+        labelling_tool.AnnoControlPopupMenu.group(label_text='Flat natural', choices=[
+            labelling_tool.AnnoControlPopupMenu.choice(value='grass', label_text='Grass', tooltip='Grass covered ground'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='water', label_text='Water', tooltip='Water/lake')]),
+        labelling_tool.AnnoControlPopupMenu.group(label_text='Vegetation', choices=[
+            labelling_tool.AnnoControlPopupMenu.choice(value='trees', label_text='Trees', tooltip='Trees'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='shrubbery', label_text='Shrubs', tooltip='Shrubs/bushes'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='ivy', label_text='Ivy', tooltip='Ivy')]),
+    ])
+]
 
 # Configuration
 LABELLING_TOOL_CONFIG = {

@@ -25,7 +25,6 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 /// <reference path="../jquery.d.ts" />
-/// <reference path="../jquery.d.ts" />
 var popup_menu;
 (function (popup_menu) {
     var PopupMenu = /** @class */ (function () {
@@ -65,8 +64,13 @@ var popup_menu;
         }
         PopupMenu.prototype.setChoice = function (choice) {
             var choice_button = this.buttons.filter("[data-choice='" + choice + "']");
-            var text = choice_button.html();
-            this.target.find('.menu_choice').html(text);
+            if (choice_button.length > 0) {
+                var text = choice_button.html();
+                this.target.find('.menu_choice').html(text);
+            }
+            else {
+                this.target.find('.menu_choice').html('');
+            }
             // Set active button
             this.buttons.removeClass('active');
             choice_button.addClass('active');

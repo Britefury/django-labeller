@@ -23,8 +23,8 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 
-def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=None, dextr_fn=None,
-                   use_reloader=True, debug=True, port=None):
+def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_controls=None,
+                   config=None, dextr_fn=None, use_reloader=True, debug=True, port=None):
     import json
     import numpy as np
     from skimage.color import rgb2grey
@@ -103,11 +103,16 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, config=N
     def index():
         label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
                                for cls in label_classes]
+        if anno_controls is not None:
+            anno_controls_json = [c.to_json() for c in anno_controls]
+        else:
+            anno_controls_json = []
         return render_template('labeller_page.jinja2',
                                colour_schemes=colour_schemes,
                                label_class_groups=label_classes_json,
                                image_descriptors=image_descriptors,
                                initial_image_index=0,
+                               anno_controls=anno_controls_json,
                                labelling_tool_config=config,
                                dextr_available=dextr_fn is not None,
                                use_websockets=socketio is not None)

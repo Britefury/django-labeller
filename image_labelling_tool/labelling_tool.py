@@ -120,6 +120,73 @@ def image_descriptor(image_id, url=None, width=None, height=None):
             'height': height,}
 
 
+class _AnnoControl (object):
+    __control_type__ = None
+
+    def __init__(self, identifier):
+        self.identifier = identifier
+
+    def to_json(self):
+        return dict(control=self.__control_type__, identifier=self.identifier)
+
+
+class AnnoControlCheckbox (_AnnoControl):
+    __control_type__ = 'checkbox'
+
+    def __init__(self, identifier, label_text):
+        super(AnnoControlCheckbox, self).__init__(identifier)
+        self.label_text = label_text
+
+    def to_json(self):
+        js = super(AnnoControlCheckbox, self).to_json()
+        js['label_text'] = self.label_text
+        return js
+
+
+class AnnoControlRadioButtons (_AnnoControl):
+    __control_type__ = 'radio'
+
+    def __init__(self, identifier, label_text, choices, label_on_own_line=False):
+        super(AnnoControlRadioButtons, self).__init__(identifier)
+        self.label_text = label_text
+        self.choices = choices
+        self.label_on_own_line = label_on_own_line
+
+    def to_json(self):
+        js = super(AnnoControlRadioButtons, self).to_json()
+        js['label_text'] = self.label_text
+        js['choices'] = self.choices
+        js['label_on_own_line'] = self.label_on_own_line
+        return js
+
+    @classmethod
+    def choice(cls, value, label_text, tooltip):
+        return dict(value=value, label_text=label_text, tooltip=tooltip)
+
+
+class AnnoControlPopupMenu (_AnnoControl):
+    __control_type__ = 'popup_menu'
+
+    def __init__(self, identifier, label_text, groups):
+        super(AnnoControlPopupMenu, self).__init__(identifier)
+        self.label_text = label_text
+        self.groups = groups
+
+    def to_json(self):
+        js = super(AnnoControlPopupMenu, self).to_json()
+        js['label_text'] = self.label_text
+        js['groups'] = self.groups
+        return js
+
+    @classmethod
+    def group(cls, label_text, choices):
+        return dict(label_text=label_text, choices=choices)
+
+    @classmethod
+    def choice(cls, value, label_text, tooltip):
+        return dict(value=value, label_text=label_text, tooltip=tooltip)
+
+
 def _next_wrapped_array(xs):
     return np.append(xs[1:], xs[:1], axis=0)
 
@@ -163,7 +230,7 @@ class LabelContext (object):
 class AbstractLabel (object):
     __json_type_name__ = None
 
-    def __init__(self, object_id=None, classification=None, source=None):
+    def __init__(self, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -171,10 +238,14 @@ class AbstractLabel (object):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
         self.object_id = object_id
         self.classification = classification
         self.source = source
+        if anno_data is None:
+            anno_data = {}
+        self.anno_data = anno_data
 
     @property
     def dependencies(self):
@@ -211,7 +282,8 @@ class AbstractLabel (object):
         return dict(label_type=self.__json_type_name__,
                     object_id=self.object_id,
                     label_class=self.classification,
-                    source=self.source)
+                    source=self.source,
+                    anno_data=self.anno_data)
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
@@ -233,7 +305,7 @@ class AbstractLabel (object):
 class PointLabel (AbstractLabel):
     __json_type_name__ = 'point'
 
-    def __init__(self, position_xy, object_id=None, classification=None, source=None):
+    def __init__(self, position_xy, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -242,8 +314,9 @@ class PointLabel (AbstractLabel):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
-        super(PointLabel, self).__init__(object_id, classification, source)
+        super(PointLabel, self).__init__(object_id, classification, source, anno_data)
         self.position_xy = np.array(position_xy).astype(float)
 
     @property
@@ -289,14 +362,15 @@ class PointLabel (AbstractLabel):
         pos_xy = np.array([label_json['position']['x'], label_json['position']['y']])
         return PointLabel(pos_xy, label_json.get('object_id'),
                           classification=label_json['label_class'],
-                          source=label_json.get('source'))
+                          source=label_json.get('source'),
+                          anno_data=label_json.get('anno_data'))
 
 
 @label_cls
 class PolygonLabel (AbstractLabel):
     __json_type_name__ = 'polygon'
 
-    def __init__(self, regions, object_id=None, classification=None, source=None):
+    def __init__(self, regions, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -305,8 +379,9 @@ class PolygonLabel (AbstractLabel):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
-        super(PolygonLabel, self).__init__(object_id, classification, source)
+        super(PolygonLabel, self).__init__(object_id, classification, source, anno_data)
         regions = [np.array(region).astype(float) for region in regions]
         self.regions = regions
 
@@ -383,7 +458,8 @@ class PolygonLabel (AbstractLabel):
         regions = [np.array([[v['x'], v['y']] for v in region_json]) for region_json in regions_json]
         return PolygonLabel(regions, label_json.get('object_id'),
                             classification=label_json['label_class'],
-                            source=label_json.get('source'))
+                            source=label_json.get('source'),
+                            anno_data=label_json.get('anno_data'))
 
 
     @staticmethod
@@ -454,7 +530,7 @@ class PolygonLabel (AbstractLabel):
 class BoxLabel (AbstractLabel):
     __json_type_name__ = 'box'
 
-    def __init__(self, centre_xy, size_xy, object_id=None, classification=None, source=None):
+    def __init__(self, centre_xy, size_xy, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -464,8 +540,9 @@ class BoxLabel (AbstractLabel):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
-        super(BoxLabel, self).__init__(object_id, classification, source)
+        super(BoxLabel, self).__init__(object_id, classification, source, anno_data)
         self.centre_xy = np.array(centre_xy).astype(float)
         self.size_xy = np.array(size_xy).astype(float)
 
@@ -518,14 +595,16 @@ class BoxLabel (AbstractLabel):
         centre = np.array([label_json['centre']['x'], label_json['centre']['y']])
         size = np.array([label_json['size']['x'], label_json['size']['y']])
         return BoxLabel(centre, size, label_json.get('object_id'),
-                        classification=label_json['label_class'], source=label_json.get('source'))
+                        classification=label_json['label_class'],
+                        source=label_json.get('source'),
+                        anno_data=label_json.get('anno_data'))
 
 
 @label_cls
 class CompositeLabel (AbstractLabel):
     __json_type_name__ = 'composite'
 
-    def __init__(self, components, object_id=None, classification=None, source=None):
+    def __init__(self, components, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -534,8 +613,9 @@ class CompositeLabel (AbstractLabel):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
-        super(CompositeLabel, self).__init__(object_id, classification, source)
+        super(CompositeLabel, self).__init__(object_id, classification, source, anno_data)
         self.components = components
 
     @property
@@ -574,14 +654,15 @@ class CompositeLabel (AbstractLabel):
         components = [comp for comp in components if comp is not None]
         return CompositeLabel(components, label_json.get('object_id'),
                               classification=label_json['label_class'],
-                              source=label_json.get('source'))
+                              source=label_json.get('source'),
+                              anno_data=label_json.get('anno_data'))
 
 
 @label_cls
 class GroupLabel (AbstractLabel):
     __json_type_name__ = 'group'
 
-    def __init__(self, component_labels, object_id=None, classification=None, source=None):
+    def __init__(self, component_labels, object_id=None, classification=None, source=None, anno_data=None):
         """
         Constructor
 
@@ -590,8 +671,9 @@ class GroupLabel (AbstractLabel):
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
             (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
         """
-        super(GroupLabel, self).__init__(object_id, classification, source)
+        super(GroupLabel, self).__init__(object_id, classification, source, anno_data)
         self.component_labels = component_labels
 
     def flatten(self):
@@ -633,7 +715,8 @@ class GroupLabel (AbstractLabel):
                       for comp in label_json['component_models']]
         return GroupLabel(components, label_json.get('object_id'),
                           classification=label_json['label_class'],
-                          source=label_json.get('source'))
+                          source=label_json.get('source'),
+                          anno_data=label_json.get('anno_data'))
 
 
 

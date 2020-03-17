@@ -47,9 +47,9 @@
         <!-- Label visibility section !-->
 {#        <div class="tool_bar_header" data-toggle="tooltip" data-placement="right"#}
 {#                   title="Control overall appearance, filter by class">Label visibility</div>#}
-        <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_label_vis"
-                   title="Control overall appearance, filter by class">Label visibility</div>
-        <div class="collapse show tool_bar_group" id="tool_group_label_vis">
+        <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_label_appearance"
+                   title="Control overall appearance, filter by class">Label appearance</div>
+        <div class="collapse show tool_bar_group" id="tool_group_label_appearance">
 
             <!-- Labels hidden, faint or full !-->
             <div class="btn-group btn-group-toggle tool_bar_content" data-toggle="buttons">
@@ -119,7 +119,8 @@
 
         <!-- Tools section !-->
         <div class="anno_lockable">
-            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_select">Select</div>
+            <!-- Select and annotate sub-section !-->
+            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_select">Select / annotate</div>
 
             <div class="collapse show tool_bar_group" id="tool_group_select">
 
@@ -163,9 +164,42 @@
                     </div>
                 {% endif %}
 
+                <!-- Additional annotation controls !-->
+                {% for ann_ctrl in anno_controls %}
+                    {% if ann_ctrl.control == 'checkbox' %}
+                        <div class="tool_bar_content">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                <label class="form-check-label" for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}</label>
+                            </div>
+                        </div>
+
+                    {% elif ann_ctrl.control == 'radio' %}
+                        <div class="tool_bar_content">
+                            <label {% if ann_ctrl.label_on_own_line %}class="form-text"{% endif %} for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
+                        {% if ann_ctrl.label_on_own_line %}</div>{% endif %}
+                            <div class="btn-group btn-group-toggle{% if ann_ctrl.label_on_own_line %} tool_bar_content{% endif %}" data-toggle="buttons" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                {% for radio_choice in ann_ctrl.choices %}
+                                    <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top" title="{{ radio_choice.tooltip | safe }}">
+                                        <input type="radio" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}" value="{{ radio_choice.value | safe }}" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}_{{ radio_choice.value | safe }}"
+                                               autocomplete="off">
+                                        {{ radio_choice.label_text | safe }}
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% if not ann_ctrl.label_on_own_line %}</div>{% endif %}
+                    {% elif ann_ctrl.control == 'popup_menu' %}
+                        <div class="tool_bar_content">
+                            <label for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
+                            <button class="btn btn-sm btn-secondary w-100" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}"><span class="menu_choice"></span> <span class="oi oi-chevron-bottom"></span></button>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
             </div>
 
 
+            <!-- Edit labels sub-section !-->
             <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_edit">Edit labels</div>
 
             <div class="collapse show tool_bar_group" id="tool_group_edit">
@@ -302,6 +336,24 @@
         </button>
     </div>
 {% endif %}
+
+
+<!-- Popup contents for annotation controls !-->
+{% for ann_ctrl in anno_controls %}
+    {% if ann_ctrl.control == 'popup_menu' %}
+        <div class="tool_bar_popup hidden" id="anno_ctrl_contents_{{ ann_ctrl.identifier | safe }}">
+            {% for group in ann_ctrl.groups %}
+                <h6 class="class_selector_group">{{ group.label_text | safe }}</h6>
+                {% for choice in group.choices %}
+                  <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ choice.value | safe }}"
+                    data-toggle="tooltip" title="{{ choice.tooltip | safe }}">
+                    {{ choice.label_text | safe }}
+                  </button>
+                {% endfor %}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endfor %}
 
 
 

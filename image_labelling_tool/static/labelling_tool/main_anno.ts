@@ -41,6 +41,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
 /// <reference path="./popup_menu.ts" />
+/// <reference path="./anno_controls.ts" />
 
 module labelling_tool {
     /*
@@ -149,6 +150,7 @@ module labelling_tool {
         private _label_class_filter_select: JQuery = null;
         private _label_class_filter_popup: popup_menu.PopupMenu = null;
         private _label_class_filter_notification: JQuery;
+        private _anno_controls: AnnotationControl[];
         private _confirm_delete: JQuery;
         private _svg: d3.Selection<any>;
         private _svg_q: JQuery;
@@ -172,6 +174,7 @@ module labelling_tool {
 
 
         constructor(label_classes: LabelClassJSON[], colour_schemes: ColourSchemeJSON[],
+                    anno_controls_json: AnnoControlJSON[],
                     images: ImageModel[], initial_image_index: number,
                     requestLabelsCallback: any, sendLabelHeaderFn: any,
                     getNextUnlockedImageIDCallback: any, dextrCallback: any, dextrPollingInterval: number,
@@ -277,9 +280,9 @@ module labelling_tool {
             Root view listener
              */
             this.root_view_listener = {
-                // Selection changed; update class selector dropdown
+                // Selection changed; update annotation controls
                 on_selection_changed: (root_view: RootLabelView): void => {
-                    this._update_label_class_menu_from_views(root_view.get_selection());
+                    this._update_annotation_controls_from_views(root_view.get_selection());
                 },
                 // Root list changed; queue push
                 root_list_changed: (root_view: RootLabelView): void => {
@@ -581,9 +584,10 @@ module labelling_tool {
 
 
             //
-            // Select section
+            // Select / annotate section
             // Pick, brush select, delete
             // Label class selector
+            // Annotation controls
             //
 
             var select_button: any = $('#select_pick_button');
@@ -634,11 +638,9 @@ module labelling_tool {
                         if (label_class_name == '__unclassified') {
                             label_class_name = null;
                         }
-                        var selection = self.root_view.get_selection();
-                        for (var i = 0; i < selection.length; i++) {
-                            selection[i].set_label_class(label_class_name);
-                        }
-                    });                }
+                        self.root_view.set_selection_label_class(label_class_name);
+                    });
+                }
                 else if (cls_sel_menu_btn.length > 0 ){
                     this._label_class_selector_popup = new popup_menu.PopupMenu(
                         cls_sel_menu_btn,
@@ -650,12 +652,20 @@ module labelling_tool {
                         if (label_class_name == '__unclassified') {
                             label_class_name = null;
                         }
-                        var selection = self.root_view.get_selection();
-                        for (var i = 0; i < selection.length; i++) {
-                            selection[i].set_label_class(label_class_name);
-                        }
+                        self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
+            }
+
+            let anno_ctrl_on_change = function(identifier, value) {
+                console.log("DjangoAnnotator: setting " + identifier + " to " + value);
+                self.root_view.set_selection_anno_data_value(identifier, value);
+            };
+
+            this._anno_controls = [];
+            for (var i = 0; i < anno_controls_json.length; i++) {
+                let ctrl = AnnotationControl.from_json(anno_controls_json[i], anno_ctrl_on_change);
+                this._anno_controls.push(ctrl);
             }
 
 
@@ -1302,12 +1312,18 @@ module labelling_tool {
             }
         };
 
-        _update_label_class_menu_from_views(selection: AbstractLabelEntity<AbstractLabelModel>[]) {
+        _update_annotation_controls_from_views(selection: AbstractLabelEntity<AbstractLabelModel>[]) {
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
+                for (var i = 0; i < this._anno_controls.length; i++) {
+                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data);
+                }
             }
             else {
                 this._update_label_class_menu(null);
+                for (var i = 0; i < this._anno_controls.length; i++) {
+                    this._anno_controls[i].update_from_anno_data(null);
+                }
             }
         };
 

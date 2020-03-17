@@ -108,6 +108,13 @@ var labelling_tool;
             this._update_style();
             this.commit();
         };
+        AbstractLabelEntity.prototype.set_anno_data_value = function (anno_identifier, value) {
+            if (this.model.anno_data === undefined) {
+                this.model.anno_data = {};
+            }
+            this.model.anno_data[anno_identifier] = value;
+            this.commit();
+        };
         AbstractLabelEntity.prototype.get_visibility = function () {
             return this.root_view.view.get_label_visibility(this.get_label_class());
         };

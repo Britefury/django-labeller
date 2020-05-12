@@ -429,8 +429,13 @@ class PolygonLabel (AbstractLabel):
         if cv2 is None:
             raise RuntimeError('OpenCV is not available!')
 
-        _, image_contours, _ = cv2.findContours((mask != 0).astype(np.uint8), cv2.RETR_LIST,
-                                                 cv2.CHAIN_APPROX_TC89_L1)
+        result = cv2.findContours((mask != 0).astype(np.uint8), cv2.RETR_LIST,
+                                  cv2.CHAIN_APPROX_TC89_L1)
+        if len(result) == 3:
+            _, image_contours, _ = result
+        else:
+            image_contours, _ = result
+
         image_contours = [contour[:, 0, :] for contour in image_contours if len(contour) >= 3]
 
         if len(image_contours) > 0:
@@ -1518,6 +1523,11 @@ class PersistentLabelledImage (AbsractLabelledImage):
         image_paths = []
         for pat in image_filename_patterns:
             image_paths.extend(glob.glob(os.path.join(dir_path, pat)))
+        return cls.for_files(image_paths, with_labels_only=with_labels_only, labels_dir=labels_dir,
+                             readonly=readonly)
+
+    @classmethod
+    def for_files(cls, image_paths, with_labels_only=False, labels_dir=None, readonly=False):
         limgs = []
         for img_path in image_paths:
             labels_path = cls.__compute_labels_path(img_path, labels_dir=labels_dir)

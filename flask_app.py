@@ -25,27 +25,32 @@
 import click
 
 @click.command()
+@click.option('--images_pat', type=str, default='', help='Image path pattern e.g. \'images/*.jpg\'')
+@click.option('--labels_dir', type=click.Path(dir_okay=True, file_okay=False, writable=True))
 @click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
 @click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
+@click.option('--enable_dextr', is_flag=True, default=False)
 @click.option('--dextr_weights', type=click.Path())
-def run_app(slic, readonly, dextr_weights):
+def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights):
+    import os
+    import glob
     from image_labelling_tool import labelling_tool, flask_labeller
 
-    if dextr_weights is not None:
-        import os
-        from dextr.dextr import ResNet101DeepLabDEXTR
+    if enable_dextr or dextr_weights is not None:
+        from dextr.model import DextrModel
         import torch
 
-        dextr_weights = os.path.expanduser(dextr_weights)
-
-        dextr_model = ResNet101DeepLabDEXTR()
-        dextr_model.load_weights(dextr_weights)
-
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        dextr_model.eval()
-        dextr_model.to(device)
 
-        dextr_fn = lambda image, points: dextr_model.inference(image*255, points)
+        if dextr_weights is not None:
+            dextr_weights = os.path.expanduser(dextr_weights)
+            dextr_model = torch.load(dextr_weights, map_location=device)
+        else:
+            dextr_model = DextrModel.pascalvoc_resunet101().to(device)
+
+        dextr_model.eval()
+
+        dextr_fn = lambda image, points: dextr_model.predict([image], points[None, :, ::-1])[0] >= 0.5
     else:
         dextr_fn = None
 
@@ -74,13 +79,17 @@ def run_app(slic, readonly, dextr_weights):
                                                                    artificial=[255, 128, 0])),
         ])]
 
+    if images_pat.strip() == '':
+        image_paths = glob.glob('images/*.jpg') + glob.glob('images/*.png')
+    else:
+        image_paths = glob.glob(images_pat)
+
     if slic:
-        import glob
         from matplotlib import pyplot as plt
         from skimage.segmentation import slic as slic_segment
 
         labelled_images = []
-        for path in glob.glob('images/*.jpg') + glob.glob('images/*.png'):
+        for path in image_paths:
             print('Segmenting {0}'.format(path))
             img = plt.imread(path)
             # slic_labels = slic_segment(img, 1000, compactness=20.0)
@@ -95,8 +104,8 @@ def run_app(slic, readonly, dextr_weights):
         print('Segmented {0} images'.format(len(labelled_images)))
     else:
         # Load in .JPG images from the 'images' directory.
-        labelled_images = labelling_tool.PersistentLabelledImage.for_directory(
-            'images', image_filename_patterns=['*.jpg', '*.png'], readonly=readonly)
+        labelled_images = labelling_tool.PersistentLabelledImage.for_files(
+            image_paths, labels_dir=labels_dir, readonly=readonly)
         print('Loaded {0} images'.format(len(labelled_images)))
 
 

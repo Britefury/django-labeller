@@ -169,8 +169,8 @@ LABELLING_TOOL_DEXTR_WEIGHTS_PATH = None
 
 
 
-# CELERY_BROKER_URL = 'redis://localhost'
-# CELERY_RESULT_BACKEND = 'redis'
+CELERY_BROKER_URL = 'amqp://guest@localhost//'
+CELERY_RESULT_BACKEND = 'rpc://'
 
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'

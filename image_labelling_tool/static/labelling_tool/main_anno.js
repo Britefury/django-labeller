@@ -866,9 +866,14 @@ var labelling_tool;
                 return false;
             }
         };
-        DjangoAnnotator.prototype.sendDextrPoll = function () {
+        DjangoAnnotator.prototype.sendDextrPoll = function (dextr_ids) {
             if (this._dextrCallback !== null && this._dextrCallback !== undefined) {
-                this._dextrCallback({ 'poll': true });
+                var image_id = this._get_current_image_id();
+                var poll_request = {
+                    "dextr_ids": dextr_ids,
+                    "image_id": image_id
+                };
+                this._dextrCallback({ 'poll': poll_request });
                 return true;
             }
             else {

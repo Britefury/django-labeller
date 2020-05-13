@@ -116,7 +116,14 @@ module labelling_tool {
                 // Polling not yet enabled
                 let self = this;
                 DextrRequestState._interval_id = setInterval(function() {
-                    self._view.view.sendDextrPoll();
+                    let dextr_ids = [];
+                    for (var key in DextrRequestState._openRequests) {
+                        if (DextrRequestState._openRequests.hasOwnProperty(key)) {
+                            let req_state: DextrRequestState = DextrRequestState._openRequests[key];
+                            dextr_ids.push(req_state.req.dextr_id);
+                        }
+                    }
+                    self._view.view.sendDextrPoll(dextr_ids);
                 }, interval_time);
             }
         }

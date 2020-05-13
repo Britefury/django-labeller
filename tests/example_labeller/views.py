@@ -87,9 +87,11 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
             dtask.save()
         return None
 
-    def dextr_poll(self, request):
+    def dextr_poll(self, request, image_id_str, dextr_ids):
         """
         :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param dextr_ids: The DEXTR request IDs that the client is interested in
         :return: a list of dicts where each dict takes the form:
             {
                 'image_id': image ID string that identifies the image that the label applies to
@@ -97,20 +99,26 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
                 'regions': contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
             }
         """
-        oldest = django.utils.timezone.now() - datetime.timedelta(minutes=10)
         to_remove = []
         dextr_labels = []
-        for dtask in models.DextrTask.objects.all():
-            if dtask.creation_timestamp < oldest:
-                to_remove.append(dtask)
-            else:
-                uuid = dtask.celery_task_id
-                res = celery.result.AsyncResult(uuid)
-                if res.ready():
+        for dtask in models.DextrTask.objects.filter(image__id=image_id_str, dextr_id__in=dextr_ids):
+            uuid = dtask.celery_task_id
+            res = celery.result.AsyncResult(uuid)
+            if res.ready():
+                try:
                     regions = res.get()
+                except:
+                    # An error occurred during the DEXTR task; nothing we can do
+                    pass
+                else:
                     dextr_label = dict(image_id=dtask.image_id_str, dextr_id=dtask.dextr_id, regions=regions)
                     dextr_labels.append(dextr_label)
-                    to_remove.append(dtask)
+                to_remove.append(dtask)
+
+        # Remove old tasks
+        oldest = django.utils.timezone.now() - datetime.timedelta(minutes=10)
+        for old_task in models.DextrTask.objects.filter(creation_timestamp__lt=oldest):
+            to_remove.append(old_task)
 
         for r in to_remove:
             r.delete()

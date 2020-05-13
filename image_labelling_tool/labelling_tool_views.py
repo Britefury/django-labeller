@@ -73,9 +73,11 @@ class LabellingToolView (View):
         """
         raise NotImplementedError('abstract: dextr_request not implemented for {}'.format(type(self)))
 
-    def dextr_poll(self, request):
+    def dextr_poll(self, request, image_id_str, dextr_ids):
         """
         :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param dextr_ids: The DEXTR request IDs that the client is interested in
         :return: a list of dicts where each dict takes the form:
             {
                 'image_id': image ID string that identifies the image that the label applies to
@@ -160,7 +162,13 @@ class LabellingToolView (View):
                 else:
                     return JsonResponse({'response': 'success'})
             elif 'poll' in dextr_js:
-                labels_js = self.dextr_poll(request)
+                dextr_poll_js = dextr_js['poll']
+                image_id_str = dextr_poll_js['image_id']
+                dextr_ids = dextr_poll_js['dextr_ids']
+
+                dextr_ids = [int(x) for x in dextr_ids]
+
+                labels_js = self.dextr_poll(request, image_id_str, dextr_ids)
 
                 if labels_js is not None:
                     dextr_reply = dict(labels=labels_js)

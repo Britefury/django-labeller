@@ -1128,9 +1128,14 @@ module labelling_tool {
             }
         }
 
-        sendDextrPoll(): boolean {
+        sendDextrPoll(dextr_ids: number[]): boolean {
             if (this._dextrCallback !== null  &&  this._dextrCallback !== undefined) {
-                this._dextrCallback({'poll': true});
+                let image_id = this._get_current_image_id();
+                let poll_request = {
+                    "dextr_ids": dextr_ids,
+                    "image_id": image_id
+                };
+                this._dextrCallback({'poll': poll_request});
                 return true;
             }
             else {

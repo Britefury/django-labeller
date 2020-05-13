@@ -34,7 +34,7 @@ def _apply_dextr(image_path, dextr_points_np):
 
         im = Image.open(image_path)
 
-        mask = _dextr_model.predict([im], dextr_points_np[None, :, ::-1])[0] >= 0.5
+        mask = _dextr_model.predict([im], dextr_points_np[None, :, :])[0] >= 0.5
         regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)
         regions_js = labelling_tool.PolygonLabel.regions_to_json(regions)
         return regions_js
@@ -48,6 +48,6 @@ def test_task(a, b):
 
 @shared_task
 def dextr(image_path, dextr_points_js):
-    dextr_points = np.array([[p['x'], p['y']] for p in dextr_points_js])
+    dextr_points = np.array([[p['y'], p['x']] for p in dextr_points_js])
     regions_js = _apply_dextr(image_path, dextr_points)
     return regions_js

@@ -50,7 +50,7 @@ def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights)
 
         dextr_model.eval()
 
-        dextr_fn = lambda image, points: dextr_model.predict([image], points[None, :, ::-1])[0] >= 0.5
+        dextr_fn = lambda image, points: dextr_model.predict([image], points[None, :, :])[0] >= 0.5
     else:
         dextr_fn = None
 

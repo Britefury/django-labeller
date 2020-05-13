@@ -63,7 +63,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 
     def apply_dextr_js(image, dextr_points_js):
         pixels = image.read_pixels()
-        dextr_points = np.array([[p['x'], p['y']] for p in dextr_points_js])
+        dextr_points = np.array([[p['y'], p['x']] for p in dextr_points_js])
         if dextr_fn is not None:
             mask = dextr_fn(pixels, dextr_points)
             regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)

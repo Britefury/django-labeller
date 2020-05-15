@@ -1239,8 +1239,13 @@ class ImageLabels (object):
         mask_areas = []
         contours_classes_sources = []
         for mask_i, lab_msk in enumerate(masks):
-            _, region_contours, _ = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_LIST,
-                                                     cv2.CHAIN_APPROX_TC89_L1)
+            result = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_LIST,
+                                      cv2.CHAIN_APPROX_TC89_L1)
+            if len(result) == 3:
+                _, region_contours, _ = result
+            else:
+                region_contours, _ = result
+            
             region_contours = [contour[:, 0, ::-1] for contour in region_contours if len(contour) >= 3]
 
             if len(region_contours) > 0:

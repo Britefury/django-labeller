@@ -1155,7 +1155,7 @@ class ImageLabels (object):
         elif isinstance(meta, list):
             return meta[label_i]
         else:
-            raise TypeError
+            raise TypeError('should be None, str, dict or list, not a {}'.format(type(meta)))
 
     @classmethod
     def from_label_image(cls, labels, label_classes=None, sources=None):
@@ -1235,6 +1235,10 @@ class ImageLabels (object):
         """
         if cv2 is None:
             raise RuntimeError('OpenCV is not available!')
+        if label_classes is not None and not isinstance(label_classes, (str, dict, list)):
+            raise TypeError('label_classes should be Nonr or a str, dict or list, not a {}'.format(type(label_classes)))
+        if sources is not None and not isinstance(sources, (str, dict, list)):
+            raise TypeError('sources should be Nonr or a str, dict or list, not a {}'.format(type(sources)))
 
         mask_areas = []
         contours_classes_sources = []

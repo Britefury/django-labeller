@@ -67,9 +67,10 @@ module labelling_tool {
     export interface LabelHeaderModel {
         image_id: string,
         complete: boolean,
+        labels: any[],
         timeElapsed: number,
         state: string,
-        labels: any[],
+        session_id: string,
     }
 
     export var get_label_header_labels = function(label_header: LabelHeaderModel) {
@@ -87,7 +88,8 @@ module labelling_tool {
                 complete: label_header.complete,
                 timeElapsed: label_header.timeElapsed,
                 state: label_header.state,
-                labels: labels};
+                labels: labels,
+                session_id: label_header.session_id};
     };
 
     /*
@@ -298,7 +300,8 @@ module labelling_tool {
                 complete: false,
                 timeElapsed: 0.0,
                 state: 'editable',
-                labels: []
+                labels: [],
+                session_id: ObjectIDTable.uuidv4(),
             };
             // Active tool
             this._current_tool = null;
@@ -913,7 +916,7 @@ module labelling_tool {
             });
 
             // Mouse wheel
-            this.world.on("mousewheel", () => {
+            this.world.on("wheel", () => {
                 self.notifyStopwatchChanges();
                 var wheel_event: any = d3.event;
                 var handled = false;
@@ -1066,7 +1069,8 @@ module labelling_tool {
                 complete: false,
                 timeElapsed: 0.0,
                 state: 'editable',
-                labels: []
+                labels: [],
+                session_id: ObjectIDTable.uuidv4(),
             });
             this._resetStopwatch();
             (this._complete_checkbox[0] as any).checked = false;

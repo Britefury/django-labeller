@@ -25,11 +25,14 @@
 
 
 import mimetypes, json, os, glob, io, math, six, traceback, itertools
+import re
 import copy
 
 import numpy as np
 
 import random
+
+import uuid
 
 from PIL import Image, ImageDraw
 
@@ -263,9 +266,9 @@ class AbstractLabel (object):
     def _warp(self, xform_fn, object_table):
         raise NotImplementedError('Abstract')
 
-    def warped(self, xform_fn, object_table=None):
+    def warped(self, xform_fn, object_table=None, id_prefix=None):
         if object_table is None:
-            object_table = ObjectTable()
+            object_table = ObjectTable(id_prefix)
         w = self._warp(xform_fn, object_table)
         object_table.register(w)
         return w
@@ -329,7 +332,7 @@ class PointLabel (AbstractLabel):
 
     def _warp(self, xform_fn, object_table):
         warped_pos = xform_fn(self.position_xy[None, :])
-        return PointLabel(warped_pos[0, :], self.object_id, self.classification)
+        return PointLabel(warped_pos[0, :], self.object_id, self.classification, self.source, self.anno_data)
 
     def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
         point_radius = ctx.point_radius if ctx is not None else 0.0
@@ -395,7 +398,7 @@ class PolygonLabel (AbstractLabel):
 
     def _warp(self, xform_fn, object_table):
         warped_regions = [xform_fn(region) for region in self.regions]
-        return PolygonLabel(warped_regions, self.object_id, self.classification)
+        return PolygonLabel(warped_regions, self.object_id, self.classification, self.source, self.anno_data)
 
     def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
         # Rendering helper function: create a binary mask for a given label
@@ -565,7 +568,7 @@ class BoxLabel (AbstractLabel):
         upper = xf_corners.max(axis=0)
         xf_centre = (lower + upper) * 0.5
         xf_size = upper - lower
-        return BoxLabel(xf_centre, xf_size, self.object_id, self.classification)
+        return BoxLabel(xf_centre, xf_size, self.object_id, self.classification, self.source, self.anno_data)
 
     def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
         # Rendering helper function: create a binary mask for a given label
@@ -633,7 +636,7 @@ class CompositeLabel (AbstractLabel):
             else:
                 warped_comp = comp.warped(xform_fn, object_table)
             warped_components.append(warped_comp)
-        return CompositeLabel(warped_components, self.object_id, self.classification)
+        return CompositeLabel(warped_components, self.object_id, self.classification, self.source, self.anno_data)
 
     def render_mask(self, width, height, fill, dx=0.0, dy=0.0, ctx=None):
         return None
@@ -693,7 +696,7 @@ class GroupLabel (AbstractLabel):
 
     def _warp(self, xform_fn, object_table):
         comps = [comp.warped(xform_fn, object_table) for comp in self.component_labels]
-        return GroupLabel(comps, self.object_id, self.classification)
+        return GroupLabel(comps, self.object_id, self.classification, self.source, self.anno_data)
 
     def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
         for label in self.component_labels:
@@ -721,37 +724,33 @@ class GroupLabel (AbstractLabel):
 
 
 class ObjectTable (object):
-    def __init__(self, objects=None):
+    def __init__(self, id_prefix, objects=None):
+        if id_prefix is None or id_prefix == '':
+            id_prefix = str(uuid.uuid4())
+        self._id_prefix = id_prefix
         self._object_id_to_obj = {}
-        self._next_object_id = 1
+        self._next_object_idx = 1
 
         if objects is not None:
             # Register objects with object IDs
             for obj in objects:
                 self.register(obj)
 
-            # Allocate object IDs to objects with no ID
-            self._alloc_object_ids(objects)
-
-    def _alloc_object_ids(self, objects):
-        for obj in objects:
-            if obj.object_id is None:
-                self._alloc_id(obj)
-
-    def _alloc_id(self, obj):
-        obj_id = self._next_object_id
-        self._next_object_id += 1
-        obj.object_id = obj_id
-        self._object_id_to_obj[obj_id] = obj
-        return obj_id
-
     def register(self, obj):
         obj_id = obj.object_id
-        if obj_id is not None:
-            if obj_id in self._object_id_to_obj:
-                raise ValueError('Duplicate object ID')
+
+        if obj_id is None:
+            obj_id = '{}__{}'.format(self._id_prefix, self._next_object_idx)
+            self._next_object_idx += 1
+        elif isinstance(obj_id, int):
+            obj_id = '{}__{}'.format(self._id_prefix, obj_id)
+            self._next_object_idx = max(self._next_object_idx, obj_id + 1)
+
+        if obj_id in self._object_id_to_obj:
+            if self._object_id_to_obj[obj_id] is not obj:
+                raise ValueError('Duplicate object ID {}'.format(obj_id))
+        else:
             self._object_id_to_obj[obj_id] = obj
-            self._next_object_id = max(self._next_object_id, obj_id + 1)
 
     def __getitem__(self, obj_id):
         if obj_id is None:
@@ -775,10 +774,10 @@ class ImageLabels (object):
     manipulating and rendering them.
 
     """
-    def __init__(self, labels, obj_table=None):
+    def __init__(self, labels, obj_table=None, id_prefix=None):
         self.labels = labels
         if obj_table is None:
-            obj_table = ObjectTable(list(self.flatten()))
+            obj_table = ObjectTable(id_prefix, list(self.flatten()))
         self._obj_table = obj_table
 
 
@@ -809,8 +808,9 @@ class ImageLabels (object):
         :param indices: A list of indices that lists the labels that are to be returned
         :return: `ImageLabels` instance
         """
+        obj_table = ObjectTable(id_prefix=str(uuid.uuid4()))
         retained_labels = copy.deepcopy([self.labels[i] for i in indices])
-        return ImageLabels(retained_labels)
+        return ImageLabels(retained_labels, obj_table=obj_table)
 
 
     def warp(self, xform_fn):
@@ -823,7 +823,7 @@ class ImageLabels (object):
         be used here.
         :return: an `ImageLabels` instance that contains the warped labels
         """
-        warped_obj_table = ObjectTable()
+        warped_obj_table = ObjectTable(id_prefix=str(uuid.uuid4()))
         warped_labels = [lab.warped(xform_fn, warped_obj_table) for lab in self.labels]
         return ImageLabels(warped_labels, obj_table=warped_obj_table)
 
@@ -1054,13 +1054,18 @@ class ImageLabels (object):
         :param image_labels: `ImageLabel` instances to merge
         :return: `ImageLabels` instance
         """
+        obj_table = ObjectTable(id_prefix=str(uuid.uuid4()))
         merged_labels = []
         for il in image_labels:
             merged_labels.extend(copy.deepcopy(il.labels))
+        used_ids = set()
         for label in merged_labels:
             for f_label in label.flatten():
-                f_label.object_id = None
-        return ImageLabels(merged_labels)
+                if f_label.object_id in used_ids:
+                    f_label.object_id = None
+                else:
+                    used_ids.add(f_label.object_id)
+        return ImageLabels(merged_labels, obj_table=obj_table)
 
 
     @staticmethod
@@ -1276,6 +1281,90 @@ class ImageLabels (object):
             return cls.from_contours(image_contours, lcls, lsrc)
         else:
             return cls.from_contours([])
+
+
+_INT_ID_PAT = re.compile('\d+')
+
+def _generic_obj_id_update_helper(labels_json, id_prefix, id_remapping, idx_counter_in_list):
+    modified = False
+    if isinstance(labels_json, list):
+        for x in labels_json:
+            m = _generic_obj_id_update_helper(x, id_prefix, id_remapping, idx_counter_in_list)
+            modified = modified or m
+    elif isinstance(labels_json, dict):
+        if 'label_type' in labels_json and 'label_class' in labels_json:
+            # Its a label
+            obj_id = labels_json['object_id']
+            if obj_id is None:
+                obj_id = '{}__{}'.format(id_prefix, idx_counter_in_list[0])
+                idx_counter_in_list[0] += 1
+                labels_json['object_id'] = obj_id
+                modified = True
+            if isinstance(obj_id, int):
+                new_id = '{}__{}'.format(id_prefix, obj_id)
+                labels_json['object_id'] = new_id
+                id_remapping[obj_id] = new_id
+                modified = True
+            elif isinstance(obj_id, str):
+                match = _INT_ID_PAT.match(obj_id)
+                if match is not None and match.end(0) == len(obj_id):
+                    new_id = '{}__{}'.format(id_prefix, obj_id)
+                    labels_json['object_id'] = new_id
+                    id_remapping[obj_id] = new_id
+                    modified = True
+
+        for x in labels_json.values():
+            m = _generic_obj_id_update_helper(x, id_prefix, id_remapping, idx_counter_in_list)
+            modified = modified or m
+
+    return modified
+
+
+def _composite_obj_id_update_helper(labels_json, id_remapping):
+    modified = False
+    if isinstance(labels_json, list):
+        for x in labels_json:
+            m = _composite_obj_id_update_helper(x, id_remapping)
+            modified = modified or m
+    elif isinstance(labels_json, dict):
+        if 'label_type' in labels_json and 'label_class' in labels_json:
+            # Its a label;
+            if labels_json['label_type'] == 'composite':
+                component_ids = labels_json['components']
+                new_component_ids = [id_remapping.get(x, x) for x in component_ids]
+                if new_component_ids != component_ids:
+                    modified = True
+                    labels_json['components'] = new_component_ids
+
+        for x in labels_json.values():
+            m = _composite_obj_id_update_helper(x, id_remapping)
+            modified = modified or m
+
+    return modified
+
+
+def ensure_json_object_ids_have_prefix(labels_json, id_prefix, id_remapping=None, idx_counter_in_list=None):
+    """
+    Fix JSON label representation, by prefixing object IDs with `id_prefix`.
+
+    Modifies JSON data in place.
+
+    Exmaple:
+    >>> import uuid
+    >>> id_prefix = str(uuid.uuid4())
+    >>> AbstractLabel.ensure_json_object_ids_have_prefix(labels_json, id_prefix)
+
+    :param labels_json: labels in JSON form
+    :param id_prefix: object ID prefix
+    :return: True if JSON data was changed
+    """
+    if id_prefix.strip() == '':
+        raise ValueError('id_prefix should not be empty or whitespace')
+    idx_counter_in_list = [1]
+    id_remapping = {}
+    m1 = _generic_obj_id_update_helper(labels_json, id_prefix, id_remapping, idx_counter_in_list)
+    m2 = _composite_obj_id_update_helper(labels_json, id_remapping)
+    return m1 or m2
 
 
 
@@ -1521,6 +1610,10 @@ class PersistentLabelledImage (AbsractLabelledImage):
     def labels(self, l):
         self.labels_json = l.to_json()
 
+
+    @property
+    def labels_path(self):
+        return self.__labels_path
 
     @property
     def labels_json(self):

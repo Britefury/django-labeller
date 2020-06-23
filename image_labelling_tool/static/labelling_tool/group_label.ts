@@ -37,7 +37,7 @@ module labelling_tool {
     }
 
     export function new_GroupLabelModel(label_class: string, source: string): GroupLabelModel {
-        return {label_type: 'group', label_class: label_class, source: source, component_models: []};
+        return {label_type: 'group', label_class: label_class, source: source, anno_data: {}, component_models: []};
     }
 
 
@@ -287,5 +287,13 @@ module labelling_tool {
 
     register_entity_factory('group', (root_view: RootLabelView, model: AbstractLabelModel) => {
         return new GroupLabelEntity(root_view, model as GroupLabelModel);
+    });
+
+    register_walk_fn('group', (model: AbstractLabelModel,
+                                                   map_fn: (model:AbstractLabelModel) => any) => {
+        var group_model: GroupLabelModel = model as GroupLabelModel;
+        for (var i = 0; i < group_model.component_models.length; i++) {
+            model_map(group_model.component_models[i], map_fn);
+        }
     });
 }

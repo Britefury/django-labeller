@@ -70,7 +70,7 @@ module labelling_tool {
             this._placeholders = [];
 
             // Label model object table
-            this._label_model_obj_table = new ObjectIDTable();
+            this._label_model_obj_table = new ObjectIDTable(ObjectIDTable.uuidv4());
             // Label model object ID to entity
             this._label_model_id_to_entity = {};
 
@@ -86,6 +86,8 @@ module labelling_tool {
         Set model
          */
         set_model(model: LabelHeaderModel) {
+            var self = this;
+
             // Remove all entities
             var entites_to_shutdown = this.root_entities.slice();
             for (var i = 0; i < entites_to_shutdown.length; i++) {
@@ -103,8 +105,12 @@ module labelling_tool {
             var labels = get_label_header_labels(this.model);
 
             // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
-            this._label_model_obj_table = new ObjectIDTable();
-            this._label_model_obj_table.register_objects(labels);
+            this._label_model_obj_table = new ObjectIDTable(model.session_id);
+            for (var i = 0; i < labels.length; i++) {
+                model_map(labels[i], (model:AbstractLabelModel) => {
+                    self._label_model_obj_table.register(model);
+                });
+            }
             this._label_model_id_to_entity = {};
 
             // Reset the entity lists
@@ -454,6 +460,14 @@ module labelling_tool {
                 return this.get_entity_for_model_id(model_id);
             }
         };
+
+
+        /*
+        Update object ID format
+         */
+        update_object_id(object_id: any) {
+            return this._label_model_obj_table.update_object_id(object_id);
+        }
 
 
         /*

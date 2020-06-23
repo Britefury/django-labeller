@@ -40,7 +40,7 @@ module labelling_tool {
     }
 
     function new_PointLabelModel(position: Vector2, label_class: string, source: string): PointLabelModel {
-        return {label_type: 'point', label_class: label_class, source: source, position: position};
+        return {label_type: 'point', label_class: label_class, source: source, anno_data: {}, position: position};
     }
 
 

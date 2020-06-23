@@ -261,9 +261,12 @@ module labelling_tool {
 
 
     /*
-    Map label type to entity constructor
+    Map label type to:
+    - entity constructor
+    - walk function
      */
     var label_type_to_entity_factory: any = {};
+    var label_type_to_walk_fn: any = {};
 
 
     /*
@@ -272,6 +275,15 @@ module labelling_tool {
     export function register_entity_factory(label_type_name: string,
                                             factory: (root_view:RootLabelView, model:AbstractLabelModel) => any) {
         label_type_to_entity_factory[label_type_name] = factory;
+    }
+
+    /*
+    Register label walk function
+     */
+    export function register_walk_fn(label_type_name: string,
+                                     walk_fn: (model:AbstractLabelModel,
+                                               map_fn: (model:AbstractLabelModel) => any) => any) {
+        label_type_to_walk_fn[label_type_name] = walk_fn;
     }
 
     /*
@@ -285,6 +297,19 @@ module labelling_tool {
         }
         else {
             return null;
+        }
+    }
+
+    /*
+    Construct entity for given label model.
+    Uses the map above to choose the appropriate constructor
+     */
+    export function model_map(label_model: AbstractLabelModel,
+                              map_fn: (model:AbstractLabelModel) => any) {
+        map_fn(label_model);
+        var walk_fn = label_type_to_walk_fn[label_model.label_type];
+        if (walk_fn !== undefined) {
+            return walk_fn(label_model, map_fn);
         }
     }
 }

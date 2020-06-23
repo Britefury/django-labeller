@@ -26,6 +26,7 @@
 def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_controls=None,
                    config=None, dextr_fn=None, use_reloader=True, debug=True, port=None):
     import json
+    import uuid
     import numpy as np
     from skimage.color import rgb2grey
 
@@ -127,9 +128,13 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 
             labels, complete = image.get_label_data_for_tool()
 
-            label_header = dict(labels=labels,
-                                image_id=image_id,
-                                complete=complete)
+            label_header = dict(image_id=image_id,
+                                labels=labels,
+                                complete=complete,
+                                timeElapsed=0.0,
+                                state='editable',
+                                session_id=str(uuid.uuid4()),
+            )
 
             socketio_emit('get_labels_reply', label_header)
 
@@ -181,9 +186,12 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 
 
             label_header = {
-                'labels': labels,
                 'image_id': image_id,
-                'complete': complete
+                'labels': labels,
+                'complete': complete,
+                'timeElapsed': 0.0,
+                'state': 'editable',
+                'session_id': str(uuid.uuid4()),
             }
 
             r = make_response(json.dumps(label_header))

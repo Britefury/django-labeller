@@ -46,7 +46,7 @@ var __extends = (this && this.__extends) || (function () {
 var labelling_tool;
 (function (labelling_tool) {
     function new_PolygonalLabelModel(label_class, source) {
-        return { label_type: 'polygon', label_class: label_class, source: source, regions: [] };
+        return { label_type: 'polygon', label_class: label_class, source: source, anno_data: {}, regions: [] };
     }
     labelling_tool.new_PolygonalLabelModel = new_PolygonalLabelModel;
     var shape_line = d3.svg.line()
@@ -904,3 +904,4 @@ var labelling_tool;
         return DrawBrushTool;
     }(labelling_tool.AbstractTool));
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=polygonal_label.js.map

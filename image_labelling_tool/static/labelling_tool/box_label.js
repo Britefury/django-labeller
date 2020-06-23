@@ -45,7 +45,7 @@ var __extends = (this && this.__extends) || (function () {
 var labelling_tool;
 (function (labelling_tool) {
     function new_BoxLabelModel(centre, size, label_class, source) {
-        return { label_type: 'box', label_class: label_class, source: source, centre: centre, size: size };
+        return { label_type: 'box', label_class: label_class, source: source, anno_data: {}, centre: centre, size: size };
     }
     function BoxLabel_box(label) {
         var lower = { x: label.centre.x - label.size.x * 0.5, y: label.centre.y - label.size.y * 0.5 };
@@ -253,3 +253,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=box_label.js.map

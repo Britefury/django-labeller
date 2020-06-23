@@ -1,4 +1,4 @@
-import json, datetime
+import json, datetime, uuid
 
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.cache import never_cache
@@ -17,7 +17,12 @@ class LabellingToolView (View):
     Subclass and override the `get_labels` method (mandatory) and optionally
     the `update_labels` method to customise how label data is accessed and updated.
 
-    `get_labels` should return a `models.Labels` instance.
+    `get_labels` should return a `models.Labels` instance or a dict of the form:
+        {
+            'complete': <boolean indicating if the user has marked the image as fininshed>
+            'labels': labels as JSON data
+            'state': 'locked'|'editable' to either disable/enable editing (e.g. if another user is editing them)
+        }
 
     The `get_labels_for_update` method is the same, but is called by `update_labels`
     to retrieve a `Labels` instance to be updated. This could be used in a scenario in which
@@ -38,7 +43,6 @@ class LabellingToolView (View):
     ...         # Lets assume that the label data has been incorporated into the `Image` class:
     ...         labels_metadata = {
     ...             'complete': image.complete,
-    ...             'timeElapsed': image.edit_time_elapsed,
     ...             'labels': image.labels_json,
     ...             'state': ('locked' if image.in_use else 'editable')
     ...         }
@@ -92,6 +96,8 @@ class LabellingToolView (View):
         if 'labels_for_image_id' in request.GET:
             image_id_str = request.GET['labels_for_image_id']
 
+            session_id = str(uuid.uuid4())
+
             labels = self.get_labels(request, image_id_str, *args, **kwargs)
             if labels is None:
                 # No labels for this image
@@ -101,6 +107,7 @@ class LabellingToolView (View):
                     'timeElapsed': 0.0,
                     'state': 'editable',
                     'labels': [],
+                    'session_id': session_id,
                 }
             elif isinstance(labels, models.Labels):
                 # Remove existing lock
@@ -110,6 +117,7 @@ class LabellingToolView (View):
                     'timeElapsed': labels.edit_time_elapsed,
                     'state': 'editable',
                     'labels': labels.labels_json,
+                    'session_id': session_id,
                 }
             elif isinstance(labels, dict):
                 labels_header = {
@@ -118,6 +126,7 @@ class LabellingToolView (View):
                     'timeElapsed': labels.get('edit_time_elapsed', 0.0),
                     'state': labels.get('state', 'editable'),
                     'labels': labels['labels'],
+                    'session_id': session_id,
                 }
             else:
                 raise TypeError('labels returned by get_labels metod should be None, a Labels model '
@@ -229,6 +238,8 @@ class LabellingToolViewWithLocking (LabellingToolView):
         if 'labels_for_image_id' in request.GET:
             image_id_str = request.GET['labels_for_image_id']
 
+            session_id = str(uuid.uuid4())
+
             labels = self.get_labels(request, image_id_str)
 
             if not isinstance(labels, models.Labels):
@@ -253,6 +264,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
                 'timeElapsed': labels.edit_time_elapsed,
                 'state': state,
                 'labels': labels.labels_json,
+                'session_id': session_id,
             }
 
             if attempt_lock and request.user.is_authenticated():

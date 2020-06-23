@@ -42,7 +42,7 @@ var __extends = (this && this.__extends) || (function () {
 var labelling_tool;
 (function (labelling_tool) {
     function new_GroupLabelModel(label_class, source) {
-        return { label_type: 'group', label_class: label_class, source: source, component_models: [] };
+        return { label_type: 'group', label_class: label_class, source: source, anno_data: {}, component_models: [] };
     }
     labelling_tool.new_GroupLabelModel = new_GroupLabelModel;
     /*
@@ -253,4 +253,11 @@ var labelling_tool;
     labelling_tool.register_entity_factory('group', function (root_view, model) {
         return new GroupLabelEntity(root_view, model);
     });
+    labelling_tool.register_walk_fn('group', function (model, map_fn) {
+        var group_model = model;
+        for (var i = 0; i < group_model.component_models.length; i++) {
+            labelling_tool.model_map(group_model.component_models[i], map_fn);
+        }
+    });
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=group_label.js.map

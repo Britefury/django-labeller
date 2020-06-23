@@ -45,7 +45,7 @@ var __extends = (this && this.__extends) || (function () {
 var labelling_tool;
 (function (labelling_tool) {
     function new_PointLabelModel(position, label_class, source) {
-        return { label_type: 'point', label_class: label_class, source: source, position: position };
+        return { label_type: 'point', label_class: label_class, source: source, anno_data: {}, position: position };
     }
     /*
     Point label entity
@@ -184,3 +184,4 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawPointTool = DrawPointTool;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=point_label.js.map

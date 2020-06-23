@@ -43,7 +43,7 @@ module labelling_tool {
     }
 
     export function new_PolygonalLabelModel(label_class: string, source: string): PolygonalLabelModel {
-        return {label_type: 'polygon', label_class: label_class, source: source, regions: []};
+        return {label_type: 'polygon', label_class: label_class, source: source, anno_data: {}, regions: []};
     }
 
     let shape_line: any = d3.svg.line()

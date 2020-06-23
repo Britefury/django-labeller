@@ -41,7 +41,7 @@ module labelling_tool {
     }
 
     function new_BoxLabelModel(centre: Vector2, size: Vector2, label_class: string, source: string): BoxLabelModel {
-        return {label_type: 'box', label_class: label_class, source: source, centre: centre, size: size};
+        return {label_type: 'box', label_class: label_class, source: source, anno_data: {}, centre: centre, size: size};
     }
 
     function BoxLabel_box(label: BoxLabelModel): AABox {

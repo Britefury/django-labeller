@@ -29,11 +29,15 @@ import click
 @click.option('--labels_dir', type=click.Path(dir_okay=True, file_okay=False, writable=True))
 @click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
 @click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
+@click.option('--update_label_object_ids', is_flag=True, default=False, help='Update object IDs in label JSON files')
 @click.option('--enable_dextr', is_flag=True, default=False)
 @click.option('--dextr_weights', type=click.Path())
-def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights):
+def run_app(images_pat, labels_dir, slic, readonly, update_label_object_ids,
+            enable_dextr, dextr_weights):
     import os
     import glob
+    import json
+    import uuid
     from image_labelling_tool import labelling_tool, flask_labeller
 
     if enable_dextr or dextr_weights is not None:
@@ -138,6 +142,21 @@ def run_app(images_pat, labels_dir, slic, readonly, enable_dextr, dextr_weights)
         labelled_images = labelling_tool.PersistentLabelledImage.for_files(
             image_paths, labels_dir=labels_dir, readonly=readonly)
         print('Loaded {0} images'.format(len(labelled_images)))
+
+    if update_label_object_ids:
+        n_updated = 0
+        for limg in labelled_images:
+            if os.path.exists(limg.labels_path):
+                label_js = json.load(open(limg.labels_path, 'r'))
+                prefix = str(uuid.uuid4())
+                modified = labelling_tool.ensure_json_object_ids_have_prefix(
+                    label_js, id_prefix=prefix)
+                if modified:
+                    with open(limg.labels_path, 'w') as f_out:
+                        json.dump(label_js, f_out, indent=3)
+                    n_updated += 1
+        print('Updated object IDs in {} files'.format(n_updated))
+
 
 
     config = {

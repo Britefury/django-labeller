@@ -42,7 +42,7 @@ var __extends = (this && this.__extends) || (function () {
 var labelling_tool;
 (function (labelling_tool) {
     function new_CompositeLabelModel(label_class, source) {
-        return { label_type: 'composite', label_class: label_class, source: source, components: [] };
+        return { label_type: 'composite', label_class: label_class, source: source, anno_data: {}, components: [] };
     }
     labelling_tool.new_CompositeLabelModel = new_CompositeLabelModel;
     /*
@@ -182,7 +182,11 @@ var labelling_tool;
             var component_centroids = [];
             for (var i = 0; i < this.model.components.length; i++) {
                 var model_id = this.model.components[i];
-                var entity = this.root_view.get_entity_for_model_id(model_id);
+                var updated_model_id = this.root_view.update_object_id(model_id);
+                if (updated_model_id !== model_id) {
+                    this.model.components[i] = updated_model_id;
+                }
+                var entity = this.root_view.get_entity_for_model_id(updated_model_id);
                 if (entity !== null) {
                     var centroid = entity.compute_centroid();
                     component_centroids.push(centroid);
@@ -216,3 +220,4 @@ var labelling_tool;
         return new CompositeLabelEntity(root_view, model);
     });
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=composite_label.js.map

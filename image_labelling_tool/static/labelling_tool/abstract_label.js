@@ -190,9 +190,12 @@ var labelling_tool;
     }());
     labelling_tool.PlaceHolderEntity = PlaceHolderEntity;
     /*
-    Map label type to entity constructor
+    Map label type to:
+    - entity constructor
+    - walk function
      */
     var label_type_to_entity_factory = {};
+    var label_type_to_walk_fn = {};
     /*
     Register label entity factory
      */
@@ -200,6 +203,13 @@ var labelling_tool;
         label_type_to_entity_factory[label_type_name] = factory;
     }
     labelling_tool.register_entity_factory = register_entity_factory;
+    /*
+    Register label walk function
+     */
+    function register_walk_fn(label_type_name, walk_fn) {
+        label_type_to_walk_fn[label_type_name] = walk_fn;
+    }
+    labelling_tool.register_walk_fn = register_walk_fn;
     /*
     Construct entity for given label model.
     Uses the map above to choose the appropriate constructor
@@ -214,4 +224,17 @@ var labelling_tool;
         }
     }
     labelling_tool.new_entity_for_model = new_entity_for_model;
+    /*
+    Construct entity for given label model.
+    Uses the map above to choose the appropriate constructor
+     */
+    function model_map(label_model, map_fn) {
+        map_fn(label_model);
+        var walk_fn = label_type_to_walk_fn[label_model.label_type];
+        if (walk_fn !== undefined) {
+            return walk_fn(label_model, map_fn);
+        }
+    }
+    labelling_tool.model_map = model_map;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=abstract_label.js.map

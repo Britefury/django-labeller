@@ -30,9 +30,15 @@ var labelling_tool;
      Object ID table
       */
     var ObjectIDTable = /** @class */ (function () {
-        function ObjectIDTable() {
-            this._id_counter = 1;
+        function ObjectIDTable(id_prefix) {
+            if (id_prefix === undefined || id_prefix === null) {
+                console.log("WARNING: ObjectIDTable: no id_prefix provided, making up a UUID");
+                id_prefix = ObjectIDTable.uuidv4();
+            }
+            this._id_prefix = id_prefix;
+            this._idx_counter = 1;
             this._id_to_object = {};
+            this._old_id_to_new_id = {};
         }
         ObjectIDTable.prototype.get = function (id) {
             return this._id_to_object[id];
@@ -40,52 +46,62 @@ var labelling_tool;
         ObjectIDTable.prototype.register = function (obj) {
             var id;
             if ('object_id' in obj && obj.object_id !== null) {
-                id = obj.object_id;
-                this._id_counter = Math.max(this._id_counter, id + 1);
+                if (typeof (obj.object_id) === "number") {
+                    // Update the ID to be of the form '<prefix>__<number>'
+                    var old_id = obj.object_id;
+                    id = this._id_prefix + "__" + old_id;
+                    this._old_id_to_new_id[old_id] = id;
+                    obj.object_id = id;
+                }
+                else {
+                    id = obj.object_id;
+                }
                 this._id_to_object[id] = obj;
             }
             else {
-                id = this._id_counter;
-                this._id_counter += 1;
+                id = this._id_prefix + "__" + this._idx_counter;
+                this._idx_counter += 1;
                 this._id_to_object[id] = obj;
                 obj.object_id = id;
             }
         };
         ObjectIDTable.prototype.unregister = function (obj) {
             delete this._id_to_object[obj.object_id];
-            obj.object_id = null;
+            // obj.object_id = null;
         };
-        ObjectIDTable.prototype.register_objects = function (object_array) {
-            var obj, id, i;
-            for (i = 0; i < object_array.length; i++) {
-                obj = object_array[i];
-                if ('object_id' in obj && obj.object_id !== null) {
-                    id = obj.object_id;
-                    this._id_counter = Math.max(this._id_counter, id + 1);
-                    this._id_to_object[id] = obj;
-                }
+        ObjectIDTable.prototype.update_object_id = function (object_id) {
+            if (this._old_id_to_new_id.hasOwnProperty(object_id)) {
+                return this._old_id_to_new_id[object_id];
             }
-            for (i = 0; i < object_array.length; i++) {
-                obj = object_array[i];
-                if ('object_id' in obj && obj.object_id !== null) {
-                }
-                else {
-                    id = this._id_counter;
-                    this._id_counter += 1;
-                    this._id_to_object[id] = obj;
-                    obj.object_id = id;
-                }
+            else {
+                return object_id;
             }
         };
         ObjectIDTable.get_id = function (x) {
-            if ('object_id' in x && x.object_id !== null) {
+            if (x.hasOwnProperty('object_id') && x.object_id !== null) {
                 return x.object_id;
             }
             else {
                 return null;
             }
         };
+        ObjectIDTable.uuidv4 = function () {
+            // Code adapted from:
+            // https://stackoverflow.com/questions/105034/how-to-create-guid-uuid/2117523#2117523
+            if (crypto !== undefined) {
+                return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, function (c) {
+                    return (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16);
+                });
+            }
+            else {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+        };
         return ObjectIDTable;
     }());
     labelling_tool.ObjectIDTable = ObjectIDTable;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=object_id_table.js.map

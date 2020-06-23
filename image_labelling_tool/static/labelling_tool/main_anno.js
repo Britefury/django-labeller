@@ -57,7 +57,8 @@ var labelling_tool;
             complete: label_header.complete,
             timeElapsed: label_header.timeElapsed,
             state: label_header.state,
-            labels: labels };
+            labels: labels,
+            session_id: label_header.session_id };
     };
     /*
    Labelling tool view; links to the server side data structures
@@ -173,7 +174,8 @@ var labelling_tool;
                 complete: false,
                 timeElapsed: 0.0,
                 state: 'editable',
-                labels: []
+                labels: [],
+                session_id: labelling_tool.ObjectIDTable.uuidv4(),
             };
             // Active tool
             this._current_tool = null;
@@ -675,7 +677,7 @@ var labelling_tool;
                 }
             });
             // Mouse wheel
-            this.world.on("mousewheel", function () {
+            this.world.on("wheel", function () {
                 self.notifyStopwatchChanges();
                 var wheel_event = d3.event;
                 var handled = false;
@@ -813,7 +815,8 @@ var labelling_tool;
                 complete: false,
                 timeElapsed: 0.0,
                 state: 'editable',
-                labels: []
+                labels: [],
+                session_id: labelling_tool.ObjectIDTable.uuidv4(),
             });
             this._resetStopwatch();
             this._complete_checkbox[0].checked = false;
@@ -1159,3 +1162,4 @@ var labelling_tool;
     }());
     labelling_tool.DjangoAnnotator = DjangoAnnotator;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=main_anno.js.map

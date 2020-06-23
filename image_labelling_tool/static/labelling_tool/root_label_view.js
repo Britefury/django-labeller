@@ -43,7 +43,7 @@ var labelling_tool;
             this.selected_entities = [];
             this._placeholders = [];
             // Label model object table
-            this._label_model_obj_table = new labelling_tool.ObjectIDTable();
+            this._label_model_obj_table = new labelling_tool.ObjectIDTable(labelling_tool.ObjectIDTable.uuidv4());
             // Label model object ID to entity
             this._label_model_id_to_entity = {};
             this.root_listener = root_listener;
@@ -55,6 +55,7 @@ var labelling_tool;
         Set model
          */
         RootLabelView.prototype.set_model = function (model) {
+            var self = this;
             // Remove all entities
             var entites_to_shutdown = this.root_entities.slice();
             for (var i = 0; i < entites_to_shutdown.length; i++) {
@@ -69,8 +70,12 @@ var labelling_tool;
             this.model = model;
             var labels = labelling_tool.get_label_header_labels(this.model);
             // Set up the ID counter; ensure that it's value is 1 above the maximum label ID in use
-            this._label_model_obj_table = new labelling_tool.ObjectIDTable();
-            this._label_model_obj_table.register_objects(labels);
+            this._label_model_obj_table = new labelling_tool.ObjectIDTable(model.session_id);
+            for (var i = 0; i < labels.length; i++) {
+                labelling_tool.model_map(labels[i], function (model) {
+                    self._label_model_obj_table.register(model);
+                });
+            }
             this._label_model_id_to_entity = {};
             // Reset the entity lists
             this._all_entities = [];
@@ -377,6 +382,12 @@ var labelling_tool;
         };
         ;
         /*
+        Update object ID format
+         */
+        RootLabelView.prototype.update_object_id = function (object_id) {
+            return this._label_model_obj_table.update_object_id(object_id);
+        };
+        /*
         Register place holder
          */
         RootLabelView.prototype._register_placeholder = function (placeholder) {
@@ -454,3 +465,4 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=root_label_view.js.map

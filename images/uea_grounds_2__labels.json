@@ -5,7 +5,7 @@
       {
          "label_type": "polygon",
          "label_class": "building",
-         "object_id": 1,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__1",
          "regions": [
             [
                {
@@ -1679,7 +1679,7 @@
       {
          "label_type": "polygon",
          "label_class": "tree",
-         "object_id": 2,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__2",
          "regions": [
             [
                {
@@ -1709,7 +1709,7 @@
       {
          "label_type": "polygon",
          "label_class": "tree",
-         "object_id": 17,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__17",
          "regions": [
             [
                {
@@ -1859,7 +1859,7 @@
       {
          "label_type": "polygon",
          "label_class": "tree",
-         "object_id": 18,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__18",
          "regions": [
             [
                {
@@ -2933,7 +2933,7 @@
                }
             ]
          ],
-         "object_id": 20,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__20",
          "anno_data": {
             "good_quality": true,
             "material": "trees",
@@ -3199,7 +3199,7 @@
                }
             ]
          ],
-         "object_id": 22,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__22",
          "anno_data": {
             "good_quality": false,
             "material": "water",
@@ -3254,7 +3254,7 @@
                }
             ]
          ],
-         "object_id": 23,
+         "object_id": "0deeb06b-0c15-43ac-9e45-2b33dac16a89__23",
          "anno_data": {
             "good_quality": true,
             "visibility": "full",

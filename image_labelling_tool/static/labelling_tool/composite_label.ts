@@ -37,7 +37,7 @@ module labelling_tool {
     }
 
     export function new_CompositeLabelModel(label_class: string, source: string): CompositeLabelModel {
-        return {label_type: 'composite', label_class: label_class, source: source, components: []};
+        return {label_type: 'composite', label_class: label_class, source: source, anno_data: {}, components: []};
     }
 
 
@@ -210,7 +210,11 @@ module labelling_tool {
             var component_centroids: Vector2[] = [];
             for (var i = 0; i < this.model.components.length; i++) {
                 var model_id = this.model.components[i];
-                var entity = this.root_view.get_entity_for_model_id(model_id);
+                var updated_model_id = this.root_view.update_object_id(model_id);
+                if (updated_model_id !== model_id) {
+                    this.model.components[i] = updated_model_id;
+                }
+                var entity = this.root_view.get_entity_for_model_id(updated_model_id);
                 if (entity !== null) {
                     var centroid = entity.compute_centroid();
                     component_centroids.push(centroid);

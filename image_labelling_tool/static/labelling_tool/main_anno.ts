@@ -36,6 +36,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./select_tools.ts" />
 /// <reference path="./point_label.ts" />
 /// <reference path="./box_label.ts" />
+/// <reference path="./oriented_ellipse_label.ts" />
 /// <reference path="./polygonal_label.ts" />
 /// <reference path="./dextr_label.ts" />
 /// <reference path="./composite_label.ts" />
@@ -234,6 +235,7 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'brushSelect', true);
             ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
+            ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
             ensure_config_option_exists(config.tools, 'compositeLabel', false);
             ensure_config_option_exists(config.tools, 'groupLabel', false);
@@ -697,11 +699,19 @@ module labelling_tool {
                 draw_box_button.click(function (event: any) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof BoxLabelEntity) {
-                        self.set_current_tool(new DrawBoxTool(self.root_view, current));
+                        self.set_current_tool(new DrawBoxTool(self.root_view, null));
                     }
                     else {
                         self.set_current_tool(new DrawBoxTool(self.root_view, null));
                     }
+                    event.preventDefault();
+                });
+            }
+
+            if (config.tools.drawOrientedEllipseLabel) {
+                var draw_oriented_ellipse_button: any = $('#draw_oriented_ellipse_button');
+                draw_oriented_ellipse_button.click(function (event: any) {
+                    self.set_current_tool(new DrawOrientedEllipseTool(self.root_view, null));
                     event.preventDefault();
                 });
             }

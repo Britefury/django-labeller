@@ -35,6 +35,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./select_tools.ts" />
 /// <reference path="./point_label.ts" />
 /// <reference path="./box_label.ts" />
+/// <reference path="./oriented_ellipse_label.ts" />
 /// <reference path="./polygonal_label.ts" />
 /// <reference path="./dextr_label.ts" />
 /// <reference path="./composite_label.ts" />
@@ -120,6 +121,7 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'brushSelect', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPointLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', false);
@@ -498,11 +500,18 @@ var labelling_tool;
                 draw_box_button.click(function (event) {
                     var current = self.root_view.get_selected_entity();
                     if (current instanceof labelling_tool.BoxLabelEntity) {
-                        self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, current));
+                        self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, null));
                     }
                     else {
                         self.set_current_tool(new labelling_tool.DrawBoxTool(self.root_view, null));
                     }
+                    event.preventDefault();
+                });
+            }
+            if (config.tools.drawOrientedEllipseLabel) {
+                var draw_oriented_ellipse_button = $('#draw_oriented_ellipse_button');
+                draw_oriented_ellipse_button.click(function (event) {
+                    self.set_current_tool(new labelling_tool.DrawOrientedEllipseTool(self.root_view, null));
                     event.preventDefault();
                 });
             }

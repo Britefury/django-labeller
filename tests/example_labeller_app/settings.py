@@ -170,6 +170,7 @@ LABELLING_TOOL_CONFIG = {
         'labelClassFilter': True,
         'drawPointLabel': False,
         'drawBoxLabel': True,
+        'drawOrientedEllipseLabel': True,
         'drawPolyLabel': True,
         'deleteLabel': True,
         'deleteConfig': {

@@ -1294,7 +1294,7 @@ def _generic_obj_id_update_helper(labels_json, id_prefix, id_remapping, idx_coun
     elif isinstance(labels_json, dict):
         if 'label_type' in labels_json and 'label_class' in labels_json:
             # Its a label
-            obj_id = labels_json['object_id']
+            obj_id = labels_json.get('object_id')
             if obj_id is None:
                 obj_id = '{}__{}'.format(id_prefix, idx_counter_in_list[0])
                 idx_counter_in_list[0] += 1

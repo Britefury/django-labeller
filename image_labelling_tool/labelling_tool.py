@@ -743,8 +743,8 @@ class ObjectTable (object):
             obj_id = '{}__{}'.format(self._id_prefix, self._next_object_idx)
             self._next_object_idx += 1
         elif isinstance(obj_id, int):
-            obj_id = '{}__{}'.format(self._id_prefix, obj_id)
             self._next_object_idx = max(self._next_object_idx, obj_id + 1)
+            obj_id = '{}__{}'.format(self._id_prefix, obj_id)
 
         if obj_id in self._object_id_to_obj:
             if self._object_id_to_obj[obj_id] is not obj:
@@ -1069,7 +1069,7 @@ class ImageLabels (object):
 
 
     @staticmethod
-    def from_json(label_data_js):
+    def from_json(label_data_js, id_prefix=None):
         """
         Labels in JSON format
 
@@ -1091,7 +1091,9 @@ class ImageLabels (object):
                 type(label_data_js)
             ))
 
-        obj_table = ObjectTable()
+        if id_prefix is None:
+            id_prefix = str(uuid.uuid4())
+        obj_table = ObjectTable(id_prefix=id_prefix)
         labs = [AbstractLabel.from_json(label, obj_table) for label in labels]
         return ImageLabels(labs, obj_table=obj_table)
 
@@ -1109,7 +1111,7 @@ class ImageLabels (object):
 
 
     @classmethod
-    def from_contours(cls, label_contours, label_classes=None, sources=None):
+    def from_contours(cls, label_contours, label_classes=None, sources=None, id_prefix=None):
         """
         Convert a list of contours to an `ImageLabels` instance.
 
@@ -1125,7 +1127,9 @@ class ImageLabels (object):
                 the source of each contour, or a string to assign the same source to every label
         :return: an `ImageLabels` instance containing the labels extracted from the contours
         """
-        obj_table = ObjectTable()
+        if id_prefix is None:
+            id_prefix = str(uuid.uuid4())
+        obj_table = ObjectTable(id_prefix=id_prefix)
         labels = []
         if isinstance(label_classes, str) or label_classes is None:
             label_classes = itertools.repeat(label_classes)

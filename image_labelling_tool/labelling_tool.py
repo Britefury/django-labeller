@@ -26,6 +26,7 @@
 
 import mimetypes, json, os, glob, io, math, six, traceback, itertools
 import re
+import collections
 import copy
 
 import numpy as np
@@ -803,7 +804,16 @@ class ImageLabels (object):
         return len(self.labels)
 
     def __getitem__(self, item):
-        return self.labels[item]
+        if isinstance(item, int):
+            return self.labels[item]
+        elif isinstance(item, str):
+            return self._obj_table[item]
+        elif isinstance(item, slice):
+            return self.retain(item)
+        elif isinstance(item, collections.Sequence):
+            return self.retain(item)
+        else:
+            raise TypeError('item should be an int, a str, a slice or a sequence, not a {}'.format(type(item)))
 
 
     def flatten(self):
@@ -819,15 +829,29 @@ class ImageLabels (object):
         return histogram
 
 
-    def retain(self, indices):
+    def retain(self, items, id_prefix=None):
         """
-        Create a clone of the labels listed in `indices`
+        Create a clone of the labels listed in `items`
 
-        :param indices: A list of indices that lists the labels that are to be returned
+        :param items: Either a slice, or a list of indices/object IDs that identify the labels to be kept
+        :param id_prefix: the object ID prefix that will be to create object IDs for labels added to
+            the returned `ImageLabels` instance
         :return: `ImageLabels` instance
         """
-        obj_table = ObjectTable(id_prefix=str(uuid.uuid4()))
-        retained_labels = copy.deepcopy([self.labels[i] for i in indices])
+        if isinstance(items, slice):
+            retained_labels = copy.deepcopy(self.labels[items])
+        else:
+            retained_labels = []
+            for item in items:
+                if isinstance(item, str):
+                    retained_labels.append(copy.deepcopy(self._obj_table[item]))
+                else:
+                    retained_labels.append(copy.deepcopy(self.labels[item]))
+
+        if id_prefix is None:
+            id_prefix = str(uuid.uuid4())
+        obj_table = ObjectTable(id_prefix=id_prefix)
+
         return ImageLabels(retained_labels, obj_table=obj_table)
 
 
@@ -1004,8 +1028,10 @@ class ImageLabels (object):
                     object_ids.append(label.object_id)
                     label_i += 1
 
-        if label_image_stack:
+        if len(label_image_stack) > 0:
             label_image = np.stack(label_image_stack, axis=2)
+        else:
+            label_image = np.zeros((height, width, 0), dtype=int)
 
         if return_object_ids:
             return label_image, np.array(label_index_to_cls), object_ids

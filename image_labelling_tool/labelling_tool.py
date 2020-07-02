@@ -653,7 +653,8 @@ class CompositeLabel (AbstractLabel):
 
     @classmethod
     def new_instance_from_json(cls, label_json, object_table):
-        components = [object_table.get(obj_id) for obj_id in label_json['components']]
+        component_ids = [object_table.new_style_id(obj_id) for obj_id in label_json['components']]
+        components = [object_table.get(obj_id) for obj_id in component_ids]
         components = [comp for comp in components if comp is not None]
         return CompositeLabel(components, label_json.get('object_id'),
                               classification=label_json['label_class'],
@@ -729,6 +730,7 @@ class ObjectTable (object):
             id_prefix = str(uuid.uuid4())
         self._id_prefix = id_prefix
         self._object_id_to_obj = {}
+        self._old_object_id_to_obj = {}
         self._next_object_idx = 1
 
         if objects is not None:
@@ -742,9 +744,11 @@ class ObjectTable (object):
         if obj_id is None:
             obj_id = '{}__{}'.format(self._id_prefix, self._next_object_idx)
             self._next_object_idx += 1
+            obj.object_id = obj_id
         elif isinstance(obj_id, int):
             self._next_object_idx = max(self._next_object_idx, obj_id + 1)
             obj_id = '{}__{}'.format(self._id_prefix, obj_id)
+            obj.object_id = obj_id
 
         if obj_id in self._object_id_to_obj:
             if self._object_id_to_obj[obj_id] is not obj:
@@ -763,6 +767,20 @@ class ObjectTable (object):
             return None
         else:
             return self._object_id_to_obj.get(obj_id, default)
+
+    def new_style_id(self, obj_id):
+        """
+        Convert object ID to new '<prefix_uuid>__<index>' style
+
+        :param obj_id:
+        :return:
+        """
+        if obj_id is None:
+            return None
+        elif isinstance(obj_id, int):
+            return '{}__{}'.format(self._id_prefix, obj_id)
+        else:
+            return obj_id
 
     def __contains__(self, obj_id):
         return obj_id in self._object_id_to_obj

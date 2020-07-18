@@ -1,6 +1,6 @@
 {% load labelling_tool_tags %}
 
-{% include 'inline/anno_app.html' %}
+{% include 'inline/labeller_app.html' %}
 
 <script>
     (function () {
@@ -83,7 +83,7 @@
                 var dextr_request = null;
             {% endif %}
 
-            var tool = new labelling_tool.DjangoAnnotator(
+            var tool = new labelling_tool.DjangoLabeller(
                 {{ label_class_groups | as_json | safe }},
                 {{ colour_schemes | as_json | safe }},
                 {{ anno_controls | as_json | safe }},

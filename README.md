@@ -1,35 +1,63 @@
-# UEA Computer Vision - Image Labelling Tool
+# django-labeller
 
 #### A light-weight image labelling tool for Python designed for creating segmentation data sets.
 
 - compatible with Django and Flask
-- polygon, box or point annotations supported
+- polygon, box, point and oriented ellipse annotations supported
 - polygonal labels can have disjoint regions and can be editing using paintng and boolean operations; provided by
   [polybooljs](https://github.com/voidqk/polybooljs)
 - can use the [DEXTR](http://people.ee.ethz.ch/~cvlsegmentation/dextr/) algorithm to automatically generate
   polygonal outlines of objects identified by the user with a few clicks; provided by the
   [dextr](https://github.com/Britefury/dextr) library
+  
+Django Labeller in action:
+![Django labeller movie](doc/dextr_boolean_cleanup_v1_small.gif "Django Labeller in action")
 
+
+## Django or Flask?
+
+If you want to run `django-labeller` on your local machine with minimum fuss and store the image and
+label files on your file system, use the Flask application.
+
+If you want to incorporate `django-labeller` into your Django application, use the Django app/plugin as
+it provides model classes that store labels in your database, etc.
 
 ## Installation
 
-From the command line run:
+If you to use the example Django application or use the provided example images, clone it from GitHub and
+install (*recommended*): 
 
 ```shell script
+> git clone https://github.com/uea-computer-vision/django-labeller.git
 > python setup.py install
 ````
+
+To use it as a library, either with Flask or Django, install from PyPI:
+
+```shell script
+> pip install django-labeller
+```
 
 ## Examples
 
 ### Flask web app example
 
 An example Flask-based web app is provided that displays the labelling tool within a web page. To start it,
-run:
+change into the same directory into which you cloned the repo and run:
  
 ```shell script
-> python flask_app.py
+> python -m image_labelling_tool.flask_labeller 
 ```
+
 Now open `127.0.0.1:5000` within a browser.
+
+If you want to load images from a different directory, or if you installed from PyPI, tell `flask_labeller`
+where to look:
+
+```shell script
+> python -m image_labelling_tool.flask_labeller --images_pat=<images_directory>/*.<jpg|png>
+```
+
 
 #### Flask app with DEXTR assisted labelling
 
@@ -39,10 +67,10 @@ First, install the [dextr](https://github.com/Britefury/dextr) library:
 > pip install dextr
 ```
 
-Now tell the Flask app to enable DEXTR:
+Now tell the Flask app to enable DEXTR using the `--enable_dextr` option:
 
 ```shell script
-> python flask_app.py --enable_dextr
+> python -m image_labelling_tool.flask_labeller --enable_dextr
 ````
  
 The above will use the ResNet-101 based DEXTR model trained on Pascal VOC 2012 that is provided by
@@ -50,14 +78,14 @@ the dextr library.
 If you want to use a custom DEXTR model that you trained for your purposes, use the `--dextr_weights` option:
 
 ```shell script
-> python flask_app.py --dextr_weights=path/to/model.pth
+> python -m image_labelling_tool.flask_labeller --dextr_weights=path/to/model.pth
 ````
 
 
 
 ### Django 1.11 web app example
 
-** Not Django 2.x compatible **
+** Not Django 2.x or 3.x compatible (see `django-3` branch) **
 
 The example Django-based web app provides a little more functionality than the Flask app. It stores the label
 data in a database (only SQLite in the example) and does basic image locking so that multiple users cannot work
@@ -66,20 +94,20 @@ on the same image at the same time.
 To initialise, first perform migrations:
 
 ```shell script
-> python tests/manage.py migrate
+> python simple_django_labeller/manage.py migrate
 ```
 
-Then populate the database with the example images in the `images` directory (replace `images` with something
-else if you wish to use different images):
+Then populate the database with the example images in the `images` directory (replace `images` with the path
+of another directory if you wish to use different images):
 
 ```shell script
-> python tests/manage.py populate images
+> python simple_django_labeller/manage.py populate images
 ```
 
 Then run the app:
 
 ```shell script
-> python tests/manage.py runserver
+> python simple_django_labeller/manage.py runserver
 ```
 
 #### Django app with DEXTR assisted labelling
@@ -108,14 +136,14 @@ the default ResNet-101 based U-net trained on Pascal VOC 2012 provided by the de
 Now run the Django application:
 
 ```shell script
-> cd tests
+> cd simple_django_labeller
 > python manage.py runserver
 ```
 
 Now start a celery worker:
 
 ```shell script
-> cd tests
+> cd simple_django_labeller
 > celery -A example_labeller_app worker -l info
 ```
 
@@ -127,9 +155,10 @@ Note that Celery v4 and above are not strictly compatible with Windows, but it c
 
 
 
-## API
+## API and label access
 
-Please see the Jupyter notebook `Image labeller notebook.ipynb` for API usage.
+Please see the Jupyter notebook `Image labeller notebook.ipynb` for API usage. It will show you how to load
+labels and render them into class maps, instance maps, or image stacks.
 
 
 ## Libraries, Credits and License

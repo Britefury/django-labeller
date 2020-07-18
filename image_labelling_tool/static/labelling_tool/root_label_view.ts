@@ -30,7 +30,7 @@ Dr. M. Mackiewicz.
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./composite_label.ts" />
 /// <reference path="./group_label.ts" />
-/// <reference path="./main_anno.ts" />
+/// <reference path="./main_labeller.ts" />
 
 module labelling_tool {
     export interface RootLabelViewListener {
@@ -55,12 +55,12 @@ module labelling_tool {
         private root_listener: RootLabelViewListener;
         private _entity_event_listener: LabelEntityEventListener;
 
-        view: DjangoAnnotator;
+        view: DjangoLabeller;
 
         world: d3.Selection<any>;
 
         constructor(model: LabelHeaderModel, root_listener: RootLabelViewListener,
-                    entity_listener: LabelEntityEventListener, ltool: DjangoAnnotator,
+                    entity_listener: LabelEntityEventListener, ltool: DjangoLabeller,
                     world: d3.Selection<any>) {
             this.model = model;
 

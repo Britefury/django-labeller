@@ -1028,10 +1028,11 @@ class ImageLabels (object):
                     object_ids.append(label.object_id)
                     label_i += 1
 
-        if len(label_image_stack) > 0:
-            label_image = np.stack(label_image_stack, axis=2)
-        else:
-            label_image = np.zeros((height, width, 0), dtype=int)
+        if multichannel_mask:
+            if len(label_image_stack) > 0:
+                label_image = np.stack(label_image_stack, axis=2)
+            else:
+                label_image = np.zeros((height, width, 0), dtype=int)
 
         if return_object_ids:
             return label_image, np.array(label_index_to_cls), object_ids

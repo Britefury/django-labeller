@@ -3,8 +3,8 @@
     <head>
         <title>UEA Computer Vision - Annotator</title>
 
-        {% include "inline/image_annotator_css.html" %}
-        {% include "inline/image_annotator_scripts.html" %}
+        {% include "inline/image_labeller_css.html" %}
+        {% include "inline/image_labeller_scripts.html" %}
     </head>
 
     <body>
@@ -21,7 +21,7 @@
     </nav>
 
 
-    {% include "inline/anno_app.html" %}
+    {% include "inline/labeller_app.html" %}
 
     <script>
         // get image descriptor callback function
@@ -122,7 +122,7 @@
 
         // Create the labelling tool
         // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
-            var tool = new labelling_tool.DjangoAnnotator(
+            var tool = new labelling_tool.DjangoLabeller(
                 {{ label_class_groups | tojson | safe }},
                 {{ colour_schemes | tojson | safe }},
                 {{ anno_controls | tojson | safe }},

@@ -131,10 +131,18 @@ LABEL_CLASSES = [
                                                         artificial=[128, 128, 128])),
         labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
                                                        artificial=[128, 128, 128])),
+        labelling_tool.LabelClass('flower', 'Flower', dict(default=[255, 96, 192], natural=[255, 192, 96],
+                                                           artificial=[128, 128, 128])),
+        labelling_tool.LabelClass('leaf', 'Leaf', dict(default=[65, 255, 0], natural=[65, 255, 0],
+                                                       artificial=[128, 128, 128])),
+        labelling_tool.LabelClass('stem', 'Stem', dict(default=[128, 64, 0], natural=[128, 64, 0],
+                                                       artificial=[128, 128, 128])),
     ]),
     labelling_tool.LabelClassGroup('Artificial', [
         labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
                                                                artificial=[255, 128, 0])),
+        labelling_tool.LabelClass('wall', 'Wall', dict(default=[0, 128, 255], natural=[128, 128, 128],
+                                                       artificial=[0, 128, 255])),
     ])]
 
 ANNO_CONTROLS = [

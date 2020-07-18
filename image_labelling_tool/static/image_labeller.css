@@ -6,13 +6,13 @@ html, body {
     overflow: hidden;
 }
 
-div.image_annotator {
+div.image_labeller {
     width: inherit;
     height: inherit;
     overflow: hidden;
 }
 
-nav.anno_menu_bar {
+nav.labeller_menu_bar {
     padding: 3px;
     width: inherit;
     border-bottom: #5c637a 1px solid;
@@ -20,17 +20,17 @@ nav.anno_menu_bar {
     color: #e8ecf0;
 }
 
-.anno_menu_bar_right {
+.labeller_menu_bar_right {
     position: fixed;
     display: inline-block;
     right: 0;
 }
 
-.anno_menu_bar_right > h4 {
+.labeller_menu_bar_right > h4 {
     display: inline-block;
 }
 
-.anno_menu_sep {
+.labeller_menu_sep {
     display: inline-block;
     width: 50px;
 }

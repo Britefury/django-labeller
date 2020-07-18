@@ -1,7 +1,7 @@
-<div class="image_annotator">
-    <nav class="anno_menu_bar">
-        <div class="anno_menu_bar_right">
-            <h4>Django annotator</h4>
+<div class="image_labeller">
+    <nav class="labeller_menu_bar">
+        <div class="labeller_menu_bar_right">
+            <h4>Django labeller</h4>
         </div>
             <!-- We use `not x == False` so that the if succeeds by default if `x` does not exist !-->
             {% if not labelling_tool_config.tools.imageSelector == False %}
@@ -18,12 +18,12 @@
                 {% endif %}
             {% endif %}
 
-            <div class="anno_menu_sep"></div>
+            <div class="labeller_menu_sep"></div>
 
             <button class="btn btn-sm btn-danger" data-toggle="modal" data-target="#help_modal"><span class="oi
             oi-question-mark"></span> Instructions</button>
 
-            <div class="anno_menu_sep"></div>
+            <div class="labeller_menu_sep"></div>
 
             <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
     </nav>
@@ -213,7 +213,7 @@
                             click here to merge them">MergeP</button>
                         {% if dextr_available %}
                             <button class="btn btn-sm btn-primary w-25 mb-1" type="button" id="dextr_button" data-toggle="tooltip"
-                                data-placement="top" title="Use ">AutoP</button>
+                                data-placement="top" title="Automatic polygonal label">AutoP</button>
                         {% endif %}
                     {% endif %}
                     {% if not labelling_tool_config.tools.drawBoxLabel == False %}

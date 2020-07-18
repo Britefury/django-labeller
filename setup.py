@@ -1,8 +1,9 @@
 import os
+import fnmatch
 from setuptools import find_packages
 from setuptools import setup
 
-version = '0.1.dev1'
+version = '0.1'
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -10,10 +11,19 @@ try:
 except IOError:
     README = ''
 
+def find_data_files(dir, pat):
+    files = []
+    for f in os.listdir(dir):
+        if fnmatch.fnmatch(f, pat):
+            files.append(os.path.join(dir, f))
+    return (dir, files)
+
 install_requires = [
     'numpy',
     'Pillow',
-    'scikit-image'
+    'scikit-image',
+    'click',
+    'flask'
     ]
 
 tests_require = [
@@ -25,31 +35,34 @@ data_files = [
         'image_labelling_tool/templates/labeller_page.jinja2'
     ]),
     ('image_labelling_tool/templates/inline', [
-        'image_labelling_tool/templates/inline/anno_app.html',
-        'image_labelling_tool/templates/inline/image_annotator.html',
-        'image_labelling_tool/templates/inline/image_annotator_css.html',
-        'image_labelling_tool/templates/inline/image_annotator_scripts.html',
+        'image_labelling_tool/templates/inline/labeller_app.html',
+        'image_labelling_tool/templates/inline/image_labeller.html',
+        'image_labelling_tool/templates/inline/image_labeller_css.html',
+        'image_labelling_tool/templates/inline/image_labeller_scripts.html',
     ]),
+    find_data_files('image_labelling_tool/static', '*.*'),
+    find_data_files('image_labelling_tool/static/open-iconic/css', '*.*'),
+    find_data_files('image_labelling_tool/static/open-iconic/fonts', '*.*'),
+    find_data_files('image_labelling_tool/static/labelling_tool', '*.*'),
 ]
 
 setup(
-    name="Image labelling tool",
+    name="django-labeller",
     version=version,
-    description="A web-based labelling tool for Django and Flask",
+    description="An image labelling tool for creating segmentation data sets, for Django and Flask.",
     long_description="\n\n".join([README]),
     classifiers=[
-        "Development Status :: 1 - Alpha",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.6",
         "Topic :: Software Development :: User Interfaces",
         ],
     keywords="",
     author="Geoffrey French",
     # author_email="brittix1023 at gmail dot com",
-    url="https://bitbucket.org/ueacomputervision/image-labelling-tool",
+    url="https://github.com/uea-computer-vision/django-labeller",
     license="MIT",
     packages=find_packages(),
     include_package_data=include_package_data,

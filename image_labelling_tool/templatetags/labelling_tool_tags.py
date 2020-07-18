@@ -23,7 +23,7 @@ def _update_config(dest, src):
                 dest[key] = value
 
 
-@register.inclusion_tag('inline/image_annotator.html', name='labelling_tool')
+@register.inclusion_tag('inline/image_labeller.html', name='labelling_tool')
 def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial_image_index,
                    labelling_tool_url, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
                    config=None):

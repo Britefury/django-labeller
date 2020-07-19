@@ -13,19 +13,12 @@ Including another URLconf
     1. Add an import:  from blog import urls as blog_urls
     2. Add a URL to urlpatterns:  url(r'^blog/', include(blog_urls))
 """
-from django.conf.urls import include, url
-from django.conf import settings
 from django.contrib import admin
-from django.views.generic import RedirectView
-from django.views.static import serve
+from django.urls import include, path
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
-    url(r'^admin/', include(admin.site.urls)),
-
-    url(r'^example_labeller/', include('example_labeller.urls', namespace='example_labeller',
-                                       app_name='example_labeller')),
-
-    url(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
-
-    url(r'^$', RedirectView.as_view(url='/example_labeller')),
-]
+    path('admin/', admin.site.urls),
+    path('', include('example_labeller.urls', namespace='example_labeller')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

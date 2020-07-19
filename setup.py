@@ -30,7 +30,7 @@ tests_require = [
 ]
 
 django_require = [
-    'django==1.11.29'
+    'django'
 ]
 
 dextr_require = [

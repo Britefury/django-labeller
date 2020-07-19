@@ -21,12 +21,12 @@ class Labels (models.Model):
 
     # Last modification user and datetime
     last_modified_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, related_name='modified_labels', null=True, default=None)
+        settings.AUTH_USER_MODEL, models.SET_NULL, related_name='modified_labels', null=True, default=None)
     last_modified_datetime = models.DateTimeField(default=datetime.datetime.now)
 
     # Locked by user and expiry datetime
     locked_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, related_name='locked_labels', null=True, default=None)
+        settings.AUTH_USER_MODEL, models.SET_NULL, related_name='locked_labels', null=True, default=None)
     lock_expiry_datetime = models.DateTimeField(default=datetime.datetime.now)
 
     # Manager
@@ -134,7 +134,7 @@ class Labels (models.Model):
                 raise LabelsLockedError
         self.labels_json = labels_json
         self.complete = complete
-        if user.is_authenticated():
+        if user.is_authenticated:
             self.last_modified_by = user
         else:
             self.last_modified_by = None
@@ -147,7 +147,7 @@ class Labels (models.Model):
 
     def is_locked_to(self, user=None):
         lock_active = self.is_lock_active()
-        if user is not None and not user.is_authenticated():
+        if user is not None and not user.is_authenticated:
             user = None
         if user is None:
             return lock_active

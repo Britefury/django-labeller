@@ -228,7 +228,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
         expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
         labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
         labels.update_labels(labels_js, complete, time_elapsed, request.user, check_lock=True, save=False)
-        if request.user.is_authenticated():
+        if request.user.is_authenticated:
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)
         labels.save()
         return labels
@@ -247,7 +247,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
                                 'model, not a {}'.format(type(labels)))
 
             # Remove existing lock
-            if request.user.is_authenticated():
+            if request.user.is_authenticated:
                 already_locked = models.Labels.objects.locked_by_user(request.user)
                 for locked_labels in already_locked:
                     locked_labels.unlock(from_user=request.user, save=True)
@@ -267,7 +267,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
                 'session_id': session_id,
             }
 
-            if attempt_lock and request.user.is_authenticated():
+            if attempt_lock and request.user.is_authenticated:
                 expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
                 labels.lock(request.user, datetime.timedelta(seconds=expire_after), save=True)
 

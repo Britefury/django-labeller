@@ -39,7 +39,7 @@ To use it as a library, either with Flask or Django, install from PyPI:
 ```
 
 Note:
-- `pip install django-labeller[django]` will also install the Django 1.11.29 dependency
+- `pip install django-labeller[django]` will also install the Django dependency
 - `pip install django-labeller[dextr]` will also install the [dextr](https://github.com/Britefury/dextr) library
 
 
@@ -89,9 +89,7 @@ If you want to use a custom DEXTR model that you trained for your purposes, use 
 
 
 
-### Django 1.11 web app example
-
-** Not Django 2.x or 3.x compatible (see `django-3` branch) **
+### Django web app example
 
 The example Django-based web app provides a little more functionality than the Flask app. It stores the label
 data in a database (only SQLite in the example) and does basic image locking so that multiple users cannot work

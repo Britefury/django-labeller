@@ -3,7 +3,7 @@ import fnmatch
 from setuptools import find_packages
 from setuptools import setup
 
-version = '0.1'
+version = '0.1.1'
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -24,10 +24,18 @@ install_requires = [
     'scikit-image',
     'click',
     'flask'
-    ]
+]
 
 tests_require = [
-    ]
+]
+
+django_require = [
+    'django==1.11.29'
+]
+
+dextr_require = [
+    'dextr'
+]
 
 include_package_data = True
 data_files = [
@@ -58,7 +66,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
         "Topic :: Software Development :: User Interfaces",
-        ],
+    ],
     keywords="",
     author="Geoffrey French",
     # author_email="brittix1023 at gmail dot com",
@@ -71,5 +79,7 @@ setup(
     install_requires=install_requires,
     extras_require={
         'testing': tests_require,
-        },
-    )
+        'django': django_require,
+        'dextr': dextr_require,
+    },
+)

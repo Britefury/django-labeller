@@ -6,7 +6,11 @@
          "label_type": "polygon",
          "label_class": "tree",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "trees"
+         },
          "regions": [
             [
                {
@@ -4753,7 +4757,11 @@
          "label_type": "polygon",
          "label_class": "tree",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "trees"
+         },
          "regions": [
             [
                {
@@ -5320,7 +5328,11 @@
          "label_type": "polygon",
          "label_class": "tree",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "trees"
+         },
          "regions": [
             [
                {
@@ -6097,7 +6109,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6216,7 +6232,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6313,7 +6333,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6360,7 +6384,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6427,7 +6455,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6512,7 +6544,11 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "concrete"
+         },
          "regions": [
             [
                {
@@ -6571,7 +6607,10 @@
          "label_type": "polygon",
          "label_class": "building",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "material": "concrete"
+         },
          "regions": [
             [
                {

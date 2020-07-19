@@ -38,6 +38,12 @@ To use it as a library, either with Flask or Django, install from PyPI:
 > pip install django-labeller
 ```
 
+Note:
+- `pip install django-labeller[django]` will also install the Django 1.11.29 dependency
+- `pip install django-labeller[dextr]` will also install the [dextr](https://github.com/Britefury/dextr) library
+
+
+
 ## Examples
 
 ### Flask web app example
@@ -151,8 +157,6 @@ Note that Celery v4 and above are not strictly compatible with Windows, but it c
 ```shell script
 > celery -A example_labeller_app worker --pool=solo -l info
 ```
-
-
 
 
 ## API and label access

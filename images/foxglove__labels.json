@@ -6,7 +6,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -297,7 +301,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -636,7 +644,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -895,7 +907,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -1162,7 +1178,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -1393,7 +1413,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -1616,7 +1640,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -1843,7 +1871,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -2174,7 +2206,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -2485,7 +2521,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -2696,7 +2736,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -2903,7 +2947,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -3086,7 +3134,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -3325,7 +3377,10 @@
          "label_type": "polygon",
          "label_class": "leaf",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "material": "ivy"
+         },
          "regions": [
             [
                {
@@ -3644,7 +3699,10 @@
          "label_type": "polygon",
          "label_class": "leaf",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "material": "ivy"
+         },
          "regions": [
             [
                {
@@ -3991,7 +4049,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -4266,7 +4328,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -4737,7 +4803,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -4912,7 +4982,10 @@
          "label_type": "polygon",
          "label_class": "leaf",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "material": "ivy"
+         },
          "regions": [
             [
                {
@@ -5439,7 +5512,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -5578,7 +5655,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -5845,7 +5926,11 @@
          "label_type": "polygon",
          "label_class": "flower",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "mostly",
+            "good_quality": true,
+            "material": "flowers"
+         },
          "regions": [
             [
                {
@@ -6048,7 +6133,10 @@
          "label_type": "polygon",
          "label_class": "leaf",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "material": "ivy"
+         },
          "regions": [
             [
                {
@@ -6483,7 +6571,10 @@
          "label_type": "polygon",
          "label_class": "leaf",
          "source": "auto:dextr",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "full",
+            "material": "ivy"
+         },
          "regions": [
             [
                {
@@ -6802,7 +6893,11 @@
          "label_type": "polygon",
          "label_class": "stem",
          "source": "manual",
-         "anno_data": {},
+         "anno_data": {
+            "visibility": "obscured",
+            "good_quality": true,
+            "material": "shrubbery"
+         },
          "regions": [
             [
                {

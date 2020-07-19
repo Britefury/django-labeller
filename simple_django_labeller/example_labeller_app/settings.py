@@ -110,21 +110,31 @@ MEDIA_URL = '/media/'
 
 CSRF_COOKIE_SECURE = False
 
-
-
-# Labelling tool configuration, used in `example_labeller.views`
+# Colour schemes
+# The user may select different colour schemes for different tasks.
+# If you have a lot of classes, it will be difficult to select colours that are easily distinguished
+# from one another. For one task e.g. segmentation, design a colour scheme that highlights the different
+# classes for that task, while another task e.g. fine-grained classification would use another scheme.
+# Each colour scheme is a dictionary containing the following:
+#   name: symbolic name (Python identifier)
+#   human_name: human readable name for UI
+# These colour schemes are going to split the classes by 'default' (all), natural, and artificial.
+# Not really useful, but demonstrates the feature.
 LABEL_COLOUR_SCHEMES = [
     dict(name='default', human_name='All'),
     dict(name='natural', human_name='Natural'),
     dict(name='artificial', human_name='Artificial'),
 ]
 
-# Label classes
-# Tuple entries arameters are: symbolic name, human readable name for UI, and colours by colour scheme.
-# The user can choose between colour schemes, this is useful when there are lots of label classes,
-# making it difficult to choose a range of colours that are easily differentiable from one another.
-# They given human readable names that are displayed in the UI in the `tools.colour_schemes` section of the
-# `LABELLING_TOOL_CONFIG` dictionary below.
+# Specify our label classes, organised in groups.
+# `LabelClass` parameters are:
+#   symbolic name (Python identifier)
+#   human readable name for UI
+#   and colours by colour scheme, as a dict mapping colour scheme name to RGB value as a list
+# The label classes are arranged in groups and will be displayed as such in the UI.
+# `LabelClassGroup` parameters are:
+#   human readable name for UI
+#   label class (`LabelClass` instance) list
 LABEL_CLASSES = [
     labelling_tool.LabelClassGroup('Natural', [
         labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
@@ -145,6 +155,34 @@ LABEL_CLASSES = [
                                                        artificial=[0, 128, 255])),
     ])]
 
+# Annotation controls
+# Labels may also have optional meta-data associated with them
+# You could use this for e.g. indicating if an object is fully visible, mostly visible or significantly obscured.
+# You could also indicate quality (e.g. blurriness, etc)
+# There are three types of annotation:
+# Check box (boolean value):
+#   `labelling_tool.AnnoControlCheckbox` parameters:
+#       name: symbolic name (Python identifier)
+#       label_text: label text in UI
+# Radio button (choice from a list):
+#   `labelling_tool.AnnoControlRadioButtons` parameters:
+#       name: symbolic name (Python identifier)
+#       label_text: label text in UI
+#       choices: list of `labelling_tool.AnnoControlRadioButtons.choice` that provide:
+#           value: symbolic value name for choice
+#           label_text: choice label text in UI
+#           tooltip: extra information for user
+#       label_on_own_line [optional]: if True, place the label and the buttons on a separate line in the UI
+# Popup menu (choice from a grouped list):
+#   `labelling_tool.AnnoControlPopupMenu` parameters:
+#       name: symbolic name (Python identifier)
+#       label_text: label text in UI
+#       groups: list of groups `labelling_tool.AnnoControlPopupMenu.group`:
+#           label_text: group label text in UI
+#           choices: list of `labelling_tool.AnnoControlPopupMenu.choice` that provide:
+#               value: symbolic value name for choice
+#               label_text: choice label text in UI
+#               tooltip: extra information for user
 ANNO_CONTROLS = [
     labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality'),
     labelling_tool.AnnoControlRadioButtons('visibility', 'Visible', choices=[
@@ -164,6 +202,7 @@ ANNO_CONTROLS = [
         labelling_tool.AnnoControlPopupMenu.group(label_text='Vegetation', choices=[
             labelling_tool.AnnoControlPopupMenu.choice(value='trees', label_text='Trees', tooltip='Trees'),
             labelling_tool.AnnoControlPopupMenu.choice(value='shrubbery', label_text='Shrubs', tooltip='Shrubs/bushes'),
+            labelling_tool.AnnoControlPopupMenu.choice(value='flowers', label_text='Flowers', tooltip='Flowers'),
             labelling_tool.AnnoControlPopupMenu.choice(value='ivy', label_text='Ivy', tooltip='Ivy')]),
     ])
 ]

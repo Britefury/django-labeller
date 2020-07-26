@@ -1232,7 +1232,7 @@ class ImageLabels (object):
             raise TypeError('should be None, str, dict or list, not a {}'.format(type(meta)))
 
     @classmethod
-    def from_label_image(cls, labels, label_classes=None, sources=None):
+    def from_label_image(cls, labels, label_classes=None, sources=None, return_label_indices=False):
         """
         Convert a integer label image to an `ImageLabels` instance.
 
@@ -1246,7 +1246,12 @@ class ImageLabels (object):
                 - a dict that maps label index to class
                 - a string to assign the same class to every label
         :param sources: [optional] provides label sources; has the same format as `label_classes`
-        :return: an `ImageLabels` instance containing the labels extracted from the label mask image
+        :param return_label_indices: (default False) if True, return the index of the label used for each label
+            in the returned `ImageLabels`
+        :return: an `ImageLabels` instance containing the labels extracted from the label mask image, or
+            a tuple of `(image_labels, label_indices)` where `image_labels` is an `ImageLabels` instance and
+            `label_indices` gives the label index for each vectorized label in `image_labels`
+
         """
         if label_classes is not None and not isinstance(label_classes, (str, dict, list)):
             raise TypeError('label_classes should be None, a str, a dict or a list, not {}'.format(type(label_classes)))
@@ -1255,7 +1260,9 @@ class ImageLabels (object):
         contours = []
         lcls = []
         lsrc = []
-        for i in range(1, labels.max()+1):
+        label_indices = []
+        n_labels = labels.max()
+        for i in range(1, n_labels+1):
             lmask = labels == i
 
             if lmask.sum() > 0:
@@ -1274,9 +1281,14 @@ class ImageLabels (object):
                     contours.append(regions)
                     lcls.append(cls._get_label_meta(label_classes, i))
                     lsrc.append(cls._get_label_meta(sources, i))
+                    label_indices.append(i)
 
-        return cls.from_contours(contours, lcls, lsrc)
+        img_labels = cls.from_contours(contours, lcls, lsrc)
 
+        if return_label_indices:
+            return img_labels, label_indices
+        else:
+            return img_labels
 
     @staticmethod
     def _contour_areas(contours):
@@ -1290,7 +1302,8 @@ class ImageLabels (object):
         return np.array(contour_areas)
 
     @classmethod
-    def from_mask_images_cv(cls, masks, label_classes=None, sources=None, sort_decreasing_area=True):
+    def from_mask_images_cv(cls, masks, label_classes=None, sources=None, sort_decreasing_area=True,
+                            return_mask_indices=False):
         """
         Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
         Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
@@ -1305,7 +1318,10 @@ class ImageLabels (object):
                 - a string to assign the same class to every label
         :param sources: [optional] provides label sources; has the same format as `label_classes`
         :param sort_decreasing_area: (default True) if True, sort regions and labels in order of decreasing area
-        :return: an `ImageLabels` instance
+        :param return_mask_indices: (default False) if True, return the index of the mask used for each label
+        :return: an `ImageLabels` instance, or
+            a tuple of `(image_labels, mask_indices)` where `image_labels` is an `ImageLabels` instance and
+            `mask_indices` gives the mask index for each vectorized label in `image_labels`
         """
         if cv2 is None:
             raise RuntimeError('OpenCV is not available!')
@@ -1316,6 +1332,8 @@ class ImageLabels (object):
 
         mask_areas = []
         contours_classes_sources = []
+        mask_indices = []
+        n_masks = 0
         for mask_i, lab_msk in enumerate(masks):
             result = cv2.findContours((lab_msk != 0).astype(np.uint8), cv2.RETR_LIST,
                                       cv2.CHAIN_APPROX_TC89_L1)
@@ -1336,9 +1354,13 @@ class ImageLabels (object):
                     order = np.argsort(areas)[::-1]
                     region_contours = [region_contours[i] for i in order]
 
+                mask_indices.append(mask_i)
+
                 contours_classes_sources.append((region_contours,
                                                  cls._get_label_meta(label_classes, mask_i),
                                                  cls._get_label_meta(sources, mask_i)))
+
+            n_masks += 1
         mask_areas = np.array(mask_areas)
 
         if sort_decreasing_area and len(contours_classes_sources) > 0:
@@ -1347,9 +1369,14 @@ class ImageLabels (object):
 
         if len(contours_classes_sources) > 0:
             image_contours, lcls, lsrc = list(zip(*contours_classes_sources))
-            return cls.from_contours(image_contours, lcls, lsrc)
+            img_labels = cls.from_contours(image_contours, lcls, lsrc)
         else:
-            return cls.from_contours([])
+            img_labels = cls.from_contours([])
+
+        if return_mask_indices:
+            return img_labels, mask_indices
+        else:
+            return img_labels
 
 
 _INT_ID_PAT = re.compile('\d+')

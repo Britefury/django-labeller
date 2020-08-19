@@ -252,6 +252,8 @@ module labelling_tool {
 
             config.settings = config.settings || {};
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
+            ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
+            ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
 
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
@@ -994,6 +996,11 @@ module labelling_tool {
                 this.loadImage(this._images[initial_image_index]);
             }
         };
+
+
+        get_settings(): any {
+            return this._config.settings;
+        }
 
 
         on_key_down(event: any): boolean {

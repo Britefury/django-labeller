@@ -82,6 +82,11 @@ module labelling_tool {
         }
 
 
+        get_settings() : any {
+            return this.view.get_settings();
+        }
+
+
         /*
         Set model
          */

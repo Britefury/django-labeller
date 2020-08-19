@@ -133,6 +133,8 @@ var labelling_tool;
             this._current_colour_scheme = colour_schemes[0].name;
             config.settings = config.settings || {};
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
+            labelling_tool.ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
+            labelling_tool.ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
@@ -745,6 +747,9 @@ var labelling_tool;
             }
         }
         ;
+        DjangoLabeller.prototype.get_settings = function () {
+            return this._config.settings;
+        };
         DjangoLabeller.prototype.on_key_down = function (event) {
             var handled = false;
             if (event.keyCode === 186) {

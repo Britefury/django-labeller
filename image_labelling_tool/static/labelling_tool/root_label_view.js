@@ -51,6 +51,9 @@ var labelling_tool;
             this.view = ltool;
             this.world = world;
         }
+        RootLabelView.prototype.get_settings = function () {
+            return this.view.get_settings();
+        };
         /*
         Set model
          */

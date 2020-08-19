@@ -458,6 +458,10 @@ def run_app(images_pat, labels_dir, slic, readonly, update_label_object_ids,
                     'group': True,
                 }
             }
+        },
+        'settings': {
+            'brushWheelRate': 0.025,  # Change rate for brush radius (mouse wheel)
+            'brushKeyRate': 2.0,    # Change rate for brush radius (keyboard)
         }
     }
 

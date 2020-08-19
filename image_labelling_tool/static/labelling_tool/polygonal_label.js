@@ -845,7 +845,11 @@ var labelling_tool;
         };
         ;
         DrawBrushTool.prototype.on_wheel = function (pos, wheelDeltaX, wheelDeltaY) {
-            this._brush_radius += wheelDeltaY * 0.1;
+            var wheel_rate = this._view.get_settings().brushWheelRate;
+            if (typeof wheel_rate != "number") {
+                wheel_rate = 0.025;
+            }
+            this._brush_radius += wheelDeltaY * wheel_rate;
             this._brush_radius = Math.max(this._brush_radius, 1.0);
             this._brush_circle.attr("r", this._brush_radius);
             return true;
@@ -853,12 +857,16 @@ var labelling_tool;
         ;
         DrawBrushTool.prototype.on_key_down = function (event) {
             var handled = false;
+            var key_rate = this._view.get_settings().brushKeyRate;
+            if (typeof key_rate != "number") {
+                key_rate = 2.0;
+            }
             if (event.keyCode == 219) {
-                this._brush_radius -= 2.0;
+                this._brush_radius -= key_rate;
                 handled = true;
             }
             else if (event.keyCode == 221) {
-                this._brush_radius += 2.0;
+                this._brush_radius += key_rate;
                 handled = true;
             }
             if (handled) {

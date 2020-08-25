@@ -41,6 +41,12 @@ module labelling_tool {
     }
 
 
+    export interface TasksJSON {
+        name: string;
+        human_name: string;
+    }
+
+
     export interface ColourSchemeJSON {
         name: string;
         human_name: string;

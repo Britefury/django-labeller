@@ -67,7 +67,7 @@ module labelling_tool {
 
     export interface LabelHeaderModel {
         image_id: string,
-        complete: boolean,
+        completed_tasks: string[],
         labels: any[],
         timeElapsed: number,
         state: string,
@@ -86,7 +86,7 @@ module labelling_tool {
 
     export var replace_label_header_labels = function(label_header: LabelHeaderModel, labels: any[]): LabelHeaderModel {
         return {image_id: label_header.image_id,
-                complete: label_header.complete,
+                completed_tasks: label_header.completed_tasks,
                 timeElapsed: label_header.timeElapsed,
                 state: label_header.state,
                 labels: labels,
@@ -118,6 +118,7 @@ module labelling_tool {
         private _current_tool: AbstractTool;
         private _current_colour_scheme: string;
         private label_classes: AbstractLabelClass[];
+        private tasks: TasksJSON[];
         private class_name_to_class: {[class_name: string]: LabelClass};
         label_visibility: LabelVisibility;
         label_visibility_class_filter: string;
@@ -162,7 +163,7 @@ module labelling_tool {
         world: any;
         private _image: d3.Selection<any>;
         private _image_index_input: JQuery;
-        private _complete_checkbox: JQuery;
+        private _task_checkboxes: {[name: string]: JQuery};
 
         private _zoom_node: d3.Selection<any>;
         private _zoom_xlat: number[];
@@ -176,7 +177,7 @@ module labelling_tool {
 
 
 
-        constructor(label_classes: LabelClassJSON[], colour_schemes: ColourSchemeJSON[],
+        constructor(label_classes: LabelClassJSON[], tasks: TasksJSON[], colour_schemes: ColourSchemeJSON[],
                     anno_controls_json: AnnoControlJSON[],
                     images: ImageModel[], initial_image_index: number,
                     requestLabelsCallback: any, sendLabelHeaderFn: any,
@@ -224,6 +225,8 @@ module labelling_tool {
                 DjangoLabeller._global_key_handler = null;
                 DjangoLabeller._global_key_handler_connected = false;
             }
+
+            self.tasks = tasks;
 
             config = config || {};
 
@@ -301,7 +304,7 @@ module labelling_tool {
             // Model
             var initial_model: LabelHeaderModel = {
                 image_id: '',
-                complete: false,
+                completed_tasks: [],
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
@@ -470,11 +473,16 @@ module labelling_tool {
             *
             */
 
-            this._complete_checkbox = $('#task_finished');
-            this._complete_checkbox.change(function(event, ui) {
-                self.root_view.set_complete((event.target as any).checked);
-                self.queue_push_label_data();
-            });
+            this._task_checkboxes = {};
+            for (let task of tasks) {
+                let task_check = $('#task_' + task.name);
+                let task_name = task.name;
+                task_check.change(function(event, ui) {
+                    self.root_view.set_task_complete(task_name, (event.target as any).checked);
+                    self.queue_push_label_data();
+                });
+                this._task_checkboxes[task.name] = task_check;
+            }
 
 
 
@@ -665,7 +673,6 @@ module labelling_tool {
             }
 
             let anno_ctrl_on_change = function(identifier, value) {
-                console.log("DjangoAnnotator: setting " + identifier + " to " + value);
                 self.root_view.set_selection_anno_data_value(identifier, value);
             };
 
@@ -1083,14 +1090,17 @@ module labelling_tool {
 
             this.root_view.set_model({
                 image_id: "",
-                complete: false,
+                completed_tasks: [],
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
                 session_id: ObjectIDTable.uuidv4(),
             });
             this._resetStopwatch();
-            (this._complete_checkbox[0] as any).checked = false;
+            for (let task_name in self._task_checkboxes) {
+                let task_check: JQuery = self._task_checkboxes[task_name];
+                task_check.prop('checked', false);
+            }
             this._image_index_input.val("");
             this.set_current_tool(null);
 
@@ -1132,7 +1142,16 @@ module labelling_tool {
                 this.unlockLabels();
             }
 
-            (this._complete_checkbox[0] as any).checked = this.root_view.model.complete;
+            for (let task of self.tasks) {
+                let is_complete: boolean = false;
+                for (let task_name of this.root_view.model.completed_tasks) {
+                    if (task_name === task.name) {
+                        is_complete = true;
+                        break;
+                    }
+                }
+                self._task_checkboxes[task.name].prop('checked', is_complete);
+            }
             this.set_current_tool(new SelectEntityTool(this.root_view));
 
             this._labels_loaded = true;

@@ -25,7 +25,7 @@
 import click
 
 
-def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_controls=None,
+def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=None, anno_controls=None,
                    config=None, dextr_fn=None, use_reloader=True, debug=True, port=None):
     import json
     import uuid
@@ -100,6 +100,9 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
         }
 
 
+    if tasks is None:
+        tasks = [dict(identifier='finished', human_name='Finished')]
+
 
     @app.route('/')
     def index():
@@ -110,6 +113,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
         else:
             anno_controls_json = []
         return render_template('labeller_page.jinja2',
+                               tasks=tasks,
                                colour_schemes=colour_schemes,
                                label_class_groups=label_classes_json,
                                image_descriptors=image_descriptors,
@@ -127,11 +131,11 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 
             image = images_table[image_id]
 
-            labels, complete = image.get_label_data_for_tool()
+            labels, completed_tasks = image.get_label_data_for_tool()
 
             label_header = dict(image_id=image_id,
                                 labels=labels,
-                                complete=complete,
+                                completed_tasks=completed_tasks,
                                 timeElapsed=0.0,
                                 state='editable',
                                 session_id=str(uuid.uuid4()),
@@ -148,7 +152,7 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 
             image = images_table[image_id]
 
-            image.set_label_data_from_tool(label_header['labels'], label_header['complete'])
+            image.set_label_data_from_tool(label_header['labels'], label_header['completed_tasks'])
 
             socketio_emit('set_labels_reply', '')
 
@@ -181,15 +185,12 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
         @app.route('/labelling/get_labels/<image_id>')
         def get_labels(image_id):
             image = images_table[image_id]
-
-            labels = image.labels_json
-            complete = False
-
+            labels, completed_tasks = image.get_label_data_for_tool()
 
             label_header = {
                 'image_id': image_id,
                 'labels': labels,
-                'complete': complete,
+                'completed_tasks': completed_tasks,
                 'timeElapsed': 0.0,
                 'state': 'editable',
                 'session_id': str(uuid.uuid4()),
@@ -204,11 +205,10 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
         def set_labels():
             label_header = json.loads(request.form['labels'])
             image_id = label_header['image_id']
-            complete = label_header['complete']
-            labels = label_header['labels']
 
             image = images_table[image_id]
-            image.labels_json = labels
+
+            image.set_label_data_from_tool(label_header['labels'], label_header['completed_tasks'])
 
             return make_response('')
 
@@ -256,12 +256,11 @@ def flask_labeller(label_classes, labelled_images, colour_schemes=None, anno_con
 @click.command()
 @click.option('--images_pat', type=str, default='', help='Image path pattern e.g. \'images/*.jpg\'')
 @click.option('--labels_dir', type=click.Path(dir_okay=True, file_okay=False, writable=True))
-@click.option('--slic', is_flag=True, default=False, help='Use SLIC segmentation to generate initial labels')
 @click.option('--readonly', is_flag=True, default=False, help='Don\'t persist changes to disk')
 @click.option('--update_label_object_ids', is_flag=True, default=False, help='Update object IDs in label JSON files')
 @click.option('--enable_dextr', is_flag=True, default=False)
 @click.option('--dextr_weights', type=click.Path())
-def run_app(images_pat, labels_dir, slic, readonly, update_label_object_ids,
+def run_app(images_pat, labels_dir, readonly, update_label_object_ids,
             enable_dextr, dextr_weights):
     import os
     import glob
@@ -399,29 +398,10 @@ def run_app(images_pat, labels_dir, slic, readonly, update_label_object_ids,
     else:
         image_paths = glob.glob(images_pat)
 
-    if slic:
-        from matplotlib import pyplot as plt
-        from skimage.segmentation import slic as slic_segment
-
-        labelled_images = []
-        for path in image_paths:
-            print('Segmenting {0}'.format(path))
-            img = plt.imread(path)
-            # slic_labels = slic_segment(img, 1000, compactness=20.0)
-            slic_labels = slic_segment(img, 1000, slic_zero=True) + 1
-
-            print('Converting SLIC labels to vector labels...')
-            labels = labelling_tool.ImageLabels.from_label_image(slic_labels)
-
-            limg = labelling_tool.LabelledImageFile(path, labels)
-            labelled_images.append(limg)
-
-        print('Segmented {0} images'.format(len(labelled_images)))
-    else:
-        # Load in .JPG images from the 'images' directory.
-        labelled_images = labelling_tool.PersistentLabelledImage.for_files(
-            image_paths, labels_dir=labels_dir, readonly=readonly)
-        print('Loaded {0} images'.format(len(labelled_images)))
+    # Load in .JPG images from the 'images' directory.
+    labelled_images = labelling_tool.PersistentLabelledImage.for_files(
+        image_paths, labels_dir=labels_dir, readonly=readonly)
+    print('Loaded {0} images'.format(len(labelled_images)))
 
     if update_label_object_ids:
         n_updated = 0
@@ -465,8 +445,14 @@ def run_app(images_pat, labels_dir, slic, readonly, update_label_object_ids,
         }
     }
 
-    flask_labeller(label_classes, labelled_images, colour_schemes, anno_controls=anno_controls,
-                   config=config, dextr_fn=dextr_fn)
+    tasks = [
+        dict(name='finished', human_name='[old] finished'),
+        dict(name='segmentation', human_name='Outlines'),
+        dict(name='classification', human_name='Classification'),
+    ]
+
+    flask_labeller(label_classes, labelled_images, tasks=tasks, colour_schemes=colour_schemes,
+                   anno_controls=anno_controls, config=config, dextr_fn=dextr_fn)
 
 
 if __name__ == '__main__':

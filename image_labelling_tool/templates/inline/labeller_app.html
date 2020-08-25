@@ -32,16 +32,20 @@
     <aside class="tool_bar text-light">
         <!-- Tasks section !-->
         <div class="anno_lockable">
-            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Tasks</div>
+            {% if tasks %}
+                <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Tasks</div>
 
-            <div class="collapse show tool_bar_group" id="tool_group_tasks">
-                <div class="tool_bar_content">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="task_finished" name="task_finished">
-                        <label class="form-check-label" for="task_finished">Finished</label>
+                <div class="collapse show tool_bar_group" id="tool_group_tasks">
+                    <div class="tool_bar_content">
+                        <div class="form-check">
+                            {% for task in tasks %}
+                                <input type="checkbox" class="form-check-input" id="task_{{ task.name }}" name="task_{{ task.name }}">
+                                <label class="form-check-label" for="task_{{ task.name }}">{{ task.human_name }}</label><br/>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
-            </div>
+            {% endif %}
         </div>
 
         <!-- Label visibility section !-->

@@ -124,6 +124,7 @@
         // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
             var tool = new labelling_tool.DjangoLabeller(
                 {{ label_class_groups | tojson | safe }},
+                {{ tasks | tojson | safe }},
                 {{ colour_schemes | tojson | safe }},
                 {{ anno_controls | tojson | safe }},
                 {{ image_descriptors | tojson | safe }},

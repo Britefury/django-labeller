@@ -55,7 +55,7 @@ var labelling_tool;
     };
     labelling_tool.replace_label_header_labels = function (label_header, labels) {
         return { image_id: label_header.image_id,
-            complete: label_header.complete,
+            completed_tasks: label_header.completed_tasks,
             timeElapsed: label_header.timeElapsed,
             state: label_header.state,
             labels: labels,
@@ -65,7 +65,7 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoLabeller = /** @class */ (function () {
-        function DjangoLabeller(label_classes, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
+        function DjangoLabeller(label_classes, tasks, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
@@ -112,6 +112,7 @@ var labelling_tool;
                 DjangoLabeller._global_key_handler = null;
                 DjangoLabeller._global_key_handler_connected = false;
             }
+            self.tasks = tasks;
             config = config || {};
             config.tools = config.tools || {};
             labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
@@ -175,7 +176,7 @@ var labelling_tool;
             // Model
             var initial_model = {
                 image_id: '',
-                complete: false,
+                completed_tasks: [],
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
@@ -316,11 +317,21 @@ var labelling_tool;
              * TOOL PANEL
              *
              */
-            this._complete_checkbox = $('#task_finished');
-            this._complete_checkbox.change(function (event, ui) {
-                self.root_view.set_complete(event.target.checked);
-                self.queue_push_label_data();
-            });
+            this._task_checkboxes = {};
+            var _loop_1 = function (task) {
+                var task_check = $('#task_' + task.name);
+                var task_name = task.name;
+                task_check.change(function (event, ui) {
+                    self.root_view.set_task_complete(task_name, event.target.checked);
+                    self.queue_push_label_data();
+                });
+                this_1._task_checkboxes[task.name] = task_check;
+            };
+            var this_1 = this;
+            for (var _i = 0, tasks_1 = tasks; _i < tasks_1.length; _i++) {
+                var task = tasks_1[_i];
+                _loop_1(task);
+            }
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
@@ -472,7 +483,6 @@ var labelling_tool;
                 }
             }
             var anno_ctrl_on_change = function (identifier, value) {
-                console.log("DjangoAnnotator: setting " + identifier + " to " + value);
                 self.root_view.set_selection_anno_data_value(identifier, value);
             };
             this._anno_controls = [];
@@ -826,14 +836,17 @@ var labelling_tool;
             }
             this.root_view.set_model({
                 image_id: "",
-                complete: false,
+                completed_tasks: [],
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
                 session_id: labelling_tool.ObjectIDTable.uuidv4(),
             });
             this._resetStopwatch();
-            this._complete_checkbox[0].checked = false;
+            for (var task_name in self._task_checkboxes) {
+                var task_check = self._task_checkboxes[task_name];
+                task_check.prop('checked', false);
+            }
             this._image_index_input.val("");
             this.set_current_tool(null);
             this._requestLabelsCallback(image.image_id);
@@ -868,7 +881,18 @@ var labelling_tool;
             else {
                 this.unlockLabels();
             }
-            this._complete_checkbox[0].checked = this.root_view.model.complete;
+            for (var _i = 0, _a = self.tasks; _i < _a.length; _i++) {
+                var task = _a[_i];
+                var is_complete = false;
+                for (var _b = 0, _c = this.root_view.model.completed_tasks; _b < _c.length; _b++) {
+                    var task_name = _c[_b];
+                    if (task_name === task.name) {
+                        is_complete = true;
+                        break;
+                    }
+                }
+                self._task_checkboxes[task.name].prop('checked', is_complete);
+            }
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();

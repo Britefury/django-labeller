@@ -1,6 +1,6 @@
 {
    "image_filename": "uea_snow_1.jpg",
-   "complete": null,
+   "complete": true,
    "labels": [
       {
          "label_type": "polygon",

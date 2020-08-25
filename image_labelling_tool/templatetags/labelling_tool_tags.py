@@ -4,6 +4,7 @@ from django import template
 from django.utils.html import format_html
 
 from image_labelling_tool import labelling_tool as lt
+from image_labelling_tool import models as lt_models
 
 register = template.Library()
 
@@ -25,7 +26,7 @@ def _update_config(dest, src):
 
 @register.inclusion_tag('inline/image_labeller.html', name='labelling_tool')
 def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial_image_index,
-                   labelling_tool_url, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
+                   labelling_tool_url, tasks=None, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
                    config=None):
     if config is None:
         config = {}
@@ -37,8 +38,22 @@ def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial
     if anno_controls is None:
         anno_controls = []
 
+    if tasks is None:
+        tasks_json = [dict(identifier='finished', human_name='Finished')]
+    else:
+        tasks_json = []
+        for task in tasks:
+            if isinstance(task, dict):
+                tasks_json.append(task)
+            elif isinstance(task, lt_models.LabellingTask):
+                tasks_json.append(task.to_json())
+            else:
+                raise TypeError('tasks should be an iterable of JSON dictionaries or '
+                                'LabellingTask instances, not {}'.format(type(task)))
+
     return {
         'colour_schemes': color_schemes,
+        'tasks': tasks_json,
         'label_class_groups': label_class_groups,
         'anno_controls': anno_controls,
         'image_descriptors': image_descriptors,

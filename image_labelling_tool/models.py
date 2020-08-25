@@ -4,14 +4,30 @@ from django.conf import settings
 from django.utils import timezone
 from . import managers
 
+
 class LabelsLockedError (Exception):
     pass
 
-# Create your models here.
+
+class LabellingTask (models.Model):
+    enabled = models.BooleanField(default=True)
+    name = models.CharField(max_length=256)
+    human_name = models.CharField(max_length=256)
+    order_key = models.IntegerField(default=0)
+
+    def to_json(self):
+        return dict(name=self.name, human_name=self.human_name)
+
+    def __str__(self):
+        return 'Task {} (identifier {})'.format(self.human_name, self.name)
+
+
 class Labels (models.Model):
     # Label data
     labels_json_str = models.TextField(default='[]')
-    complete = models.BooleanField(default=False)
+
+    # Task completion
+    completed_tasks = models.ManyToManyField(LabellingTask)
 
     # Creation date
     creation_date = models.DateField()
@@ -113,7 +129,7 @@ class Labels (models.Model):
                 histogram[cls] = histogram.get(cls, 0) + 1
             return histogram
 
-    def update_labels(self, labels_json, complete, time_elapsed, user, save=False, check_lock=False):
+    def update_labels(self, labels_json, completed_tasks, time_elapsed, user, save=False, check_lock=False):
         # Verify time elapsed is within the bounds of possibility
         current_time = timezone.now()
         dt_since_last_mod = (current_time - self.last_modified_datetime).total_seconds()
@@ -133,7 +149,7 @@ class Labels (models.Model):
             if self.is_locked_to(user):
                 raise LabelsLockedError
         self.labels_json = labels_json
-        self.complete = complete
+        self.completed_tasks.set(completed_tasks)
         if user.is_authenticated:
             self.last_modified_by = user
         else:
@@ -187,7 +203,7 @@ class Labels (models.Model):
             if save:
                 self.save()
 
-    def __unicode__(self):
+    def __str__(self):
         if self.last_modified_by is not None:
             return 'Labels {} (last modified by {} at {})'.format(
                 self.id, self.last_modified_by.username, self.last_modified_datetime)

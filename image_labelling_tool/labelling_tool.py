@@ -1105,9 +1105,9 @@ class ImageLabels (object):
             raise ValueError('existing_json should be a list or a dict')
 
 
-    def wrapped_json(self, image_filename, complete):
+    def wrapped_json(self, image_filename, tasks_complete):
         return {'image_filename': image_filename,
-                'complete': complete,
+                'tasks_complete': tasks_complete,
                 'labels': self.to_json()}
 
 
@@ -1506,19 +1506,19 @@ class AbsractLabelledImage (object):
 
 
     @property
-    def complete(self):
+    def completed_tasks(self):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    @complete.setter
-    def complete(self, c):
+    @completed_tasks.setter
+    def completed_tasks(self, c):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
 
     def get_label_data_for_tool(self):
-        return self.labels_json, self.complete
+        return self.labels_json, self.completed_tasks
 
-    def set_label_data_from_tool(self, labels_js, complete):
-        self.complete = complete
+    def set_label_data_from_tool(self, labels_js, completed_tasks):
+        self.completed_tasks = completed_tasks
         self.labels_json = labels_js
 
 
@@ -1591,13 +1591,15 @@ class AbsractLabelledImage (object):
 
 
 class InMemoryLabelledImage (AbsractLabelledImage):
-    def __init__(self, pixels, labels=None, complete=False):
+    def __init__(self, pixels, labels=None, completed_tasks=False):
         super(InMemoryLabelledImage, self).__init__()
         if labels is None:
             labels = ImageLabels([])
+        if completed_tasks is None:
+            completed_tasks = []
         self.__pixels = pixels
         self.__labels = labels
-        self.__complete = complete
+        self.__completed_tasks = completed_tasks
 
 
     def read_pixels(self):
@@ -1641,12 +1643,12 @@ class InMemoryLabelledImage (AbsractLabelledImage):
 
 
     @property
-    def complete(self):
-        return self.__complete
+    def completed_tasks(self):
+        return self.__completed_tasks
 
-    @complete.setter
-    def complete(self, c):
-        self.__complete = c
+    @completed_tasks.setter
+    def completed_tasks(self, c):
+        self.__completed_tasks = c
 
 
 class PersistentLabelledImage (AbsractLabelledImage):
@@ -1657,7 +1659,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
         self.__pixels = None
 
         self.__labels_json = None
-        self.__complete = None
+        self.__completed_tasks = None
         self.__readonly = readonly
 
     def read_pixels(self):
@@ -1713,21 +1715,21 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
     @property
     def labels_json(self):
-        labels_js, complete = self._get_labels()
+        labels_js, _ = self._get_labels()
         return labels_js
 
     @labels_json.setter
     def labels_json(self, labels_json):
-        self._set_labels(labels_json, self.__complete)
+        self._set_labels(labels_json, self.__completed_tasks)
 
 
     @property
-    def complete(self):
-        labels_js, complete = self._get_labels()
-        return complete
+    def completed_tasks(self):
+        labels_js, completed_tasks = self._get_labels()
+        return completed_tasks
 
-    @complete.setter
-    def complete(self, c):
+    @completed_tasks.setter
+    def completed_tasks(self, c):
         self._set_labels(self.__labels_json, c)
 
 
@@ -1738,8 +1740,8 @@ class PersistentLabelledImage (AbsractLabelledImage):
     def get_label_data_for_tool(self):
         return self._get_labels()
 
-    def set_label_data_from_tool(self, labels_js, complete):
-        self._set_labels(labels_js, complete)
+    def set_label_data_from_tool(self, labels_js, completed_tasks):
+        self._set_labels(labels_js, completed_tasks)
 
 
 
@@ -1749,42 +1751,51 @@ class PersistentLabelledImage (AbsractLabelledImage):
                 with open(self.__labels_path, 'r') as f:
                     try:
                         js = json.load(f)
-                        self.__labels_json, self.__complete = self._unwrap_labels(js)
+                        self.__labels_json, self.__completed_tasks = self._unwrap_labels(js)
                     except ValueError:
                         traceback.print_exc()
                         pass
-        return self.__labels_json, self.__complete
+        return self.__labels_json, self.__completed_tasks
 
 
-    def _set_labels(self, labels_js, complete):
+    def _set_labels(self, labels_js, completed_tasks):
         if not self.__readonly:
-            if labels_js is None  or  (len(labels_js) == 0 and not complete):
+            if labels_js is None  or  (len(labels_js) == 0 and len(completed_tasks) == 0):
                 # No data; delete the file
                 if os.path.exists(self.__labels_path):
                     os.remove(self.__labels_path)
             else:
                 with open(self.__labels_path, 'w') as f:
-                    wrapped = self.__wrap_labels(os.path.split(self.image_path)[1], labels_js, complete)
+                    wrapped = self.__wrap_labels(os.path.split(self.image_path)[1], labels_js, completed_tasks)
                     json.dump(wrapped, f, indent=3)
         self.__labels_json = labels_js
-        self.__complete = complete
+        self.__completed_tasks = completed_tasks
 
 
 
 
     @staticmethod
-    def __wrap_labels(image_path, labels, complete):
+    def __wrap_labels(image_path, labels, completed_tasks):
         image_filename = os.path.split(image_path)[1]
         return {'image_filename': image_filename,
-                'complete': complete,
+                'completed_tasks': completed_tasks,
                 'labels': labels}
 
     @staticmethod
     def _unwrap_labels(wrapped_labels):
         if isinstance(wrapped_labels, dict):
-            return wrapped_labels['labels'], wrapped_labels.get('complete', False)
+            if 'complete' in wrapped_labels:
+                if wrapped_labels['complete']:
+                    completed_tasks = ['finished']
+                else:
+                    completed_tasks = []
+            elif 'tasks_complete' in wrapped_labels:
+                completed_tasks = wrapped_labels['completed_tasks']
+            else:
+                completed_tasks = []
+            return wrapped_labels['labels'], completed_tasks
         elif isinstance(wrapped_labels, list):
-            return wrapped_labels, False
+            return wrapped_labels, {}
         else:
             raise TypeError('Labels loaded from file must either be a dict or a list, '
                             'not a {0}'.format(type(wrapped_labels)))
@@ -1818,12 +1829,14 @@ class PersistentLabelledImage (AbsractLabelledImage):
 
 
 class LabelledImageFile (AbsractLabelledImage):
-    def __init__(self, path, labels=None, complete=False, on_set_labels=None):
+    def __init__(self, path, labels=None, tasks_complete=None, on_set_labels=None):
         super(LabelledImageFile, self).__init__()
         if labels is None:
             labels = ImageLabels([])
+        if tasks_complete is None:
+            tasks_complete = {}
         self.__labels = labels
-        self.__complete = complete
+        self.__tasks_complete = tasks_complete
         self.__image_path = path
         self.__pixels = None
         self.__on_set_labels = on_set_labels
@@ -1895,12 +1908,12 @@ class LabelledImageFile (AbsractLabelledImage):
 
 
     @property
-    def complete(self):
-        return self.__complete
+    def tasks_complete(self):
+        return self.__tasks_complete
 
-    @complete.setter
-    def complete(self, c):
-        self.__complete = c
+    @tasks_complete.setter
+    def tasks_complete(self, c):
+        self.__tasks_complete = c
 
 
 

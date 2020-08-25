@@ -95,8 +95,25 @@ var labelling_tool;
         /*
         Set complete
          */
-        RootLabelView.prototype.set_complete = function (complete) {
-            this.model.complete = complete;
+        RootLabelView.prototype.set_task_complete = function (task_name, complete) {
+            var index = -1;
+            for (var i = 0; i < this.model.completed_tasks.length; i++) {
+                if (this.model.completed_tasks[i] === task_name) {
+                    index = i;
+                }
+            }
+            if (complete) {
+                // Task completed; add to list if not present
+                if (index === -1) {
+                    this.model.completed_tasks.push(task_name);
+                }
+            }
+            else {
+                // Task incomplete; remove from list if present
+                if (index !== -1) {
+                    this.model.completed_tasks.splice(index, 1);
+                }
+            }
         };
         RootLabelView.prototype.get_current_image_id = function () {
             if (this.model !== null && this.model !== undefined) {

@@ -19,7 +19,7 @@ class LabellingToolView (View):
 
     `get_labels` should return a `models.Labels` instance or a dict of the form:
         {
-            'complete': <boolean indicating if the user has marked the image as fininshed>
+            'completed_tasks': <list of names of completed tasks>
             'labels': labels as JSON data
             'state': 'locked'|'editable' to either disable/enable editing (e.g. if another user is editing them)
         }
@@ -42,28 +42,58 @@ class LabellingToolView (View):
     ...         image = models.Image.get(id=int(image_id_string))
     ...         # Lets assume that the label data has been incorporated into the `Image` class:
     ...         labels_metadata = {
-    ...             'complete': image.complete,
+    ...             'completed_tasks': [task.name for task in image.completed_tasks.all()],
     ...             'labels': image.labels_json,
     ...             'state': ('locked' if image.in_use else 'editable')
     ...         }
     ...         return labels_metadata
     ...
-    ...     def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
+    ...     def update_labels(self, request, image_id_str, labels, completed_tasks, time_elapsed, *args, **kwargs):
     ...         image = models.Image.get(id=int(image_id_string))
-    ...         image.complete = complete
+    ...         image.completed_tasks.set(completed_tasks)
     ...         image.edit_time_elapsed = time_elapsed
     ...         image.labels_json = labels
     ...         image.save()
     """
     def get_labels(self, request, image_id_str, *args, **kwargs):
+        """
+        Retrieve the `Labels` instance identified by `image_id_str` for display
+
+        :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param args: additional arguments
+        :param kwargs:additional keyword arguments
+        :return: a `Labels` instance
+        """
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
     def get_labels_for_update(self, request, image_id_str, *args, **kwargs):
+        """
+        Retrieve the `Labels` instance identified by `image_id_str` for updating
+
+        :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param args: additional arguments
+        :param kwargs:additional keyword arguments
+        :return: a `Labels` instance
+        """
         return self.get_labels(request, image_id_str, *args, **kwargs)
 
-    def update_labels(self, request, image_id_str, labels, complete, time_elapsed, *args, **kwargs):
+    def update_labels(self, request, image_id_str, labels_json, completed_tasks, time_elapsed, *args, **kwargs):
+        """
+        Update the `Labels` instance identified by `image_id_str`
+
+        :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param labels_json: labels in JSON format (Python objects, not as a string)
+        :param completed_tasks: sequence of `LabellingTask` instances that lists the tasks that have been completed
+        :param time_elapsed: the amount of time taken by users to label this image
+        :param args: additional arguments
+        :param kwargs:additional keyword arguments
+        :return: the `Labels` instance that was updated
+        """
         labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
-        labels.update_labels(labels, complete, time_elapsed, request.user, save=True, check_lock=False)
+        labels.update_labels(labels_json, completed_tasks, time_elapsed, request.user, save=True, check_lock=False)
         return labels
 
     def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
@@ -103,7 +133,7 @@ class LabellingToolView (View):
                 # No labels for this image
                 labels_header = {
                     'image_id': image_id_str,
-                    'complete': False,
+                    'completed_tasks': [],
                     'timeElapsed': 0.0,
                     'state': 'editable',
                     'labels': [],
@@ -113,7 +143,7 @@ class LabellingToolView (View):
                 # Remove existing lock
                 labels_header = {
                     'image_id': image_id_str,
-                    'complete': labels.complete,
+                    'completed_tasks': [task.name for task in labels.completed_tasks.all()],
                     'timeElapsed': labels.edit_time_elapsed,
                     'state': 'editable',
                     'labels': labels.labels_json,
@@ -122,7 +152,7 @@ class LabellingToolView (View):
             elif isinstance(labels, dict):
                 labels_header = {
                     'image_id': image_id_str,
-                    'complete': labels['complete'],
+                    'completed_tasks': labels['completed_tasks'],
                     'timeElapsed': labels.get('edit_time_elapsed', 0.0),
                     'state': labels.get('state', 'editable'),
                     'labels': labels['labels'],
@@ -143,12 +173,14 @@ class LabellingToolView (View):
             # Write labels
             labels = json.loads(request.POST['labels'])
             image_id = labels['image_id']
-            complete = labels['complete']
+            completed_task_names = labels['completed_tasks']
             time_elapsed = labels['timeElapsed']
             label_data = labels['labels']
 
+            completed_tasks = models.LabellingTask.objects.filter(enabled=True, name__in=completed_task_names)
+
             try:
-                self.update_labels(request, str(image_id), label_data, complete, time_elapsed, *args, **kwargs)
+                self.update_labels(request, str(image_id), label_data, completed_tasks, time_elapsed, *args, **kwargs)
             except models.LabelsLockedError:
                 return JsonResponse({'error': 'locked'})
             else:
@@ -222,12 +254,35 @@ class LabellingToolViewWithLocking (LabellingToolView):
     ...             return None
     """
     def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
+        """
+        Get the next image that is unlocked after the image identified by `current_image_id_str`.
+        Images are locked when a user is editing them. This finds the next image that is not being edited
+        by someone else.
+
+        :param request: HTTP request
+        :param current_image_id_str: ID of the current image
+        :param args: additional arguments
+        :param kwargs:additional keyword arguments
+        :return: the ID of the next unlocked image
+        """
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def update_labels(self, request, image_id_str, labels_js, complete, time_elapsed, *args, **kwargs):
+    def update_labels(self, request, image_id_str, labels_json, completed_tasks, time_elapsed, *args, **kwargs):
+        """
+        Update the `Labels` instance identified by `image_id_str`
+
+        :param request: HTTP request
+        :param image_id_str: image ID that identifies the image that we are labelling
+        :param labels_json: labels in JSON format (Python objects, not as a string)
+        :param completed_tasks: sequence of `LabellingTask` instances that lists the tasks that have been completed
+        :param time_elapsed: the amount of time taken by users to label this image
+        :param args: additional arguments
+        :param kwargs:additional keyword arguments
+        :return: the `Labels` instance that was updated
+        """
         expire_after = getattr(settings, 'LABELLING_TOOL_LOCK_TIME', 600)
         labels = self.get_labels_for_update(request, image_id_str, *args, **kwargs)
-        labels.update_labels(labels_js, complete, time_elapsed, request.user, check_lock=True, save=False)
+        labels.update_labels(labels_json, completed_tasks, time_elapsed, request.user, check_lock=True, save=False)
         if request.user.is_authenticated:
             labels.refresh_lock(request.user, datetime.timedelta(seconds=expire_after), save=False)
         labels.save()
@@ -260,7 +315,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
                 attempt_lock = True
             labels_header = {
                 'image_id': image_id_str,
-                'complete': labels.complete,
+                'completed_tasks': [task.name for task in labels.completed_tasks.all()],
                 'timeElapsed': labels.edit_time_elapsed,
                 'state': state,
                 'labels': labels.labels_json,

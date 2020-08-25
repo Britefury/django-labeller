@@ -1,6 +1,6 @@
 {
    "image_filename": "foxglove.jpg",
-   "complete": null,
+   "complete": true,
    "labels": [
       {
          "label_type": "polygon",

@@ -135,8 +135,26 @@ module labelling_tool {
         /*
         Set complete
          */
-        set_complete(complete: boolean) {
-            this.model.complete = complete;
+        set_task_complete(task_name: string, complete: boolean) {
+            let index: number = -1;
+            for (var i = 0; i < this.model.completed_tasks.length; i++) {
+                if (this.model.completed_tasks[i] === task_name) {
+                    index = i;
+                }
+            }
+
+            if (complete) {
+                // Task completed; add to list if not present
+                if (index === -1) {
+                    this.model.completed_tasks.push(task_name);
+                }
+            }
+            else {
+                // Task incomplete; remove from list if present
+                if (index !== -1) {
+                    this.model.completed_tasks.splice(index, 1);
+                }
+            }
         }
 
         get_current_image_id(): string {

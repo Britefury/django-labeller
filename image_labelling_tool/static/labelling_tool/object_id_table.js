@@ -36,6 +36,7 @@ var labelling_tool;
                 id_prefix = ObjectIDTable.uuidv4();
             }
             this._id_prefix = id_prefix;
+            this._id_conversion_prefix = '';
             this._idx_counter = 1;
             this._id_to_object = {};
             this._old_id_to_new_id = {};
@@ -47,9 +48,13 @@ var labelling_tool;
             var id;
             if ('object_id' in obj && obj.object_id !== null) {
                 if (typeof (obj.object_id) === "number") {
+                    // Create a new conversion ID prefix
+                    if (this._id_conversion_prefix === '') {
+                        this._id_conversion_prefix = ObjectIDTable.uuidv4();
+                    }
                     // Update the ID to be of the form '<prefix>__<number>'
                     var old_id = obj.object_id;
-                    id = this._id_prefix + "__" + old_id;
+                    id = this._id_conversion_prefix + "__" + old_id;
                     this._old_id_to_new_id[old_id] = id;
                     obj.object_id = id;
                 }

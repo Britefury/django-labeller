@@ -65,7 +65,7 @@ class Labels (models.Model):
         else:
             username = user_id = None
         return dict(
-            complete=self.complete,
+            completed_tasks=[task.name for task in self.completed_tasks.all()],
             creation_date=self.creation_date.strftime('%Y-%m-%d'),
             last_modified_by__id=user_id,
             last_modified_by__username=username,

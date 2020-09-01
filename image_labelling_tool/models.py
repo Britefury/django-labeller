@@ -85,7 +85,17 @@ class Labels (models.Model):
             user_id = metadata_json['last_modified_by__id']
             if user_id is not None:
                 last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
-        self.complete = metadata_json['complete']
+
+        if 'complete' in metadata_json:
+            completed_task_names = ['finished']
+        elif 'completed_tasks' in metadata_json:
+            completed_task_names = metadata_json['completed_tasks']
+        else:
+            completed_task_names = []
+        completed_tasks = LabellingTask.objects.filter(name__in=completed_task_names).distinct()
+        for task in completed_tasks:
+            self.completed_tasks.add(task)
+
         self.creation_date = datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date()
         self.last_modified_by = last_modified_by
         self.last_modified_datetime = datetime.datetime.strptime(metadata_json['last_modified_datetime'],
@@ -102,8 +112,17 @@ class Labels (models.Model):
             user_id = metadata_json['last_modified_by__id']
             if user_id is not None:
                 last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
+
+        if 'complete' in metadata_json:
+            completed_task_names = ['finished']
+        elif 'completed_tasks' in metadata_json:
+            completed_task_names = metadata_json['completed_tasks']
+        else:
+            completed_task_names = []
+        completed_tasks = LabellingTask.objects.filter(name__in=completed_task_names).distinct()
+
         return Labels(labels_json_str=labels_json_str,
-                      complete=metadata_json['complete'],
+                      completed_tasks=completed_tasks,
                       creation_date=datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date(),
                       last_modified_by=last_modified_by,
                       last_modified_datetime=datetime.datetime.strptime(metadata_json['last_modified_datetime'],

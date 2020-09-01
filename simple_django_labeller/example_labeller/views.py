@@ -8,6 +8,7 @@ from dateutil.tz import tzlocal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.db import transaction
+from django.db.models import Q
 from django.core.files import File
 
 from django.conf import settings
@@ -181,19 +182,15 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
         image = get_object_or_404(models.ImageWithLabels, id=int(image_id_str))
         return image.labels
 
-    def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
+    def get_unlocked_image_id(self, request, image_ids, *args, **kwargs):
         unlocked_labels = lt_models.Labels.objects.unlocked()
-        unlocked_imgs = models.ImageWithLabels.objects.filter(labels__in=unlocked_labels)
-        unlocked_img_ids = [img.id for img in unlocked_imgs]
-        try:
-            index = unlocked_img_ids.index(int(current_image_id_str))
-        except ValueError:
-            return None
-        index += 1
-        if index < len(unlocked_img_ids):
-            return unlocked_img_ids[index]
-        else:
-            return None
+        unlocked_q = Q(id__in=image_ids, labels__in=unlocked_labels)
+        # TODO FOR YOUR APPLICATION
+        # filter images for those accessible to the user to guard against maliciously crafted requests
+        accessible_q = Q()
+        unlocked_imgs = models.ImageWithLabels.objects.filter(unlocked_q & accessible_q).distinct()
+        first_unlocked = unlocked_imgs.first()
+        return first_unlocked.id if first_unlocked is not None else None
 
     def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
         """

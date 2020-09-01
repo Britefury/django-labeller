@@ -24,20 +24,33 @@
             };
 
             {% if enable_locking %}
-                var get_next_unlocked_image_id = function(current_image_id) {
+                var get_unlocked_image_id = function(image_ids) {
+                    var request = {
+                        'image_ids': image_ids
+                    };
+                    var request_str = JSON.stringify(request);
+
+                    // Create the POST data
+                    var post_data = {
+                        get_unlocked_image_id: request_str
+                    };
+
                     $.ajax({
-                        type: 'GET',
-                        url: '{{ labelling_tool_url }}' + '?next_unlocked_image_id_after=' + current_image_id,
+                        type: 'POST',
+                        url: '{{ labelling_tool_url }}',
+                        data: post_data,
                         success: function(response) {
                             if (response.error === undefined) {
-                                tool.goToImageById(response.next_unlocked_image_id);
+                                if (response.image_id !== null) {
+                                    tool.goToImageById(response.image_id);
+                                }
                             }
                         },
                         dataType: 'json'
                     });
                 };
             {% else %}
-                var get_next_unlocked_image_id = null;
+                var get_unlocked_image_id = null;
             {% endif %}
 
             var update_labels = function(label_header) {
@@ -92,7 +105,7 @@
                 {{ initial_image_index | safe }},
                 get_labels,
                 update_labels,
-                get_next_unlocked_image_id,
+                get_unlocked_image_id,
                 dextr_request,
                 {{ dextr_polling_interval | safe }},
                 {{ labelling_tool_config | as_json | safe }}

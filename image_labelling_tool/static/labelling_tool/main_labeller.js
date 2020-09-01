@@ -65,7 +65,7 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoLabeller = /** @class */ (function () {
-        function DjangoLabeller(label_classes, tasks, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getNextUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
+        function DjangoLabeller(label_classes, tasks, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
@@ -84,10 +84,11 @@ var labelling_tool;
                 available(e.g. when the HTTP request succeeds), reply by invoking the `notifyLabelUpdateResponse`
                 method, passing a message of the form `{error: undefined}` if everything is okay,
                 or `{error: 'locked'}` to indicate that these labels are locked
-            getNextUnlockedImageIDCallback: (optional, can be null) a function of the form
-                `function(current_image_id)` that the annotator uses to asynchronously request the ID of the next
-                available unlocked image. When the image ID become available (e.g. when the HTTP request succeeds),
-                give it to the annotator by invoking the `goToImageById(next_unlocked_image_id)` method.
+            getUnlockedImageIDCallback: (optional, can be null) a function of the form
+                `function(image_id_list)` that the annotator uses to asynchronously request the ID of the next
+                available unlocked image, chosen from the list of image IDs provided as an argument.
+                When the image ID become available (e.g. when the HTTP request succeeds), give it to the annotator by
+                invoking the `goToImageById(next_unlocked_image_id)` method.
             dextrCallback: (optional, can be null) a function of the form `function(dextr_api)` that the annotator
                 uses to asynchronously request an automatically generated label for an object identified by four
                 points in the image. The callback will be used on one of two ways:
@@ -112,7 +113,14 @@ var labelling_tool;
                 DjangoLabeller._global_key_handler = null;
                 DjangoLabeller._global_key_handler_connected = false;
             }
+            // Tasks
             self.tasks = tasks;
+            // Colour schemes
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{ name: 'default', human_name: 'Default' }];
+            }
+            this._current_colour_scheme = colour_schemes[0].name;
+            // Configuration
             config = config || {};
             config.tools = config.tools || {};
             labelling_tool.ensure_config_option_exists(config.tools, 'imageSelector', true);
@@ -127,15 +135,6 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
-            labelling_tool.ensure_config_option_exists(config.tools, 'colour_schemes', [{ name: 'default', human_name: 'Default' }]);
-            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
-                colour_schemes = [{ name: 'default', human_name: 'Default' }];
-            }
-            this._current_colour_scheme = colour_schemes[0].name;
-            config.settings = config.settings || {};
-            labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
-            labelling_tool.ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
-            labelling_tool.ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
@@ -143,6 +142,12 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
+            config.tools.nextUnlockedConfig = config.tools.nextUnlockedConfig || {};
+            labelling_tool.ensure_config_option_exists(config.tools.nextUnlockedConfig, 'numImagesLimit', 100);
+            config.settings = config.settings || {};
+            labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
+            labelling_tool.ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
+            labelling_tool.ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
             this._config = config;
             /*
             Entity event listener
@@ -219,7 +224,7 @@ var labelling_tool;
             // Get unlocked image IDs callback: labelling tool will call this when the user wants to move to the
             // next available image that is not locked. If it is `null` or `undefined` then the button will not
             // be displayed to the user
-            this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
+            this._getUnlockedImageIDCallback = getUnlockedImageIDCallback;
             // Dextr label request callback; labelling tool will call this when it needs a new image to show
             this._dextrCallback = dextrCallback;
             // Dextr pooling interval
@@ -255,7 +260,13 @@ var labelling_tool;
                 var _next_unlocked_image = function () {
                     var image_id = self._get_current_image_id();
                     if (image_id !== '') {
-                        self._getNextUnlockedImageIDCallback(image_id);
+                        var index = self._image_id_to_index(image_id);
+                        var image_ids = self._image_ids(index + 1);
+                        var limit = self._config.tools.nextUnlockedConfig.numImagesLimit;
+                        if (image_ids.length > limit) {
+                            image_ids = image_ids.slice(0, limit);
+                        }
+                        self._getUnlockedImageIDCallback(image_ids);
                     }
                 };
                 this._image_index_input = $('#image_index_input');
@@ -283,7 +294,7 @@ var labelling_tool;
                     _increment_image_index(1);
                     event.preventDefault();
                 });
-                if (this._getNextUnlockedImageIDCallback !== null && this._getNextUnlockedImageIDCallback !== undefined) {
+                if (this._getUnlockedImageIDCallback !== null && this._getUnlockedImageIDCallback !== undefined) {
                     var next_unlocked_image_button = $('#btn_next_unlocked_image');
                     next_unlocked_image_button.click(function (event) {
                         console.log('next...');
@@ -796,6 +807,16 @@ var labelling_tool;
             return 0;
         };
         ;
+        DjangoLabeller.prototype._image_ids = function (from_index) {
+            var image_ids = [];
+            if (from_index == -1) {
+                from_index = 0;
+            }
+            for (var i = from_index; i < this._images.length; i++) {
+                image_ids.push(this._images[i].image_id);
+            }
+            return image_ids;
+        };
         DjangoLabeller.prototype._update_image_index_input_by_id = function (image_id) {
             var image_index = this._image_id_to_index(image_id);
             this._image_index_input.val((image_index + 1).toString());

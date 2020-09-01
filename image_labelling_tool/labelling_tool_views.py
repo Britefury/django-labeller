@@ -239,31 +239,27 @@ class LabellingToolViewWithLocking (LabellingToolView):
     ...         # Assume `image.labels` is a field that refers to the `Labels` instance
     ...         return image.labels
     ...
-    ...     def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
+    ...     def get_unlocked_image_id(self, request, image_ids, *args, **kwargs):
     ...         unlocked_labels = image_labelling_tool.models.Labels.objects.unlocked()
-    ...         unlocked_imgs = models.Image.objects.filter(labels__in=unlocked_labels)
-    ...         unlocked_img_ids = [img.id for img in unlocked_imgs]
-    ...         try:
-    ...             index = unlocked_img_ids.index(int(current_image_id_str))
-    ...         except ValueError:
-    ...             return None
-    ...         index += 1
-    ...         if index < len(unlocked_img_ids):
-    ...             return unlocked_img_ids[index]
-    ...         else:
-    ...             return None
+    ...         unlocked_q = Q(id__in=image_ids, labels__in=unlocked_labels)
+    ...         # Optional: filter images for those accessible to the user to guard against maliciously crafted
+    ...         # requests
+    ...         accessible_q = Q(owner=request.user)
+    ...         unlocked_imgs = models.Image.objects.filter(unlocked_q & accessible_q).distinct()
+    ...         first_unlocked = unlocked_imgs.first()
+    ...         return first_unlocked.id if first_unlocked is not None else None
     """
-    def get_next_unlocked_image_id_after(self, request, current_image_id_str, *args, **kwargs):
+    def get_unlocked_image_id(self, request, image_ids, *args, **kwargs):
         """
-        Get the next image that is unlocked after the image identified by `current_image_id_str`.
-        Images are locked when a user is editing them. This finds the next image that is not being edited
+        Get the ID of the first image from the list of provided image IDs that is unlocked.
+        Images are locked when a user is editing them. This finds an image that is not being edited
         by someone else.
 
         :param request: HTTP request
-        :param current_image_id_str: ID of the current image
+        :param image_ids: list of image IDs to search
         :param args: additional arguments
         :param kwargs:additional keyword arguments
-        :return: the ID of the next unlocked image
+        :return: the ID of the next unlocked image, or `None` if not found
         """
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
@@ -327,11 +323,17 @@ class LabellingToolViewWithLocking (LabellingToolView):
                 labels.lock(request.user, datetime.timedelta(seconds=expire_after), save=True)
 
             return JsonResponse(labels_header)
-        elif 'next_unlocked_image_id_after' in request.GET:
-            current_image_id_str = request.GET['next_unlocked_image_id_after']
-            next_image_id = self.get_next_unlocked_image_id_after(
-                request, current_image_id_str, *args, **kwargs)
-
-            return JsonResponse({'next_unlocked_image_id': str(next_image_id)})
         else:
             return JsonResponse({'error': 'unknown_operation'})
+
+    @method_decorator(never_cache)
+    def post(self, request, *args, **kwargs):
+        if 'get_unlocked_image_id' in request.POST:
+            request_str = request.POST['get_unlocked_image_id']
+            request = json.loads(request_str)
+            image_ids = request['image_ids']
+            unlocked_image_id = self.get_unlocked_image_id(request, image_ids)
+            return JsonResponse({'image_id': str(unlocked_image_id)})
+        else:
+            super(LabellingToolViewWithLocking, self).post(request, *args, **kwargs)
+

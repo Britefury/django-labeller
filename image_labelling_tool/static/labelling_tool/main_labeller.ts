@@ -131,7 +131,7 @@ module labelling_tool {
         private _num_images: number;
         private _requestLabelsCallback: any;
         private _sendLabelHeaderFn: any;
-        private _getNextUnlockedImageIDCallback: any;
+        private _getUnlockedImageIDCallback: any;
         private _dextrCallback: any;
         private _dextrPollingInterval: number;
         private _image_initialised: boolean;
@@ -181,7 +181,7 @@ module labelling_tool {
                     anno_controls_json: AnnoControlJSON[],
                     images: ImageModel[], initial_image_index: number,
                     requestLabelsCallback: any, sendLabelHeaderFn: any,
-                    getNextUnlockedImageIDCallback: any, dextrCallback: any, dextrPollingInterval: number,
+                    getUnlockedImageIDCallback: any, dextrCallback: any, dextrPollingInterval: number,
                     config: any) {
             /*
             label_classes: label class definitions in JSON format
@@ -196,10 +196,11 @@ module labelling_tool {
                 available(e.g. when the HTTP request succeeds), reply by invoking the `notifyLabelUpdateResponse`
                 method, passing a message of the form `{error: undefined}` if everything is okay,
                 or `{error: 'locked'}` to indicate that these labels are locked
-            getNextUnlockedImageIDCallback: (optional, can be null) a function of the form
-                `function(current_image_id)` that the annotator uses to asynchronously request the ID of the next
-                available unlocked image. When the image ID become available (e.g. when the HTTP request succeeds),
-                give it to the annotator by invoking the `goToImageById(next_unlocked_image_id)` method.
+            getUnlockedImageIDCallback: (optional, can be null) a function of the form
+                `function(image_id_list)` that the annotator uses to asynchronously request the ID of the next
+                available unlocked image, chosen from the list of image IDs provided as an argument.
+                When the image ID become available (e.g. when the HTTP request succeeds), give it to the annotator by
+                invoking the `goToImageById(next_unlocked_image_id)` method.
             dextrCallback: (optional, can be null) a function of the form `function(dextr_api)` that the annotator
                 uses to asynchronously request an automatically generated label for an object identified by four
                 points in the image. The callback will be used on one of two ways:
@@ -226,8 +227,17 @@ module labelling_tool {
                 DjangoLabeller._global_key_handler_connected = false;
             }
 
+            // Tasks
             self.tasks = tasks;
 
+            // Colour schemes
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{name: 'default', human_name: 'Default'}];
+            }
+
+            this._current_colour_scheme = colour_schemes[0].name;
+
+            // Configuration
             config = config || {};
 
             config.tools = config.tools || {};
@@ -244,20 +254,6 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'groupLabel', false);
             ensure_config_option_exists(config.tools, 'deleteLabel', true);
 
-            ensure_config_option_exists(config.tools, 'colour_schemes',
-                            [{name: 'default', human_name: 'Default'}]);
-
-            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
-                colour_schemes = [{name: 'default', human_name: 'Default'}];
-            }
-
-            this._current_colour_scheme = colour_schemes[0].name;
-
-            config.settings = config.settings || {};
-            ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
-            ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
-            ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
-
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
@@ -265,6 +261,14 @@ module labelling_tool {
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
+
+            config.tools.nextUnlockedConfig = config.tools.nextUnlockedConfig || {};
+            ensure_config_option_exists(config.tools.nextUnlockedConfig, 'numImagesLimit', 100);
+
+            config.settings = config.settings || {};
+            ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
+            ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
+            ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
 
             this._config = config;
 
@@ -353,7 +357,7 @@ module labelling_tool {
             // Get unlocked image IDs callback: labelling tool will call this when the user wants to move to the
             // next available image that is not locked. If it is `null` or `undefined` then the button will not
             // be displayed to the user
-            this._getNextUnlockedImageIDCallback = getNextUnlockedImageIDCallback;
+            this._getUnlockedImageIDCallback = getUnlockedImageIDCallback;
             // Dextr label request callback; labelling tool will call this when it needs a new image to show
             this._dextrCallback = dextrCallback;
             // Dextr pooling interval
@@ -398,7 +402,13 @@ module labelling_tool {
                 var _next_unlocked_image = function() {
                     var image_id = self._get_current_image_id();
                     if (image_id !== '') {
-                        self._getNextUnlockedImageIDCallback(image_id);
+                        var index = self._image_id_to_index(image_id);
+                        var image_ids = self._image_ids(index + 1);
+                        var limit: number = self._config.tools.nextUnlockedConfig.numImagesLimit;
+                        if (image_ids.length > limit) {
+                            image_ids = image_ids.slice(0, limit);
+                        }
+                        self._getUnlockedImageIDCallback(image_ids);
                     }
                 };
 
@@ -431,7 +441,7 @@ module labelling_tool {
                     event.preventDefault();
                 });
 
-                if (this._getNextUnlockedImageIDCallback !== null && this._getNextUnlockedImageIDCallback !== undefined) {
+                if (this._getUnlockedImageIDCallback !== null && this._getUnlockedImageIDCallback !== undefined) {
                     var next_unlocked_image_button: any = $('#btn_next_unlocked_image');
                     next_unlocked_image_button.click(function (event: any) {
                         console.log('next...');
@@ -1045,6 +1055,17 @@ module labelling_tool {
             console.log("Image ID " + image_id + " not found");
             return 0;
         };
+
+        _image_ids(from_index: number) {
+            let image_ids: string[] = [];
+            if (from_index == -1) {
+                from_index = 0;
+            }
+            for (var i = from_index; i < this._images.length; i++) {
+                image_ids.push(this._images[i].image_id);
+            }
+            return image_ids;
+        }
 
         _update_image_index_input_by_id(image_id: string) {
             var image_index = this._image_id_to_index(image_id);

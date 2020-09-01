@@ -1,5 +1,6 @@
 import datetime
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -17,6 +18,11 @@ class LabelsManager (models.Manager):
         return self.filter(locked_by=user)
 
     def unlocked(self):
+        return self.filter(self.unlocked_q())
+
+    @staticmethod
+    def unlocked_q():
         now = timezone.now()
-        return self.filter(locked_by=None) | self.filter(lock_expiry_datetime__gte=now)
+        return Q(locked_by=None) | Q(lock_expiry_datetime__gte=now)
+
 

@@ -2,6 +2,7 @@ import json, datetime
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from . import managers
 
 
@@ -57,76 +58,127 @@ class Labels (models.Model):
         self.labels_json_str = json.dumps(label_js)
 
     @property
-    def metadata_json(self):
-        last_modified_by = self.last_modified_by
-        if last_modified_by is not None:
-            username = last_modified_by.username
-            user_id = last_modified_by.id
-        else:
-            username = user_id = None
+    def metadata(self):
+        """
+        Access metadata (completed tasks, creation date, last modified by, last modified date time) as a dict
+        :return:
+        """
         return dict(
-            completed_tasks=[task.name for task in self.completed_tasks.all()],
-            creation_date=self.creation_date.strftime('%Y-%m-%d'),
-            last_modified_by__id=user_id,
-            last_modified_by__username=username,
-            last_modified_datetime=self.last_modified_datetime.strftime('%Y-%m-%d %H:%M:%S'),
+            completed_tasks=list(self.completed_tasks.all()),
+            creation_date=self.creation_date,
+            last_modified_by=self.last_modified_by,
+            last_modified_datetime=self.last_modified_datetime
         )
+
+    @metadata.setter
+    def metadata(self, meta):
+        if 'completed_tasks' in meta:
+            self.completed_tasks.set(meta['completed_tasks'])
+        if 'creation_date' in meta:
+            self.creation_date = meta['creation_date']
+        if 'last_modified_by' in meta:
+            self.last_modified_by = meta['last_modified_by']
+        if 'last_modified_datetime' in meta:
+            self.last_modified_datetime = meta['last_modified_datetime']
+
+    @property
+    def metadata_json(self):
+        """
+        Access metadata (completed tasks, creation date, last modified by, last modified date time) as a
+        JSON dict. The 'last modified by' user is stored as user name and/or user ID. The completed tasks
+        are stored by name. Dates and datetimes are stored in string form.
+        :return:
+        """
+        return self.metadata_dict_to_json(self.metadata)
 
     @metadata_json.setter
     def metadata_json(self, meta_js):
-        self.load_metadata_json(meta_js)
-
-    def load_metadata_json(self, metadata_json, last_modified_by=None):
-        if last_modified_by is None:
-            username = metadata_json['last_modified_by__username']
-            if username is not None:
-                last_modified_by = settings.AUTH_USER_MODEL.objects.get(username=username)
-        if last_modified_by is None:
-            user_id = metadata_json['last_modified_by__id']
-            if user_id is not None:
-                last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
-
-        if 'complete' in metadata_json:
-            completed_task_names = ['finished']
-        elif 'completed_tasks' in metadata_json:
-            completed_task_names = metadata_json['completed_tasks']
-        else:
-            completed_task_names = []
-        completed_tasks = LabellingTask.objects.filter(name__in=completed_task_names).distinct()
-        for task in completed_tasks:
-            self.completed_tasks.add(task)
-
-        self.creation_date = datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date()
-        self.last_modified_by = last_modified_by
-        self.last_modified_datetime = datetime.datetime.strptime(metadata_json['last_modified_datetime'],
-                                                                 '%Y-%m-%d %H:%M:%S')
+        self.metadata = self.metadata_json_to_dict(meta_js)
 
 
     @staticmethod
-    def from_labels_json_str_and_metadata_json(labels_json_str, metadata_json, last_modified_by=None):
-        if last_modified_by is None:
+    def metadata_dict_to_json(metadata):
+        """
+        Convert metadata in dictionary form to JSON form.
+
+        Dates and date times are converted to string form for storage as JSON.
+        The last_modified_by User object is stored in JSON as a username and user ID.
+        The completed tasks are converted to a list of task names
+
+        :param metadata: metadata in a dictionary with the following optional keys: 'creation_date', 'last_modified_by',
+            'last_modified_datetime' and 'completed_tasks'
+        :return: metadata in JSON form
+        """
+        meta_json = {}
+
+        if 'creation_date' in metadata:
+            meta_json['creation_date'] = metadata['creation_date'].strftime('%Y-%m-%d')
+
+        if 'last_modified_by' in metadata:
+            last_modified_by = metadata['last_modified_by']
+            if last_modified_by is not None:
+                meta_json['last_modified_by__username'] = last_modified_by.username
+                meta_json['last_modified_by__id'] = last_modified_by.id
+
+        if 'last_modified_datetime' in metadata:
+            meta_json['last_modified_datetime'] = metadata['last_modified_datetime'].strftime('%Y-%m-%d %H:%M:%S')
+
+        if 'completed_tasks' in metadata:
+            meta_json['completed_tasks'] = [task.name for task in metadata['completed_tasks']]
+
+        return meta_json
+
+    @staticmethod
+    def metadata_json_to_dict(metadata_json):
+        """
+        Convert metadata as a JSON dictionary to dictionary form.
+
+        :param metadata_json: metadata as a JSON dictionary
+        :return: metadata in dict form
+        """
+        meta = {}
+
+        if 'creation_date' in metadata_json:
+            meta['creation_date'] = datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date()
+
+        last_modified_by = None
+        if 'last_modified_by__username' in metadata_json:
             username = metadata_json['last_modified_by__username']
-            if username is not None:
-                last_modified_by = settings.AUTH_USER_MODEL.objects.get(username=username)
-        if last_modified_by is None:
+            last_modified_by = get_user_model().objects.get(username=username)
+        if last_modified_by is None and 'last_modified_by__id' in metadata_json:
             user_id = metadata_json['last_modified_by__id']
-            if user_id is not None:
-                last_modified_by = settings.AUTH_USER_MODEL.objects.get(id=user_id)
+            last_modified_by = get_user_model().objects.get(id=user_id)
+        if last_modified_by is not None:
+            meta['last_modified_by'] = last_modified_by
+
+        if 'last_modified_datetime' in metadata_json:
+            meta['last_modified_datetime'] = datetime.datetime.strptime(metadata_json['last_modified_datetime'],
+                                                                        '%Y-%m-%d %H:%M:%S')
 
         if 'complete' in metadata_json:
             completed_task_names = ['finished']
         elif 'completed_tasks' in metadata_json:
             completed_task_names = metadata_json['completed_tasks']
         else:
-            completed_task_names = []
-        completed_tasks = LabellingTask.objects.filter(name__in=completed_task_names).distinct()
+            completed_task_names = None
+        if completed_task_names is not None:
+            meta['completed_tasks'] = list(LabellingTask.objects.filter(name__in=completed_task_names).distinct())
 
-        return Labels(labels_json_str=labels_json_str,
-                      completed_tasks=completed_tasks,
-                      creation_date=datetime.datetime.strptime(metadata_json['creation_date'], '%Y-%m-%d').date(),
-                      last_modified_by=last_modified_by,
-                      last_modified_datetime=datetime.datetime.strptime(metadata_json['last_modified_datetime'],
-                                                                        '%Y-%m-%d %H:%M:%S'))
+        return meta
+
+
+    @staticmethod
+    def from_labels_json_str_and_metadata_dict(labels_json_str, metadata):
+        keys = ['creation_date', 'completed_tasks', 'last_modified_by', 'last_modified_datetime']
+        kwargs = {key: metadata[key] for key in keys}
+
+        return Labels(labels_json_str=labels_json_str, **kwargs)
+
+    @staticmethod
+    def from_labels_json_str_and_metadata_json(labels_json_str, metadata_json):
+        return Labels.from_labels_json_str_and_metadata_dict(
+            labels_json_str, Labels.metadata_json_to_dict(metadata_json))
+
 
     @property
     def is_empty(self):
@@ -149,6 +201,16 @@ class Labels (models.Model):
             return histogram
 
     def update_labels(self, labels_json, completed_tasks, time_elapsed, user, save=False, check_lock=False):
+        """
+        Update labels, normally called by Django views that are responding to user input received from the client
+
+        :param labels_json: labels in JSON form
+        :param completed_tasks: sequence of LabellingTask instances
+        :param time_elapsed: labelling time elapsed
+        :param user: user account being used to edit the labels
+        :param save: if `True`, invoke `self.save()` afterwards
+        :param check_lock: if `True`, raise `LabelsLockedError` if this labels instance is locked by another user
+        """
         # Verify time elapsed is within the bounds of possibility
         current_time = timezone.now()
         dt_since_last_mod = (current_time - self.last_modified_datetime).total_seconds()

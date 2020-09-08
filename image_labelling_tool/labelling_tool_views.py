@@ -168,6 +168,7 @@ class LabellingToolView (View):
         else:
             return JsonResponse({'error': 'unknown_operation'})
 
+    @method_decorator(never_cache)
     def post(self, request, *args, **kwargs):
         if 'labels' in request.POST:
             # Write labels
@@ -216,6 +217,12 @@ class LabellingToolView (View):
                     return JsonResponse(dextr_reply)
                 else:
                     return JsonResponse({'response': 'success'})
+            if isinstance(dextr_js, dict):
+                return JsonResponse({'error': 'unknown_dextr_api', 'keys': list(dextr_js.keys())})
+            else:
+                return JsonResponse({'error': 'unknown_dextr_api', 'type': str(type(dextr_js))})
+        else:
+            return JsonResponse({'response': 'unknown_api', 'keys': [str(k) for k in request.POST.keys()]})
 
 
 class LabellingToolViewWithLocking (LabellingToolView):
@@ -335,5 +342,5 @@ class LabellingToolViewWithLocking (LabellingToolView):
             unlocked_image_id = self.get_unlocked_image_id(request, image_ids)
             return JsonResponse({'image_id': str(unlocked_image_id)})
         else:
-            super(LabellingToolViewWithLocking, self).post(request, *args, **kwargs)
+            return super(LabellingToolViewWithLocking, self).post(request, *args, **kwargs)
 

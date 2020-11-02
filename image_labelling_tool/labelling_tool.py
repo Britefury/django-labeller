@@ -1908,11 +1908,11 @@ class LabelledImageFile (AbsractLabelledImage):
 
 
     @property
-    def tasks_complete(self):
+    def completed_tasks(self):
         return self.__tasks_complete
 
-    @tasks_complete.setter
-    def tasks_complete(self, c):
+    @completed_tasks.setter
+    def completed_tasks(self, c):
         self.__tasks_complete = c
 
 

@@ -1105,9 +1105,9 @@ class ImageLabels (object):
             raise ValueError('existing_json should be a list or a dict')
 
 
-    def wrapped_json(self, image_filename, tasks_complete):
+    def wrapped_json(self, image_filename, completed_tasks):
         return {'image_filename': image_filename,
-                'tasks_complete': tasks_complete,
+                'completed_tasks': completed_tasks,
                 'labels': self.to_json()}
 
 

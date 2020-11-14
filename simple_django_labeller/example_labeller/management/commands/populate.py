@@ -1,6 +1,7 @@
 import os, mimetypes, json, datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.core.files import File
+from django.db import transaction
 from image_labelling_tool import labelling_tool
 from image_labelling_tool import models as lt_models
 from ... import models
@@ -26,23 +27,37 @@ class Command(BaseCommand):
                     else:
                         image_and_label_files.append((image_path, None))
 
-        for image_path, labels_path in image_and_label_files:
-            if labels_path is not None:
-                self.stdout.write('Adding image {} with labels from {}'.format(image_path, labels_path))
-                wrapped_labels = json.load(open(labels_path, 'r'))
-                labels, complete = labelling_tool.PersistentLabelledImage._unwrap_labels(
-                    wrapped_labels)
-                complete = complete if isinstance(complete, bool) else False
-                labels_model = lt_models.Labels(
-                    labels_json_str=json.dumps(labels), complete=complete,
-                    creation_date=datetime.date.today())
-                labels_model.save()
-            else:
-                self.stdout.write('Adding image {}'.format(image_path))
-                labels_model = lt_models.Labels(creation_date=datetime.date.today())
-                labels_model.save()
+        with transaction.atomic():
+            for image_path, labels_path in image_and_label_files:
+                if labels_path is not None:
+                    self.stdout.write('Adding image {} with labels from {}'.format(image_path, labels_path))
+                    wrapped_labels = json.load(open(labels_path, 'r'))
+                    labels, completed_tasks = labelling_tool.PersistentLabelledImage._unwrap_labels(
+                        wrapped_labels)
 
-            image_model = models.ImageWithLabels(labels=labels_model)
-            image_model.image.save(os.path.basename(image_path),
-                                   File(open(image_path, 'rb')))
-            image_model.save()
+                    if isinstance(completed_tasks, list):
+                        pass
+                    elif isinstance(completed_tasks, bool):
+                        completed_tasks = ['finished'] if completed_tasks else []
+                    else:
+                        completed_tasks = []
+
+                    # Convert task names to instances
+                    tasks = list(lt_models.LabellingTask.objects.filter(name__in=completed_tasks).distinct())
+
+                    labels_model = lt_models.Labels(
+                        labels_json_str=json.dumps(labels),
+                        creation_date=datetime.date.today())
+                    labels_model.save()
+                    if len(tasks) > 0:
+                        labels_model.completed_tasks.set(tasks)
+                        labels_model.save()
+                else:
+                    self.stdout.write('Adding image {}'.format(image_path))
+                    labels_model = lt_models.Labels(creation_date=datetime.date.today())
+                    labels_model.save()
+
+                image_model = models.ImageWithLabels(labels=labels_model)
+                image_model.image.save(os.path.basename(image_path),
+                                       File(open(image_path, 'rb')))
+                image_model.save()

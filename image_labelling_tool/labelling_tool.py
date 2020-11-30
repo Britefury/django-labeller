@@ -1591,7 +1591,7 @@ class AbsractLabelledImage (object):
 
 
 class InMemoryLabelledImage (AbsractLabelledImage):
-    def __init__(self, pixels, labels=None, completed_tasks=False):
+    def __init__(self, pixels, labels=None, completed_tasks=None):
         super(InMemoryLabelledImage, self).__init__()
         if labels is None:
             labels = ImageLabels([])
@@ -1659,7 +1659,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
         self.__pixels = None
 
         self.__labels_json = None
-        self.__completed_tasks = None
+        self.__completed_tasks = []
         self.__readonly = readonly
 
     def read_pixels(self):
@@ -1834,7 +1834,7 @@ class LabelledImageFile (AbsractLabelledImage):
         if labels is None:
             labels = ImageLabels([])
         if tasks_complete is None:
-            tasks_complete = {}
+            tasks_complete = []
         self.__labels = labels
         self.__tasks_complete = tasks_complete
         self.__image_path = path

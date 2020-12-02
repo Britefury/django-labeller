@@ -25,7 +25,9 @@
 
             <div class="labeller_menu_sep"></div>
 
-            <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+            {% if not labelling_tool_config.settings.fullscreenButton == False %}
+                <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+            {% endif %}
     </nav>
 
     <!-- Toolbar !-->

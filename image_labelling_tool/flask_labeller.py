@@ -100,10 +100,6 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
         }
 
 
-    if tasks is None:
-        tasks = [dict(identifier='finished', human_name='Finished')]
-
-
     @app.route('/')
     def index():
         label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
@@ -239,7 +235,7 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
     @app.route('/image/<image_id>')
     def get_image(image_id):
         image = images_table[image_id]
-        data, mimetype, width, height = image.data_and_mime_type_and_size()
+        data, mimetype = image.data_and_mime_type()
         r = make_response(data)
         r.mimetype = mimetype
         return r

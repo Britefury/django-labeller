@@ -228,6 +228,9 @@ module labelling_tool {
             }
 
             // Tasks
+            if (tasks === null || tasks === undefined) {
+                tasks = [];
+            }
             self.tasks = tasks;
 
             // Colour schemes
@@ -269,6 +272,7 @@ module labelling_tool {
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
             ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
+            ensure_config_option_exists(config.settings, 'fullscreenButton', true);
 
             this._config = config;
 
@@ -454,26 +458,28 @@ module labelling_tool {
             this._lockNotification = $('#lock_warning');
 
 
-            // Full screen button
-            var fullscreen_button = $('#btn_fullscreen');
+            if (config.settings.fullScreenButton) {
+                // Full screen button
+                var fullscreen_button = $('#btn_fullscreen');
 
-            fullscreen_button.click(function (event: any) {
-                if (document.fullscreenElement) {
-                    // In full screen mode
-                    document.exitFullscreen();
-                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
-                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
-                }
-                else {
-                    var elem = $(event.target).closest("div.image_labeller")[0];
-                    if (elem.requestFullscreen) {
-                        elem.requestFullscreen();
-                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
-                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
+                fullscreen_button.click(function (event: any) {
+                    if (document.fullscreenElement) {
+                        // In full screen mode
+                        document.exitFullscreen();
+                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
+                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
                     }
-                }
-                event.preventDefault();
-            });
+                    else {
+                        var elem = $(event.target).closest("div.image_labeller")[0];
+                        if (elem.requestFullscreen) {
+                            elem.requestFullscreen();
+                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
+                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
+                        }
+                    }
+                    event.preventDefault();
+                });
+            }
 
 
 
@@ -1096,7 +1102,7 @@ module labelling_tool {
             var self = this;
 
             // Update the image SVG element if the image URL is available
-            if (image.img_url !== null) {
+            if (image.img_url !== null && image.img_url !== '') {
                 var img = self.loadImageUrl(image.img_url);
                 this._image.attr("width", image.width + 'px');
                 this._image.attr("height", image.height + 'px');
@@ -1132,22 +1138,54 @@ module labelling_tool {
             this._show_loading_notification();
         }
 
-        loadLabels(label_header: LabelHeaderModel, image: ImageModel) {
+        loadLabels(label_header: LabelHeaderModel) {
             var self = this;
-            if (!this._image_initialised) {
-                if (image !== null && image !== undefined) {
-                    var img = self.loadImageUrl(image.img_url);
-                    this._image.attr("width", image.width + 'px');
-                    this._image.attr("height", image.height + 'px');
-                    this._image.attr('xlink:href', img.src);
-                    this._image_width = image.width;
-                    this._image_height = image.height;
-                    this._image_initialised = true;
+
+            // Update the image SVG element
+            this.root_view.set_model(label_header);
+            this._resetStopwatch();
+
+            this._update_image_index_input_by_id(this.root_view.model.image_id);
+
+            if (this.root_view.model.state === 'locked') {
+                this.lockLabels();
+            }
+            else {
+                this.unlockLabels();
+            }
+
+            for (let task of self.tasks) {
+                let is_complete: boolean = false;
+                for (let task_name of this.root_view.model.completed_tasks) {
+                    if (task_name === task.name) {
+                        is_complete = true;
+                        break;
+                    }
                 }
-                else {
-                    console.log("Labelling tool: Image URL was unavailable to loadImage and has not been " +
-                                "provided by loadLabels");
-                }
+                self._task_checkboxes[task.name].prop('checked', is_complete);
+            }
+            this.set_current_tool(new SelectEntityTool(this.root_view));
+
+            this._labels_loaded = true;
+            this._hide_loading_notification_if_ready();
+        };
+
+        loadImageAndLabels(image: ImageModel, label_header: LabelHeaderModel) {
+            var self = this;
+
+            this._image_loaded = false;
+            // Update the image SVG element if the image URL is available
+            if (image.img_url !== null && image.img_url !== '') {
+                var img = self.loadImageUrl(image.img_url);
+                this._image.attr("width", image.width + 'px');
+                this._image.attr("height", image.height + 'px');
+                this._image.attr('xlink:href', img.src);
+                this._image_width = image.width;
+                this._image_height = image.height;
+                this._image_initialised = true;
+            }
+            else {
+                this._image_initialised = false;
             }
 
             // Update the image SVG element
@@ -1175,6 +1213,7 @@ module labelling_tool {
             }
             this.set_current_tool(new SelectEntityTool(this.root_view));
 
+            this._image_loaded = true;
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
         };
@@ -1235,7 +1274,9 @@ module labelling_tool {
         }
 
         _show_loading_notification() {
-            this._svg_q.addClass('anno_hidden');
+            if (!this._svg_q.hasClass('anno_hidden')) {
+                this._svg_q.addClass('anno_hidden');
+            }
             this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         }
@@ -1243,7 +1284,9 @@ module labelling_tool {
         _hide_loading_notification_if_ready() {
             if (this._image_loaded && this._labels_loaded) {
                 this._svg_q.removeClass('anno_hidden');
-                this._loading_notification_q.addClass('anno_hidden');
+                if (!this._loading_notification_q.hasClass('anno_hidden')) {
+                    this._loading_notification_q.addClass('anno_hidden');
+                }
             }
         }
 

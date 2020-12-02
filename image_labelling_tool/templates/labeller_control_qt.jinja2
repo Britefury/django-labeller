@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>UEA Computer Vision - Annotator</title>
+
+        {% include "inline/image_labeller_css.html" %}
+        <script language="javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        {% include "inline/image_labeller_scripts.html" %}
+    </head>
+
+    <body>
+
+    {% include "inline/labeller_app.html" %}
+
+    <script>
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            var qt_tool = channel.objects.qt_tool;
+
+            qt_tool._tool_load_labels.connect(function(label_header) {
+                tool.loadLabels(label_header);
+            });
+
+            qt_tool._tool_set_labels_reply.connect(function(msg) {
+                tool.notifyLabelUpdateResponse(msg);
+            });
+
+            qt_tool._tool_dextr_reply.connect(function(msg) {
+                if (msg.labels !== undefined) {
+                    tool.dextrSuccess(msg.labels);
+                }
+            });
+
+            var get_labels = function(image_id) {
+                qt_tool._tool_request_labels(image_id);
+            };
+
+            // set labels callback function
+            var set_labels = function(label_header) {
+                qt_tool._tool_set_labels(label_header);
+            };
+
+            var dextr_request = null;
+            if (qt_tool._tool_dextr_available) {
+                // set labels callback function
+                dextr_request = function (dextr_request) {
+                    qt_tool._tool_dextr(dextr_request);
+                };
+            }
+
+            document.getElementById('classes', JSON.stringify(qt_tool._tool_label_class_groups.value));
+
+            // Create the labelling tool
+            // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
+            var tool = new labelling_tool.DjangoLabeller(
+                qt_tool._tool_label_class_groups.value,
+                qt_tool._tool_anno_tasks.value,
+                qt_tool._tool_colour_schemes.value,
+                qt_tool._tool_anno_controls.value,
+                qt_tool._tool_image_descriptors.value,
+                0,
+                get_labels,
+                set_labels,
+                null,
+                dextr_request,
+                null,
+                qt_tool._tool_anno_config.value
+            );
+
+        });
+    </script>
+
+    <p id="classes"></p>
+
+    </body>
+</html>

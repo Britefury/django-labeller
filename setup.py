@@ -3,7 +3,7 @@ import fnmatch
 from setuptools import find_packages
 from setuptools import setup
 
-version = '0.1.3'
+version = '0.1.4'
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -70,7 +70,7 @@ setup(
     keywords="",
     author="Geoffrey French",
     # author_email="brittix1023 at gmail dot com",
-    url="https://github.com/uea-computer-vision/django-labeller",
+    url="https://github.com/Britefury/django-labeller",
     license="MIT",
     packages=find_packages(),
     include_package_data=include_package_data,

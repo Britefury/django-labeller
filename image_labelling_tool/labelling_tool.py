@@ -1136,7 +1136,7 @@ class ImageLabels (object):
     @staticmethod
     def from_json(label_data_js, id_prefix=None):
         """
-        Labels in JSON format
+        Load from labels in JSON format
 
         :param label_data_js: either a list of labels in JSON format or a dict that maps the key `'labels'` to a list
         of labels in JSON form. The dict format will match the format stored in JSON label files.
@@ -1466,6 +1466,26 @@ def ensure_json_object_ids_have_prefix(labels_json, id_prefix, id_remapping=None
 
 
 class AbsractLabelledImage (object):
+    """
+    Abstract labelled image
+
+    Effectively combines an image with associated labels.
+
+    Concrete implementations will implement the following methods/properties:
+
+    read_pixels(): get a NumPy array (dtype=float) of pixels, no caching
+    pixels: pixels as a NumPy array (dtype=float), with caching e.g. if the image has to be loaded from a file
+    image_size: image size as a (height, width) tuple
+    data_and_mime_type(): return the image as a binary file (by reading the file if on disk or convering to
+        a known format if in memory) with a corresponding mime type as a `(data, mime_type)` tuple
+    image_path: the path of the image if it is available as a file, or None if not available
+    labels (read/write): the labels as an ImageLabels instance (note that setting this will change the
+        `labels_json` property
+    has_labels(): return True if labels are available for this image,
+        so e.g. if no labels file exists return False
+    labels_json (read/write): the labels in JSON format (note that setting this will change the `labels` property)
+    completed_tasks (read/write): the list of tasks that the user has completed as a list of strings
+    """
     def __init__(self):
         pass
 
@@ -1481,8 +1501,29 @@ class AbsractLabelledImage (object):
     def image_size(self):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def data_and_mime_type_and_size(self):
+    def data_and_mime_type(self):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
+
+
+    @property
+    def image_path(self):
+        return None
+
+    @property
+    def image_filename(self):
+        p = self.image_path
+        if p is not None:
+            return os.path.basename(p)
+        else:
+            return None
+
+    @property
+    def image_name(self):
+        f = self.image_filename
+        if f is not None:
+            return os.path.splitext(f)[0]
+        else:
+            return None
 
 
     @property
@@ -1613,12 +1654,12 @@ class InMemoryLabelledImage (AbsractLabelledImage):
     def image_size(self):
         return self.__pixels.shape[:2]
 
-    def data_and_mime_type_and_size(self):
+    def data_and_mime_type(self):
         buf = io.BytesIO()
         pix_u8 = img_as_ubyte(self.__pixels)
         img = Image.fromarray(pix_u8)
         img.save(buf, format='png')
-        return buf.getvalue(), 'image/png', int(self.__pixels.shape[1]), int(self.__pixels.shape[0])
+        return buf.getvalue(), 'image/png'
 
 
 
@@ -1679,24 +1720,15 @@ class PersistentLabelledImage (AbsractLabelledImage):
             i = Image.open(self.__image_path)
             return i.size[1], i.size[0]
 
-    def data_and_mime_type_and_size(self):
+    def data_and_mime_type(self):
         if os.path.exists(self.__image_path):
             with open(self.__image_path, 'rb') as img:
-                shape = self.image_size
-                return img.read(), mimetypes.guess_type(self.__image_path)[0], int(shape[1]), int(shape[0])
+                return img.read(), mimetypes.guess_type(self.__image_path)[0]
 
 
     @property
     def image_path(self):
         return self.__image_path
-
-    @property
-    def image_filename(self):
-        return os.path.basename(self.__image_path)
-
-    @property
-    def image_name(self):
-        return os.path.splitext(self.image_filename)[0]
 
 
 
@@ -1860,24 +1892,15 @@ class LabelledImageFile (AbsractLabelledImage):
             i = Image.open(self.__image_path)
             return i.size[1], i.size[0]
 
-    def data_and_mime_type_and_size(self):
+    def data_and_mime_type(self):
         if os.path.exists(self.__image_path):
             with open(self.__image_path, 'rb') as img:
-                shape = self.image_size
-                return img.read(), mimetypes.guess_type(self.__image_path)[0], int(shape[1]), int(shape[0])
+                return img.read(), mimetypes.guess_type(self.__image_path)[0]
 
 
     @property
     def image_path(self):
         return self.__image_path
-
-    @property
-    def image_filename(self):
-        return os.path.basename(self.__image_path)
-
-    @property
-    def image_name(self):
-        return os.path.splitext(self.image_filename)[0]
 
 
 

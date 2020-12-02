@@ -2,7 +2,7 @@
 
 #### A light-weight image labelling tool for Python designed for creating segmentation data sets.
 
-- compatible with Django and Flask
+- compatible with Django, Flask and Qt
 - polygon, box, point and oriented ellipse annotations supported
 - polygonal labels can have disjoint regions and can be editing using paintng and boolean operations; provided by
   [polybooljs](https://github.com/voidqk/polybooljs)
@@ -14,10 +14,10 @@ Django Labeller in action:
 ![Django labeller movie](doc/dextr_boolean_cleanup_v1_small.gif "Django Labeller in action")
 
 
-## Django or Flask?
+## Django, Flask or Qt?
 
 If you want to run `django-labeller` on your local machine with minimum fuss and store the image and
-label files on your file system, use the Flask application.
+label files on your file system, use either the Qt application or the Flask application.
 
 If you want to incorporate `django-labeller` into your Django application, use the Django app/plugin as
 it provides model classes that store labels in your database, etc.
@@ -45,6 +45,34 @@ Note:
 
 
 ## Examples
+
+### Qt desktop application
+
+##### Requirements
+`PyQt5` and `flask` need to be installed, both of which can be installed using `conda` if
+using an Anaconda distribution.  
+Optionally install [PyTorch](https://pytorch.org) and
+the [dextr](https://github.com/Britefury/dextr) library if you want to use a DEXTR model for
+automatically assisted annotation.
+
+##### Running
+
+A simple Qt-based desktop application allows you to choose a directory of images to label. To start it,
+change into the same directory into which you cloned the repo and run:
+
+```shell script
+> python -m image_labelling_tool_qt.simple_labeller 
+```
+
+A dialog will appear prompting you to choose a directory of images to label. The *Enable DEXTR*
+checkbox will enable DEXTR assisted automated labelling. Note that this requires that
+[PyTorch](https://pytorch.org) and the [dextr](https://github.com/Britefury/dextr) library are
+both installed in your Python environment.
+
+The Qt desktop application uses QWebEngine to show the web-based component in a Qt UI.
+A Flask server is started in the background that serves the tool HTML, static files and
+images.
+
 
 ### Flask web app example
 

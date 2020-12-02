@@ -114,6 +114,9 @@ var labelling_tool;
                 DjangoLabeller._global_key_handler_connected = false;
             }
             // Tasks
+            if (tasks === null || tasks === undefined) {
+                tasks = [];
+            }
             self.tasks = tasks;
             // Colour schemes
             if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
@@ -148,6 +151,7 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             labelling_tool.ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
             labelling_tool.ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
+            labelling_tool.ensure_config_option_exists(config.settings, 'fullscreenButton', true);
             this._config = config;
             /*
             Entity event listener
@@ -304,25 +308,27 @@ var labelling_tool;
                 }
             }
             this._lockNotification = $('#lock_warning');
-            // Full screen button
-            var fullscreen_button = $('#btn_fullscreen');
-            fullscreen_button.click(function (event) {
-                if (document.fullscreenElement) {
-                    // In full screen mode
-                    document.exitFullscreen();
-                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
-                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
-                }
-                else {
-                    var elem = $(event.target).closest("div.image_labeller")[0];
-                    if (elem.requestFullscreen) {
-                        elem.requestFullscreen();
-                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
-                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
+            if (config.settings.fullScreenButton) {
+                // Full screen button
+                var fullscreen_button = $('#btn_fullscreen');
+                fullscreen_button.click(function (event) {
+                    if (document.fullscreenElement) {
+                        // In full screen mode
+                        document.exitFullscreen();
+                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
+                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
                     }
-                }
-                event.preventDefault();
-            });
+                    else {
+                        var elem = $(event.target).closest("div.image_labeller")[0];
+                        if (elem.requestFullscreen) {
+                            elem.requestFullscreen();
+                            fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
+                            fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
+                        }
+                    }
+                    event.preventDefault();
+                });
+            }
             /*
              *
              * TOOL PANEL
@@ -843,7 +849,7 @@ var labelling_tool;
         DjangoLabeller.prototype.loadImage = function (image) {
             var self = this;
             // Update the image SVG element if the image URL is available
-            if (image.img_url !== null) {
+            if (image.img_url !== null && image.img_url !== '') {
                 var img = self.loadImageUrl(image.img_url);
                 this._image.attr("width", image.width + 'px');
                 this._image.attr("height", image.height + 'px');
@@ -875,22 +881,50 @@ var labelling_tool;
             this._labels_loaded = false;
             this._show_loading_notification();
         };
-        DjangoLabeller.prototype.loadLabels = function (label_header, image) {
+        DjangoLabeller.prototype.loadLabels = function (label_header) {
             var self = this;
-            if (!this._image_initialised) {
-                if (image !== null && image !== undefined) {
-                    var img = self.loadImageUrl(image.img_url);
-                    this._image.attr("width", image.width + 'px');
-                    this._image.attr("height", image.height + 'px');
-                    this._image.attr('xlink:href', img.src);
-                    this._image_width = image.width;
-                    this._image_height = image.height;
-                    this._image_initialised = true;
+            // Update the image SVG element
+            this.root_view.set_model(label_header);
+            this._resetStopwatch();
+            this._update_image_index_input_by_id(this.root_view.model.image_id);
+            if (this.root_view.model.state === 'locked') {
+                this.lockLabels();
+            }
+            else {
+                this.unlockLabels();
+            }
+            for (var _i = 0, _a = self.tasks; _i < _a.length; _i++) {
+                var task = _a[_i];
+                var is_complete = false;
+                for (var _b = 0, _c = this.root_view.model.completed_tasks; _b < _c.length; _b++) {
+                    var task_name = _c[_b];
+                    if (task_name === task.name) {
+                        is_complete = true;
+                        break;
+                    }
                 }
-                else {
-                    console.log("Labelling tool: Image URL was unavailable to loadImage and has not been " +
-                        "provided by loadLabels");
-                }
+                self._task_checkboxes[task.name].prop('checked', is_complete);
+            }
+            this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
+            this._labels_loaded = true;
+            this._hide_loading_notification_if_ready();
+        };
+        ;
+        DjangoLabeller.prototype.loadImageAndLabels = function (image, label_header) {
+            var self = this;
+            this._image_loaded = false;
+            // Update the image SVG element if the image URL is available
+            if (image.img_url !== null && image.img_url !== '') {
+                var img = self.loadImageUrl(image.img_url);
+                this._image.attr("width", image.width + 'px');
+                this._image.attr("height", image.height + 'px');
+                this._image.attr('xlink:href', img.src);
+                this._image_width = image.width;
+                this._image_height = image.height;
+                this._image_initialised = true;
+            }
+            else {
+                this._image_initialised = false;
             }
             // Update the image SVG element
             this.root_view.set_model(label_header);
@@ -915,6 +949,7 @@ var labelling_tool;
                 self._task_checkboxes[task.name].prop('checked', is_complete);
             }
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
+            this._image_loaded = true;
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
         };
@@ -969,14 +1004,18 @@ var labelling_tool;
             this._loading_notification_text.text("Error loading " + src);
         };
         DjangoLabeller.prototype._show_loading_notification = function () {
-            this._svg_q.addClass('anno_hidden');
+            if (!this._svg_q.hasClass('anno_hidden')) {
+                this._svg_q.addClass('anno_hidden');
+            }
             this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         };
         DjangoLabeller.prototype._hide_loading_notification_if_ready = function () {
             if (this._image_loaded && this._labels_loaded) {
                 this._svg_q.removeClass('anno_hidden');
-                this._loading_notification_q.addClass('anno_hidden');
+                if (!this._loading_notification_q.hasClass('anno_hidden')) {
+                    this._loading_notification_q.addClass('anno_hidden');
+                }
             }
         };
         DjangoLabeller.prototype.goToImageById = function (image_id) {

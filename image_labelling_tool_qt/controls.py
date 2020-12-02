@@ -105,8 +105,9 @@ class QAbstractLabeller (QtCore.QObject):
         super(QAbstractLabeller, self).__init__()
 
         self._server = server
+        self._server_pipe = self._server.image_registry()
 
-        self._tool_id = QAbstractLabeller._LABELLER_COUNT
+        self._tool_id = str(QAbstractLabeller._LABELLER_COUNT)
         QAbstractLabeller._LABELLER_COUNT += 1
 
         # Convert the label classes to JSON
@@ -129,6 +130,15 @@ class QAbstractLabeller (QtCore.QObject):
         if config is None:
             config = web_server.DEFAULT_CONFIG
         self._config = config
+
+        settings = dict(
+            config=config,
+            tasks=tasks,
+            colour_schemes=colour_schemes,
+            label_class_groups=self._label_classes_json,
+            anno_controls=self._anno_controls_json,
+        )
+        self._server_pipe.add_settings(self._tool_id, settings)
 
 
     @property
@@ -199,8 +209,7 @@ class QAbstractLabeller (QtCore.QObject):
         # Register self as `qt_tool` as the `labeller_control_qt.jinja2` template will attempte to find it here
         channel.registerObject("qt_tool", self)
         # Get the server url
-        tool_url = self._server.server_url(dextr_availble=self._dextr_fn is not None, config=self._config,
-                                           tasks=self._tasks)
+        tool_url = self._server.server_url(tool_id=self._tool_id, dextr_available=self._dextr_fn is not None)
         # Have the web view widget navigate there
         web_engine_view.setUrl(QtCore.QUrl(tool_url))
 
@@ -317,7 +326,6 @@ class QLabellerForLabelledImages (QAbstractLabeller):
             server=server, label_classes=label_classes, tasks=tasks, colour_schemes=colour_schemes,
             anno_controls=anno_controls, config=config)
 
-        image_reg = self._server.image_registry()
         self._dextr_fn = dextr_fn
 
         # Generate image IDs list
@@ -330,11 +338,11 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         for image_id, img in zip(image_ids, labelled_images):
             height, width = img.image_size
             if img.image_path is not None:
-                image_reg.add_image(image_id, web_server._ImagePath(
+                self._server_pipe.add_image(image_id, web_server._ImagePath(
                     path=img.image_path, width=width, height=height))
             else:
                 data, mime_type = img.data_and_mime_type
-                image_reg.add_image(image_id, web_server._ImageBinary(
+                self._server_pipe.add_image(image_id, web_server._ImageBinary(
                     data=data, mime_type=mime_type, width=width, height=height))
             self.__image_descriptors.append(labelling_tool.image_descriptor(
                 image_id=image_id, url='/image/{}'.format(image_id),

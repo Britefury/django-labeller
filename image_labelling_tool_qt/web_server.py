@@ -92,13 +92,12 @@ class LabellerServer:
         else:
             raise RuntimeError('Flasks server not started')
 
-    def server_url(self, dextr_availble=False, config=None, tasks=None):
-        if config is None:
-            config = DEFAULT_CONFIG
-        query_dict = dict(config=json.dumps(config),
-                          tasks=json.dumps(tasks))
-        if dextr_availble:
+    def server_url(self, tool_id=None, dextr_available=False):
+        query_dict = {}
+        if dextr_available:
             query_dict['dextr'] = ''
+        if tool_id is not None:
+            query_dict['tool_id'] = tool_id
         query = urllib.parse.urlencode(query_dict)
         return 'http://127.0.0.1:{}/?{}'.format(self.port, query)
 
@@ -116,6 +115,7 @@ class _ImageRegistryConsumer:
     def __init__(self, command_q):
         self.command_q = command_q
         self.images = {}
+        self.settings = {}
 
     def update(self):
         while True:
@@ -125,18 +125,28 @@ class _ImageRegistryConsumer:
                 break
 
             op = command['op']
-            if op == 'add':
+            if op == 'add_image':
                 image = command['image']
                 image_id = command['image_id']
                 self.images[image_id] = image
-            elif op == 'remove':
+            elif op == 'remove_image':
                 image_id = command['image_id']
                 del self.images[image_id]
+            elif op == 'add_settings':
+                tool_id = command['tool_id']
+                settings = command['settings']
+                self.settings[tool_id] = settings
+            elif op == 'remove_settings':
+                tool_id = command['tool_id']
+                del self.settings[tool_id]
             else:
                 raise ValueError('Unknown operation {}'.format(op))
 
     def get_image(self, image_id):
         return self.images[image_id]
+
+    def get_settings(self, tool_id):
+        return self.settings[tool_id]
 
 
 class _ImageRegistry:
@@ -148,11 +158,19 @@ class _ImageRegistry:
         self.command_q = command_q
 
     def add_image(self, image_id, image):
-        command = dict(op='add', image_id=image_id, image=image)
+        command = dict(op='add_image', image_id=image_id, image=image)
         self.command_q.put(command)
 
     def remove_image(self, image_id):
-        command = dict(op='remove', image_id=image_id)
+        command = dict(op='remove_image', image_id=image_id)
+        self.command_q.put(command)
+
+    def add_settings(self, tool_id, settings):
+        command = dict(op='add_settings', tool_id=tool_id, settings=settings)
+        self.command_q.put(command)
+
+    def remove_settings(self, tool_id):
+        command = dict(op='remove_settings', tool_id=tool_id)
         self.command_q.put(command)
 
 
@@ -172,30 +190,33 @@ def _flask_server(img_reg, port=5000, debug=False):
 
     @app.route('/')
     def index():
-        config = None
-        config_js_str = request.args.get('config')
-        if config_js_str is not None:
-            try:
-                config = json.loads(config_js_str)
-            except:
-                pass
+        settings = None
+        tool_id = request.args.get('tool_id')
+        if tool_id is not None:
+            img_reg.update()
+            settings = img_reg.get_settings(tool_id)
 
-        tasks = None
-        tasks_js_str = request.args.get('tasks')
-        if tasks_js_str is not None:
-            try:
-                tasks = json.loads(tasks_js_str)
-            except:
-                pass
-
-        if config is None:
+        if settings is not None:
+            config = settings.get('config', DEFAULT_CONFIG)
+            tasks = settings.get('tasks', None)
+            colour_schemes = settings.get('colour_schemes', None)
+            label_class_groups = settings.get('label_class_groups', [])
+            anno_controls = settings.get('anno_controls', [])
+        else:
             config = DEFAULT_CONFIG
+            tasks = None
+            colour_schemes = None
+            label_class_groups = []
+            anno_controls = []
 
         dextr_available = 'dextr' in request.args
 
         return render_template('labeller_control_qt.jinja2',
                                labelling_tool_config=config,
                                tasks=tasks,
+                               colour_schemes=colour_schemes,
+                               label_class_groups=label_class_groups,
+                               anno_controls=anno_controls,
                                dextr_available=dextr_available)
 
     @app.route('/image/<image_id>')

@@ -164,11 +164,12 @@ module labelling_tool {
                 this.model.anno_data = {};
             }
             this.model.anno_data[anno_identifier] = value;
+            this._update_style();
             this.commit();
         }
 
         get_visibility(): LabelVisibility {
-            return this.root_view.view.get_label_visibility(this.get_label_class());
+            return this.root_view.view.get_label_visibility(this.get_label_class(), this.model.anno_data);
         }
 
         _update_style() {

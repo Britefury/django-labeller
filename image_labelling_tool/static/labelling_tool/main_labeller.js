@@ -202,6 +202,7 @@ var labelling_tool;
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
+            this.label_visibility_anno_filter = {};
             // Button state
             this._button_down = false;
             // List of Image descriptors
@@ -363,17 +364,17 @@ var labelling_tool;
             this.label_vis_full_radio = $('#label_vis_radio_full');
             this.label_vis_hidden_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, self.label_visibility_class_filter);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
                 }
             });
             this.label_vis_faint_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT, self.label_visibility_class_filter);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
                 }
             });
             this.label_vis_full_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL, self.label_visibility_class_filter);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL);
                 }
             });
             if (config.tools.labelClassFilter) {
@@ -385,7 +386,7 @@ var labelling_tool;
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_visibility(self.label_visibility, label_filter_class);
+                        self.set_label_vis_filter_class(label_filter_class);
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
                         }
@@ -403,7 +404,7 @@ var labelling_tool;
                                 self._label_class_filter_select.val(config.tools.labelClassFilterInitial);
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
-                            self.set_label_visibility(self.label_visibility, label_filter_class);
+                            self.set_label_vis_filter_class(label_filter_class);
                         }, 0);
                     }
                 }
@@ -414,7 +415,7 @@ var labelling_tool;
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_visibility(self.label_visibility, label_filter_class);
+                        self.set_label_vis_filter_class(label_filter_class);
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
                         }
@@ -432,9 +433,31 @@ var labelling_tool;
                                 self._label_class_filter_popup.setChoice(label_filter_class);
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
-                            self.set_label_visibility(self.label_visibility, label_filter_class);
+                            self.set_label_vis_filter_class(label_filter_class);
                         }, 0);
                     }
+                }
+            }
+            // Custom annotation visibility filters
+            self._anno_vis_filters = [];
+            for (var _a = 0, anno_controls_json_1 = anno_controls_json; _a < anno_controls_json_1.length; _a++) {
+                var anno_ctrl = anno_controls_json_1[_a];
+                var vis_ctl = anno_ctrl;
+                if (vis_ctl.visibility_label_text !== undefined && vis_ctl.visibility_label_text !== null) {
+                    // This can affect visibility
+                    var on_change = function (identifier, value) {
+                        if (value === '__all') {
+                            delete self.label_visibility_anno_filter[identifier];
+                        }
+                        else if (value === '__no_value') {
+                            self.label_visibility_anno_filter[identifier] = null;
+                        }
+                        else {
+                            self.label_visibility_anno_filter[identifier] = value;
+                        }
+                        self.set_label_vis_filter_anno_data(self.label_visibility_anno_filter);
+                    };
+                    self._anno_vis_filters.push(new labelling_tool.AnnotationVisFilter(vis_ctl, on_change));
                 }
             }
             //
@@ -781,17 +804,17 @@ var labelling_tool;
             var handled = false;
             if (event.keyCode === 186) {
                 if (this.label_visibility === labelling_tool.LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL, this.label_visibility_class_filter);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL);
                     this.label_vis_full_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_full_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FAINT) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, this.label_visibility_class_filter);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
                     this.label_vis_hidden_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_hidden_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FULL) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT, this.label_visibility_class_filter);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
                     this.label_vis_faint_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_faint_radio.closest('label.btn').addClass('active');
                 }
@@ -1158,19 +1181,40 @@ var labelling_tool;
         /*
         Set label visibility
          */
-        DjangoLabeller.prototype.set_label_visibility = function (visibility, filter_class) {
+        DjangoLabeller.prototype.set_label_visibility = function (visibility) {
             this.label_visibility = visibility;
-            this.label_visibility_class_filter = filter_class;
-            this.root_view.set_label_visibility(visibility, filter_class);
+            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
         };
-        DjangoLabeller.prototype.get_label_visibility = function (label_class) {
-            var vis = this.label_visibility;
+        DjangoLabeller.prototype.set_label_vis_filter_class = function (filter_class) {
+            this.label_visibility_class_filter = filter_class;
+            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
+        };
+        DjangoLabeller.prototype.set_label_vis_filter_anno_data = function (filter_anno_data) {
+            this.label_visibility_anno_filter = filter_anno_data;
+            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
+        };
+        DjangoLabeller.prototype.get_label_visibility = function (label_class, anno_data) {
             if (this.label_visibility_class_filter !== '__all') {
                 if (label_class !== this.label_visibility_class_filter) {
-                    vis = labelling_tool.LabelVisibility.HIDDEN;
+                    return labelling_tool.LabelVisibility.HIDDEN;
                 }
             }
-            return vis;
+            for (var key in this.label_visibility_anno_filter) {
+                var filter_val = this.label_visibility_anno_filter[key];
+                if (filter_val === null) {
+                    // The value is null, this indicates that the anno data should *not* be set
+                    if (anno_data.hasOwnProperty(key)) {
+                        return labelling_tool.LabelVisibility.HIDDEN;
+                    }
+                }
+                else {
+                    if (!anno_data.hasOwnProperty(key) ||
+                        (anno_data.hasOwnProperty(key) && anno_data[key].toString() !== filter_val)) {
+                        return labelling_tool.LabelVisibility.HIDDEN;
+                    }
+                }
+            }
+            return this.label_visibility;
         };
         /*
         Set the current tool; switch the old one out and a new one in

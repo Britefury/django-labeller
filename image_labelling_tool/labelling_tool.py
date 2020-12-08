@@ -134,11 +134,23 @@ class _AnnoControl (object):
         return dict(control=self.__control_type__, identifier=self.identifier)
 
 
-class AnnoControlCheckbox (_AnnoControl):
+class _AnnoControlVis (object):
+    __control_type__ = None
+
+    def __init__(self, identifier, visibility_label_text=None):
+        self.identifier = identifier
+        self.visibility_label_text = visibility_label_text
+
+    def to_json(self):
+        return dict(control=self.__control_type__, identifier=self.identifier,
+                    visibility_label_text=self.visibility_label_text)
+
+
+class AnnoControlCheckbox (_AnnoControlVis):
     __control_type__ = 'checkbox'
 
-    def __init__(self, identifier, label_text):
-        super(AnnoControlCheckbox, self).__init__(identifier)
+    def __init__(self, identifier, label_text, visibility_label_text=None):
+        super(AnnoControlCheckbox, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
 
     def to_json(self):
@@ -147,11 +159,11 @@ class AnnoControlCheckbox (_AnnoControl):
         return js
 
 
-class AnnoControlRadioButtons (_AnnoControl):
+class AnnoControlRadioButtons (_AnnoControlVis):
     __control_type__ = 'radio'
 
-    def __init__(self, identifier, label_text, choices, label_on_own_line=False):
-        super(AnnoControlRadioButtons, self).__init__(identifier)
+    def __init__(self, identifier, label_text, choices, label_on_own_line=False, visibility_label_text=None):
+        super(AnnoControlRadioButtons, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
         self.choices = choices
         self.label_on_own_line = label_on_own_line
@@ -168,11 +180,11 @@ class AnnoControlRadioButtons (_AnnoControl):
         return dict(value=value, label_text=label_text, tooltip=tooltip)
 
 
-class AnnoControlPopupMenu (_AnnoControl):
+class AnnoControlPopupMenu (_AnnoControlVis):
     __control_type__ = 'popup_menu'
 
-    def __init__(self, identifier, label_text, groups):
-        super(AnnoControlPopupMenu, self).__init__(identifier)
+    def __init__(self, identifier, label_text, groups, visibility_label_text=None):
+        super(AnnoControlPopupMenu, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
         self.groups = groups
 

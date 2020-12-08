@@ -100,6 +100,48 @@
             {% endif %}
 
 
+            <!-- Filter labels by anno control state !-->
+            {% for ann_ctrl in anno_controls %}
+                {% if ann_ctrl.visibility_label_text %}
+                    {% if ann_ctrl.control == 'checkbox' %}
+                        <div class="tool_bar_content">
+                            {{ ann_ctrl.visibility_label_text | safe }}:
+                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                <option value="__all" selected="true">-- ALL --</option>
+                                <option value="false">False</option>
+                                <option value="true">True</option>
+                                <option value="__no_value">NO VALUE</option>
+                            </select>
+                        </div>
+                    {% elif ann_ctrl.control == 'radio' %}
+                        <div class="tool_bar_content">
+                            {{ ann_ctrl.visibility_label_text | safe }}:
+                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                <option value="__all" selected="true">-- ALL --</option>
+                                {% for choice in ann_ctrl.choices %}
+                                    <option value="{{ choice.value | safe }}">{{ choice.label_text | safe }}</option>
+                                {% endfor %}
+                                <option value="__no_value">NO VALUE</option>
+                            </select>
+                        </div>
+                    {% elif ann_ctrl.control == 'popup_menu' %}
+                        <div class="tool_bar_content">
+                            {{ ann_ctrl.visibility_label_text | safe }}:
+                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                <option value="__all" selected="true">-- ALL --</option>
+                                {% for group in ann_ctrl.groups %}
+                                    {% for choice in group.choices %}
+                                        <option value="{{ choice.value | safe }}">{{ choice.label_text | safe }}</option>
+                                    {% endfor %}
+                                {% endfor %}
+                                <option value="__no_value">NO VALUE</option>
+                            </select>
+                        </div>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+
             <!-- Colour scheme !-->
             <div class="tool_bar_content">
                 {% if colour_schemes %}

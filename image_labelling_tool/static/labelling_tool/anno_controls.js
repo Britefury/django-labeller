@@ -150,4 +150,19 @@ var labelling_tool;
         return AnnotationPopupMenu;
     }(AnnotationControl));
     labelling_tool.AnnotationPopupMenu = AnnotationPopupMenu;
+    var AnnotationVisFilter = /** @class */ (function () {
+        function AnnotationVisFilter(ctrl_json, on_change) {
+            var self = this;
+            this.ctrl_json = ctrl_json;
+            this.on_change = on_change;
+            this.identifier = ctrl_json.identifier;
+            this.select = $('#vis_filter_anno_ctrl_' + this.identifier);
+            this.select.on('change', function (el, event) {
+                self.on_change(self.identifier, this.value);
+            });
+        }
+        return AnnotationVisFilter;
+    }());
+    labelling_tool.AnnotationVisFilter = AnnotationVisFilter;
 })(labelling_tool || (labelling_tool = {}));
+//# sourceMappingURL=anno_controls.js.map

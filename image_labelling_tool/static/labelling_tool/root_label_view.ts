@@ -179,7 +179,7 @@ module labelling_tool {
         /*
         Set label visibility
          */
-        set_label_visibility(visibility: LabelVisibility, filter_class: string) {
+        set_label_visibility(visibility: LabelVisibility, filter_class: string, filter_anno_data: any) {
             for (var i = 0; i < this._all_entities.length; i++) {
                 this._all_entities[i].notify_hide_labels_change();
             }

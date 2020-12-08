@@ -186,7 +186,8 @@ def _flask_server(img_reg, port=5000, debug=False):
     from flask import Flask, render_template, send_file, make_response, abort, request
 
     template_dir = os.path.join('..', 'image_labelling_tool', 'templates')
-    app = Flask(__name__, static_folder='static', template_folder=template_dir)
+    static_dir = os.path.join('..', 'image_labelling_tool', 'static')
+    app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
 
     @app.route('/')
     def index():

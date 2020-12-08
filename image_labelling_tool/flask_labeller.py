@@ -332,24 +332,23 @@ def run_app(images_pat, labels_dir, readonly, update_label_object_ids,
     # Labels may also have optional meta-data associated with them
     # You could use this for e.g. indicating if an object is fully visible, mostly visible or significantly obscured.
     # You could also indicate quality (e.g. blurriness, etc)
-    # There are three types of annotation:
+    # There are three types of annotation. They have some common properties:
+    #   name: symbolic name (Python identifier)
+    #   label_text: label text in UI
+    #   visibility_label_text: [optional] if provided, label visibility can be filtered by this annotation value,
+    #       in which case a drop down will appear in the UI allowing the user to select a filter value
+    #       that will hide/show labels accordinly
     # Check box (boolean value):
-    #   `labelling_tool.AnnoControlCheckbox` parameters:
-    #       name: symbolic name (Python identifier)
-    #       label_text: label text in UI
+    #   `labelling_tool.AnnoControlCheckbox`; only the 3 common parameters listed above
     # Radio button (choice from a list):
-    #   `labelling_tool.AnnoControlRadioButtons` parameters:
-    #       name: symbolic name (Python identifier)
-    #       label_text: label text in UI
+    #   `labelling_tool.AnnoControlRadioButtons`; the 3 common parameters listed above and:
     #       choices: list of `labelling_tool.AnnoControlRadioButtons.choice` that provide:
     #           value: symbolic value name for choice
     #           label_text: choice label text in UI
     #           tooltip: extra information for user
     #       label_on_own_line [optional]: if True, place the label and the buttons on a separate line in the UI
     # Popup menu (choice from a grouped list):
-    #   `labelling_tool.AnnoControlPopupMenu` parameters:
-    #       name: symbolic name (Python identifier)
-    #       label_text: label text in UI
+    #   `labelling_tool.AnnoControlPopupMenu`; the 3 common parameters listed above and::
     #       groups: list of groups `labelling_tool.AnnoControlPopupMenu.group`:
     #           label_text: group label text in UI
     #           choices: list of `labelling_tool.AnnoControlPopupMenu.choice` that provide:
@@ -357,7 +356,8 @@ def run_app(images_pat, labels_dir, readonly, update_label_object_ids,
     #               label_text: choice label text in UI
     #               tooltip: extra information for user
     anno_controls = [
-        labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality'),
+        labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality',
+                                           visibility_label_text='Filter by good quality'),
         labelling_tool.AnnoControlRadioButtons('visibility', 'Visible', choices=[
             labelling_tool.AnnoControlRadioButtons.choice(value='full', label_text='Fully',
                                                           tooltip='Object is fully visible'),
@@ -365,7 +365,7 @@ def run_app(images_pat, labels_dir, readonly, update_label_object_ids,
                                                           tooltip='Object is mostly visible'),
             labelling_tool.AnnoControlRadioButtons.choice(value='obscured', label_text='Obscured',
                                                           tooltip='Object is significantly obscured'),
-        ], label_on_own_line=False),
+        ], label_on_own_line=False, visibility_label_text='Filter by visibility'),
         labelling_tool.AnnoControlPopupMenu('material', 'Material', groups=[
             labelling_tool.AnnoControlPopupMenu.group(label_text='Artifical/buildings', choices=[
                 labelling_tool.AnnoControlPopupMenu.choice(value='concrete', label_text='Concrete',
@@ -386,7 +386,7 @@ def run_app(images_pat, labels_dir, readonly, update_label_object_ids,
                 labelling_tool.AnnoControlPopupMenu.choice(value='flowers', label_text='Flowers',
                                                            tooltip='Flowers'),
                 labelling_tool.AnnoControlPopupMenu.choice(value='ivy', label_text='Ivy', tooltip='Ivy')]),
-        ])
+        ], visibility_label_text='Filter by material')
     ]
 
     if images_pat.strip() == '':

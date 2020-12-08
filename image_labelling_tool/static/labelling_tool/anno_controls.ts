@@ -44,14 +44,18 @@ module labelling_tool {
         label_text: string,
     }
 
-    export interface CheckboxControlJSON extends AnnoControlJSON {
+    export interface AnnoControlVisJSON extends AnnoControlJSON {
+        visibility_label_text: string
     }
 
-    export interface RadioControlJSON extends AnnoControlJSON {
+    export interface CheckboxControlJSON extends AnnoControlVisJSON {
+    }
+
+    export interface RadioControlJSON extends AnnoControlVisJSON {
         choices: AnnoControlChoiceJSON[]
     }
 
-    export interface PopupMenuControlJSON extends AnnoControlJSON {
+    export interface PopupMenuControlJSON extends AnnoControlVisJSON {
         choices: AnnoControlChoiceJSON[]
     }
 
@@ -194,4 +198,31 @@ module labelling_tool {
             this.menu.setChoice(value);
         }
     }
+
+
+    export class AnnotationVisFilter {
+        ctrl_json: AnnoControlVisJSON;
+        select: JQuery;
+        options: JQuery[];
+        on_change: AnnoCtrlOnChange;
+        identifier: string;
+
+
+        constructor(ctrl_json: AnnoControlVisJSON, on_change: AnnoCtrlOnChange) {
+            var self = this;
+
+            this.ctrl_json = ctrl_json;
+            this.on_change = on_change;
+            this.identifier = ctrl_json.identifier;
+
+            this.select = $('#vis_filter_anno_ctrl_' + this.identifier);
+
+            this.select.on('change', function(el, event: any) {
+                self.on_change(self.identifier, this.value);
+            });
+        }
+    }
+
+
+
 }

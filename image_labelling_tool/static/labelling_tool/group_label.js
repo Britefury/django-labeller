@@ -104,6 +104,7 @@ var labelling_tool;
         GroupLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
             this._bounding_rect = this.root_view.world.append("rect")
+                .attr("class", "anno_label")
                 .attr("pointer-events", "none")
                 .attr("x", 0).attr("y", 0)
                 .attr("width", 0).attr("height", 0)

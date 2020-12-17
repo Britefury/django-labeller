@@ -118,6 +118,10 @@ aside.tool_bar {
     height: inherit;
 }
 
+.tool_canvas .anno_label {
+    vector-effect: non-scaling-stroke;
+}
+
 .anno_hidden {
     display: none;
 }

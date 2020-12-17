@@ -89,7 +89,9 @@ var labelling_tool;
             var self = this;
             // let paths = this.root_view.world.append("g").selectAll("path").data(this.model.polys).join("path");
             // paths.attr("d", function(d: SinglePolyLabel) {self.shape_line(d.vertices)});
-            this.poly = this.root_view.world.append("path").attr('fill-rule', 'evenodd');
+            this.poly = this.root_view.world.append("path")
+                .attr("class", "anno_label")
+                .attr('fill-rule', 'evenodd');
             this.poly.data(this.model.regions).attr("d", multi_path(this.model.regions));
             this.poly.on("mouseover", function () {
                 for (var i = 0; i < _this._event_listeners.length; i++) {
@@ -585,7 +587,8 @@ var labelling_tool;
             return _this;
         }
         DrawSinglePolygonTool.prototype._create_poly = function () {
-            this.poly = this._view.world.append("path");
+            this.poly = this._view.world.append("path")
+                .attr("class", "anno_label");
             this.poly.data(this.vertices).attr("d", shape_line(this.vertices));
             this._update_style();
         };
@@ -751,7 +754,8 @@ var labelling_tool;
             return _this;
         }
         DrawBrushTool.prototype._create_poly = function () {
-            this.poly = this._view.world.append("path");
+            this.poly = this._view.world.append("path")
+                .attr("class", "anno_label");
             this.poly.data(this.regions).attr("d", multi_path(this.regions));
             this._update_style();
         };

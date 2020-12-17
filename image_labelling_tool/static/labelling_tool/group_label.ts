@@ -118,6 +118,7 @@ module labelling_tool {
             super.attach();
 
             this._bounding_rect = this.root_view.world.append("rect")
+                .attr("class", "anno_label")
                 .attr("pointer-events", "none")
                 .attr("x", 0).attr("y", 0)
                 .attr("width", 0).attr("height", 0)

@@ -187,10 +187,11 @@ module labelling_tool {
         attach() {
             super.attach();
             this._group = this.root_view.world.append("g");
-            this._path = this._group.append("path");
-            this._path.style("stroke-width", "1.5");
-            this._path.style("stroke", "rgba(255,128,0,1.0)");
-            this._path.style("fill", "transparent");
+            this._path = this._group.append("path")
+                .attr("class", "anno_label")
+                .style("stroke-width", "1.5")
+                .style("stroke", "rgba(255,128,0,1.0)")
+                .style("fill", "transparent");
         };
 
         detach() {

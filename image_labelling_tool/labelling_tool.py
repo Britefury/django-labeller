@@ -1833,7 +1833,7 @@ class PersistentLabelledImage (AbsractLabelledImage):
                     completed_tasks = ['finished']
                 else:
                     completed_tasks = []
-            elif 'tasks_complete' in wrapped_labels:
+            elif 'completed_tasks' in wrapped_labels:
                 completed_tasks = wrapped_labels['completed_tasks']
             else:
                 completed_tasks = []

@@ -96,6 +96,10 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
                         'group': True,
                     }
                 }
+            },
+            'settings': {
+                'brushWheelRate': 0.025,  # Change rate for brush radius (mouse wheel)
+                'brushKeyRate': 2.0,    # Change rate for brush radius (keyboard)
             }
         }
 

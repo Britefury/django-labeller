@@ -25,6 +25,7 @@
 
 
 import mimetypes, json, os, glob, io, math, six, traceback, itertools
+import pathlib
 import re
 import collections
 import copy
@@ -996,7 +997,8 @@ class ImageLabels (object):
             label_image is a (H,W) or (H,W,N) array with dtype=int
             label_index_to_cls is a 1D array that gives the class index of each labels. If `multichannel_mask` is
                 False, the first entry at index 0 will have a value of 0 as it is the background label.
-                The class indices are the index of the class in `label_class` + 1. Otherwise
+                Class 0 is assumed to be background, objects whose class matches the first entry in
+                `label_classes` will have a class of 1.
             object_ids: a list containing the object ID for each label/instance (only present if return_object_ids
                 is True)
         """
@@ -1475,6 +1477,81 @@ def ensure_json_object_ids_have_prefix(labels_json, id_prefix, id_remapping=None
     return m1 or m2
 
 
+class WrappedImageLabels:
+    def __init__(self, image_filename=None, completed_tasks=None, metadata=None, labels_json=None, labels=None):
+        """
+        :param image_filename: the image filename as a string
+        :param completed_tasks: a list of completed tasks
+        :param metadata: metadata as a dictionary
+        :param labels_json: labels in JSON form (labels parameter should be None if labels_json provided)
+        :param labels: labels as an `ImageLabels` instance (labels_json parameter should be None if labels provided)
+        """
+        if labels_json is None and labels is None:
+            raise ValueError('Either labels_json should be provided or image_labels should be provided')
+        if labels_json is not None and labels is not None:
+            raise ValueError('Either labels_json should be provided or image_labels should be provided, not both')
+        if metadata is None:
+            metadata = {}
+        if completed_tasks is None:
+            completed_tasks = []
+        self.image_filename = image_filename
+        self.completed_tasks = completed_tasks
+        self.metadata = metadata
+        if labels_json is not None:
+            self.labels = ImageLabels.from_json(labels_json)
+        else:
+            self.labels = labels
+
+    def to_json(self):
+        js = self.metadata.copy()
+        if self.image_filename is not None:
+            js['image_filename'] = self.image_filename
+        js.update({'completed_tasks': list(self.completed_tasks),
+                   'labels': self.labels.to_json()})
+        return js
+
+    @staticmethod
+    def from_json(js, image_filename=None):
+        if isinstance(js, dict):
+            metadata = js.copy()
+            completed_tasks = []
+            if 'complete' in js:
+                # Old-style complete flag; transform to 'finished' task
+                del metadata['complete']
+                if js['complete']:
+                    completed_tasks = ['finished']
+                else:
+                    completed_tasks = []
+            if 'completed_tasks' in js:
+                del metadata['completed_tasks']
+                completed_tasks = js['completed_tasks']
+            if 'image_filename' in js:
+                if image_filename is None:
+                    image_filename = metadata['image_filename']
+                del metadata['completed_tasks']
+            del metadata['labels']
+            return WrappedImageLabels(image_filename=image_filename, completed_tasks=completed_tasks,
+                                      metadata=metadata, labels_json=js['labels'])
+        elif isinstance(js, list):
+            return WrappedImageLabels(image_filename=image_filename, labels_json=js)
+        else:
+            raise TypeError('Labels loaded from file must either be a dict or a list, '
+                            'not a {0}'.format(type(js)))
+
+    @staticmethod
+    def from_file(f, image_filename=None):
+        if isinstance(f, str):
+            f = pathlib.Path(f)
+        if isinstance(f, pathlib.Path):
+            file = f.open('r')
+            if image_filename is None:
+                image_filename = f.name
+        elif hasattr(f, 'read'):
+            file = f
+        else:
+            raise TypeError('f should be a str, a pathlib.Path or a file-like object; it is a {}'.format(type(f)))
+        js = json.load(file)
+        return WrappedImageLabels.from_json(js, image_filename=image_filename)
 
 
 class AbsractLabelledImage (object):

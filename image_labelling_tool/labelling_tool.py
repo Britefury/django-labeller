@@ -1497,17 +1497,41 @@ class WrappedImageLabels:
         self.image_filename = image_filename
         self.completed_tasks = completed_tasks
         self.metadata = metadata
-        if labels_json is not None:
-            self.labels = ImageLabels.from_json(labels_json)
+        self.__labels_json = labels_json
+        self.__labels = labels
+
+    @property
+    def labels(self):
+        if self.__labels is None:
+            self.__labels = ImageLabels.from_json(self.__labels_json)
+            self.__labels_json = None
+        return self.__labels
+
+    @labels.setter
+    def labels(self, lab):
+        self.__labels = lab
+        self.__labels_json = None
+
+    @property
+    def labels_json(self):
+        if self.__labels_json is not None:
+            return self.__labels_json
+        elif self.__labels is not None:
+            return self.__labels.to_json()
         else:
-            self.labels = labels
+            raise RuntimeError
+
+    @labels_json.setter
+    def labels_json(self, js):
+        self.__labels_json = js
+        self.__labels = None
 
     def to_json(self):
         js = self.metadata.copy()
         if self.image_filename is not None:
             js['image_filename'] = self.image_filename
         js.update({'completed_tasks': list(self.completed_tasks),
-                   'labels': self.labels.to_json()})
+                   'labels': self.labels_json})
         return js
 
     @staticmethod

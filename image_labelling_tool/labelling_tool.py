@@ -1550,9 +1550,9 @@ class WrappedImageLabels:
                 del metadata['completed_tasks']
                 completed_tasks = js['completed_tasks']
             if 'image_filename' in js:
+                del metadata['image_filename']
                 if image_filename is None:
-                    image_filename = metadata['image_filename']
-                del metadata['completed_tasks']
+                    image_filename = js['image_filename']
             del metadata['labels']
             return WrappedImageLabels(image_filename=image_filename, completed_tasks=completed_tasks,
                                       metadata=metadata, labels_json=js['labels'])

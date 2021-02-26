@@ -28,7 +28,7 @@ If you to use the example Django application or use the provided example images,
 install (*recommended*): 
 
 ```shell script
-> git clone https://github.com/uea-computer-vision/django-labeller.git
+> git clone https://github.com/Britefury/django-labeller.git
 > python setup.py install
 ````
 

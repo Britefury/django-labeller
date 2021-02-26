@@ -30,9 +30,9 @@ from image_labelling_tool_qt import controls, web_server
 @click.command()
 @click.option('--dextr_weights', type=click.Path())
 def run_app(dextr_weights):
-    import os
+    import pathlib
     import glob
-    from image_labelling_tool import labelling_tool
+    from image_labelling_tool import labelled_image, labelling_tool
 
     # Create an application
     app = QtWidgets.QApplication([])
@@ -119,8 +119,11 @@ def run_app(dextr_weights):
     action = init_dialog.exec()
 
     if action == QtWidgets.QDialog.Accepted:
-        images_dir = images_dir[0]
-        labels_dir = labels_dir[0]
+        images_dir = pathlib.Path(images_dir[0])
+        if labels_dir[0] is not None:
+            labels_dir = pathlib.Path(labels_dir[0])
+        else:
+            labels_dir = None
         enable_dextr = dextr_check.checkState()
         readonly = read_only_check.checkState()
 
@@ -137,7 +140,7 @@ def run_app(dextr_weights):
                 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
                 if dextr_weights is not None:
-                    dextr_weights = os.path.expanduser(dextr_weights)
+                    dextr_weights = pathlib.Path(dextr_weights).expanduser()
                     dextr_model = torch.load(dextr_weights, map_location=device)
                 else:
                     dextr_model = DextrModel.pascalvoc_resunet101().to(device)
@@ -258,12 +261,12 @@ def run_app(dextr_weights):
                 ], visibility_label_text='Filter by material')
             ]
 
-            image_paths = glob.glob(os.path.join(images_dir, '*.jpg')) + glob.glob(os.path.join(images_dir, '*.png'))
-            image_paths = [os.path.abspath(p) for p in image_paths]
+            image_paths = list(images_dir.glob('*.jpg')) + list(images_dir.glob('*.png'))
+            image_paths = [p.absolute() for p in image_paths]
 
             # Create a `PersistentLabelledImage` instance for each image file
-            labelled_images = labelling_tool.PersistentLabelledImage.for_files(
-                image_paths, labels_dir=labels_dir, readonly=readonly)
+            labelled_images = labelled_image.LabelledImage.for_image_files(
+                image_paths, labels_dir=labels_dir, readonly=bool(readonly))
             print('Loaded {0} images'.format(len(labelled_images)))
 
 
@@ -302,6 +305,7 @@ def run_app(dextr_weights):
 
             app.exec_()
         finally:
+            print('Stopping server')
             server.stop_server()
 
 

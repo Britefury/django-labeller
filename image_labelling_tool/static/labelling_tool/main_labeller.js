@@ -135,13 +135,15 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
-            labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
+            config.tools.legacy = config.tools.deleteConfig || {};
+            labelling_tool.ensure_config_option_exists(config.tools.legacy, 'compositeLabel', false);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
+            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'oriented_ellipse', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
@@ -605,7 +607,7 @@ var labelling_tool;
                     event.preventDefault();
                 });
             }
-            if (config.tools.compositeLabel) {
+            if (config.tools.legacy.compositeLabel) {
                 var composite_button = $('#draw_composite_button');
                 composite_button.button().click(function (event) {
                     self.root_view.create_composite_label_from_selection();

@@ -24,25 +24,24 @@
 # Dr. M. Mackiewicz.
 
 
-import mimetypes, json, os, glob, io, math, six, traceback, itertools
+import json
+import io
+import math
+import itertools
 import pathlib
 import re
 import collections
 import copy
+from deprecated import deprecated
 
 import numpy as np
-
-import random
 
 import uuid
 
 from PIL import Image, ImageDraw
 
-from skimage import img_as_float
-from skimage import transform
-from skimage.io import imread
 from skimage.color import gray2rgb
-from skimage.util import pad, img_as_ubyte
+from skimage.util import pad
 from skimage.measure import find_contours
 
 # Try to import cv2
@@ -50,6 +49,86 @@ try:
     import cv2
 except:
     cv2 = None
+
+
+# Configuration is composed of nested dictionaries. It's structure is given below.
+# If values or sections are not present, then the defaults specified below will be used.
+#
+# config: {
+#     tools: {
+#         imageSelector: bool [default=True] if True, show the UI that allows the user to switch between images
+#         labelClassSelector: bool [default=True] if True, show the label class selection UI and allow the user to
+#                 assign classes to labels
+#         labelClassFilter: <bool> [default=False] if True, allow the user to choose to view only labels belonging to
+#                 a specific class
+#         labelClassFilterInitial: <string|False|None> [default=None] the initial label class filter; at startup
+#                 only labels of this class will be visible. If given a value of None, only labels that
+#                 have no assigned class will be shown. If given a value of False, all labels will be shown.
+#         brushSelect: <bool> [default=True] if True, enable the brush select tool
+#         drawPointLabel: <bool> [default=True] if True, enable the create/draw point label tool
+#         drawBoxLabel: <bool> [default=True] if True, enable the create/draw box label tool
+#         drawOrientedEllipseLabel: <bool> [default=True] if True, enable the create/drawn oriented ellipse label tool
+#         drawPolyLabel: <bool> [default=True] if True, enable the create/drawn polygonal label tool
+#         groupLabel: <bool> [default=True] if True, enable the create group label tool
+#         deleteLabel: <bool> [default=True] if True, enable the delete label tool
+#         legacy: {
+#             compositeLabel: <bool> [default=True] if True, enable the LEGACY create composite label tool
+#         }
+#         deleteConfig: {
+#             typePermissions: {
+#                 point: <bool> [default=True] if True, allow the user to delete point labels
+#                 box: <bool> [default=True] if True, allow the user to delete box labels
+#                 oriented_ellipse: <bool> [default=True] if True, allow the user to delete oriented ellipse labels
+#                 polygon: <bool> [default=True] if True, allow the user to delete polygonal labels
+#                 composite: <bool> [default=True] if True, allow the user to delete LEGACY composite labels
+#                 group: <bool> [default=True] if True, allow the user to delete group labels (deleting a group
+#                         label will ungroup the child labels, leaving them in place
+#             }
+#         }
+#         nextUnlockedConfig: {
+#             numImagesLimit: <int> [default=100] when using locking in a multi-user app (e.g. in a Django app),
+#                     this is the maximum number of images that will be searched for the next available unlocked image
+#         }
+#     }
+#     settings: {
+#         inactivityTimeoutMS: <int> [default=10000] the period of inactivity after which the tool will stop
+#                 accumulating time in the images' timeElapsed metadata that measures the amount of time users have
+#                 spend annotating an current image
+#         brushWheelRate: <float> [default=0.025] the scale factor that affects the rate at which the mouse
+#                 wheel changes the brush size (measured in image pixels) when using the brush select tool
+#         brushKeyRate: <float> [default=2.0] the amount by which keyboard shortcuts modify (up or down) the
+#                 brush size (measured in image pixels) when using the brush select tool
+#         fullscreenButton: <bool> [default=True] if True, enable the full screen button
+#     }
+# }
+DEFAULT_CONFIG = {
+    'tools': {
+        'imageSelector': True,
+        'labelClassSelector': True,
+        'drawPointLabel': False,
+        'drawBoxLabel': True,
+        'drawOrientedEllipseLabel': True,
+        'drawPolyLabel': True,
+        'deleteLabel': True,
+        'deleteConfig': {
+            'typePermissions': {
+                'point': True,
+                'box': True,
+                'polygon': True,
+                'composite': True,
+                'group': True,
+            }
+        },
+        'legacy': {
+            'compositeLabel': False
+        }
+    },
+    'settings': {
+        'brushWheelRate': 0.025,  # Change rate for brush radius (mouse wheel)
+        'brushKeyRate': 2.0,  # Change rate for brush radius (keyboard)
+        'fullscreenButton': False,
+    }
+}
 
 
 class AbstractLabelClass (object):
@@ -903,13 +982,13 @@ class ImageLabels (object):
             for i, cls in enumerate(label_classes):
                 if isinstance(cls, LabelClass):
                     cls_to_index[cls.name] = i + start_at
-                elif isinstance(cls, six.string_types)  or  cls is None:
+                elif isinstance(cls, str)  or  cls is None:
                     cls_to_index[cls] = i + start_at
                 elif isinstance(cls, list)  or  isinstance(cls, tuple):
                     for c in cls:
                         if isinstance(c, LabelClass):
                             cls_to_index[c.name] = i + start_at
-                        elif isinstance(c, six.string_types)  or  c is None:
+                        elif isinstance(c, str)  or  c is None:
                             cls_to_index[c] = i + start_at
                         else:
                             raise TypeError('Item {0} in label_classes is a list that contains an item that is not a '
@@ -1060,7 +1139,7 @@ class ImageLabels (object):
         The resulting image is the original image masked with an alpha channel that results from rendering the label
 
         :param image_2d: the image from which to extract images of labelled objects
-        :param label_class_set: a sequence of classes whose labels should be rendered, or None for all labels
+        :param label_class_set: a set or sequence of classes whose labels should be rendered, or None for all labels
         :param ctx: [optional] a `LabelContext` instance that provides parameters
         :return: a list of (H,W,C) image arrays
         """
@@ -1069,7 +1148,7 @@ class ImageLabels (object):
         label_images = []
 
         for label in self.labels:
-            if label_class_set is None  or  label.classification in label_class_set:
+            if label_class_set is None or label.classification in label_class_set:
                 bounds = label.bounding_box(ctx=ctx)
 
                 if bounds[0] is not None and bounds[1] is not None:
@@ -1097,7 +1176,7 @@ class ImageLabels (object):
                                 # Convert greyscale image to RGB:
                                 img_box = gray2rgb(img_box)
                             # Append the mask as an alpha channel
-                            object_img = np.append(img_box, mask[:,:,None], axis=2)
+                            object_img = np.append(img_box, mask[:, :, None] * 255, axis=2)
 
                             label_images.append(object_img)
 
@@ -1179,12 +1258,14 @@ class ImageLabels (object):
 
     @staticmethod
     def from_file(f):
-        if isinstance(f, six.string_types):
-            f = open(f, 'r')
+        if isinstance(f, str):
+            f = pathlib.Path(f).open('r')
+        elif isinstance(f, pathlib.Path):
+            f = f.open('r')
         elif isinstance(f, io.IOBase):
             pass
         else:
-            raise TypeError('f should be a path as a string or a file')
+            raise TypeError('f should be a path as a string or `pathlib.Path` or a file, not a {}'.format(type(f)))
         return ImageLabels.from_json(json.load(f))
 
 
@@ -1526,6 +1607,35 @@ class WrappedImageLabels:
         self.__labels_json = js
         self.__labels = None
 
+    @property
+    def is_blank(self):
+        """Determine if these wrapped labels are blank. If they are blank, then there is no data store, so
+        e.g. a labels file can be deleted. A `WrappedLabelsInstance` is considered blank if no
+        labels/annotations are defined and no tasks have been marked as completed.
+
+        :return: a boolean indicating if this instance is blank
+        """
+        if self.__labels_json is not None and self.__labels_json != []:
+            return False
+        elif self.__labels is not None and len(self.__labels) == 0:
+            return False
+
+        # Labels are empty, but if a task is marked as complete this indicates
+        # that the image contains nothing of interest
+        if len(self.completed_tasks) > 0:
+            return False
+
+        return True
+
+    def with_labels(self, labels):
+        """Create a new WrappedLabels instance, replacing the labels
+
+        :param labels: replacement `ImageLabels` instance
+        :return: new `WrappedLabels` instance
+        """
+        return WrappedImageLabels(image_filename=self.image_filename, completed_tasks=self.completed_tasks,
+                                  metadata=self.metadata, labels=labels)
+
     def to_json(self):
         js = self.metadata.copy()
         if self.image_filename is not None:
@@ -1533,6 +1643,21 @@ class WrappedImageLabels:
         js.update({'completed_tasks': list(self.completed_tasks),
                    'labels': self.labels_json})
         return js
+
+    def write_to_file(self, f):
+        """Write labels to file
+
+        :param f: a file-like object, or a path as a `str` or `pathlib.File`
+        """
+        if isinstance(f, str):
+            f = pathlib.Path(f).open('w')
+        elif isinstance(f, pathlib.Path):
+            f = f.open('w')
+        elif isinstance(f, io.IOBase):
+            pass
+        else:
+            raise TypeError('f should be a path as a string or `pathlib.Path` or a file, not a {}'.format(type(f)))
+        json.dump(self.to_json(), f)
 
     @staticmethod
     def from_json(js, image_filename=None):
@@ -1557,6 +1682,7 @@ class WrappedImageLabels:
             return WrappedImageLabels(image_filename=image_filename, completed_tasks=completed_tasks,
                                       metadata=metadata, labels_json=js['labels'])
         elif isinstance(js, list):
+            # No metadata: use defaults
             return WrappedImageLabels(image_filename=image_filename, labels_json=js)
         else:
             raise TypeError('Labels loaded from file must either be a dict or a list, '
@@ -1570,492 +1696,62 @@ class WrappedImageLabels:
             file = f.open('r')
             if image_filename is None:
                 image_filename = f.name
-        elif hasattr(f, 'read'):
+        elif isinstance(f, io.IOBase):
             file = f
         else:
-            raise TypeError('f should be a str, a pathlib.Path or a file-like object; it is a {}'.format(type(f)))
+            raise TypeError('f should be a path as a string or `pathlib.Path` or a file, not a {}'.format(type(f)))
         js = json.load(file)
         return WrappedImageLabels.from_json(js, image_filename=image_filename)
 
 
-class AbsractLabelledImage (object):
-    """
-    Abstract labelled image
+@deprecated(reason='Please use labelled_image.LabelledImage.in_memory()')
+def InMemoryLabelledImage(pixels, labels=None, completed_tasks=None):
+    from image_labelling_tool.labelled_image import LabelledImage
+    return LabelledImage.in_memory(pixels, WrappedImageLabels(labels=labels, completed_tasks=completed_tasks))
 
-    Effectively combines an image with associated labels.
 
-    Concrete implementations will implement the following methods/properties:
+@deprecated(reason='Please use labelled_image.LabelledImage.for_image_label_file_pair()')
+def PersistentLabelledImage(image_path, labels_path, readonly=False):
+    from image_labelling_tool.labelled_image import LabelledImage
+    return LabelledImage.for_image_label_file_pair(image_path, labels_path, readonly=readonly)
 
-    read_pixels(): get a NumPy array (dtype=float) of pixels, no caching
-    pixels: pixels as a NumPy array (dtype=float), with caching e.g. if the image has to be loaded from a file
-    image_size: image size as a (height, width) tuple
-    data_and_mime_type(): return the image as a binary file (by reading the file if on disk or convering to
-        a known format if in memory) with a corresponding mime type as a `(data, mime_type)` tuple
-    image_path: the path of the image if it is available as a file, or None if not available
-    labels (read/write): the labels as an ImageLabels instance (note that setting this will change the
-        `labels_json` property
-    has_labels(): return True if labels are available for this image,
-        so e.g. if no labels file exists return False
-    labels_json (read/write): the labels in JSON format (note that setting this will change the `labels` property)
-    completed_tasks (read/write): the list of tasks that the user has completed as a list of strings
-    """
-    def __init__(self):
-        pass
 
+@deprecated(reason='Please use labelled_image.LabelledImage.for_directory()')
+def _PersistentLabelledImage__for_directory(dir_path, image_filename_patterns=['*.png'], with_labels_only=False,
+                                            labels_dir=None, readonly=False):
+    from image_labelling_tool.labelled_image import LabelledImage
+    return LabelledImage.for_directory(dir_path, image_filename_patterns, with_labels_only=with_labels_only,
+                                       labels_dir=labels_dir, readonly=readonly)
 
-    def read_pixels(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+PersistentLabelledImage.for_directory = _PersistentLabelledImage__for_directory
 
-    @property
-    def pixels(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    @property
-    def image_size(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+@deprecated(reason='Please use labelled_image.LabelledImage.for_image_files()')
+def _PersistentLabelledImage__for_files(image_paths, with_labels_only=False, labels_dir=None, readonly=False):
+    from image_labelling_tool.labelled_image import LabelledImage
+    return LabelledImage.for_image_files(image_paths, with_labels_only=with_labels_only,
+                                         labels_dir=labels_dir, readonly=readonly)
 
-    def data_and_mime_type(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+PersistentLabelledImage.for_files = _PersistentLabelledImage__for_files
 
 
-    @property
-    def image_path(self):
-        return None
+@deprecated(reason='Please use the FileImageSource, InMemoryLabelsStore and LabelledImage classes in '
+                   'the labelled_image module. Please see the source code of the `LabelledImageFile` '
+                   'function in the labelling_tool module to see how.')
+def LabelledImageFile(path, labels=None, tasks_complete=None, on_set_labels=None):
+    from image_labelling_tool.labelled_image import LabelledImage, FileImageSource, InMemoryLabelsStore
 
-    @property
-    def image_filename(self):
-        p = self.image_path
-        if p is not None:
-            return os.path.basename(p)
-        else:
-            return None
+    if on_set_labels is not None:
+        # The old callback expects an ImageLabels instance, so wrap it
+        def on_update(wrapped_labels):
+            on_set_labels(wrapped_labels.labels)
+    else:
+        on_update = None
 
-    @property
-    def image_name(self):
-        f = self.image_filename
-        if f is not None:
-            return os.path.splitext(f)[0]
-        else:
-            return None
+    image_source = FileImageSource(path)
+    if labels is None:
+        labels = ImageLabels([])
+    labels_store = InMemoryLabelsStore(WrappedImageLabels(completed_tasks=tasks_complete, labels=labels),
+                                       on_update=on_update)
 
-
-    @property
-    def labels(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-    @labels.setter
-    def labels(self, l):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-    def has_labels(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-    @property
-    def labels_json(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-    @labels_json.setter
-    def labels_json(self, l):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-
-    @property
-    def completed_tasks(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-    @completed_tasks.setter
-    def completed_tasks(self, c):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
-
-
-    def get_label_data_for_tool(self):
-        return self.labels_json, self.completed_tasks
-
-    def set_label_data_from_tool(self, labels_js, completed_tasks):
-        self.completed_tasks = completed_tasks
-        self.labels_json = labels_js
-
-
-    def label_class_histogram(self):
-        return self.labels.label_class_histogram()
-
-
-    def warped(self, projection, sz_px):
-        warped_pixels = transform.warp(self.pixels, projection.inverse)[:int(sz_px[0]),:int(sz_px[1])].astype('float32')
-        warped_labels = self.labels._warp(projection)
-        return InMemoryLabelledImage(warped_pixels, warped_labels)
-
-
-    def render_label_classes(self, label_classes, multichannel_mask=False, fill=True):
-        """
-        Render label classes to a create a label class image suitable for use as a
-        semantic segmentation ground truth image.
-
-        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
-            class as it appears in `label_classes. If True, return a (height, width, n_classes) array of dtype=bool
-            that is a stack of per-channel masks where each mask indicates coverage by one or more labels of that class.
-            Classes are specified in `label_classes`.
-        :param fill: if True, labels will be filled, otherwise they will be outlined
-        :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
-        """
-        return self.labels.render_label_classes(label_classes, self.image_size,
-                                                multichannel_mask=multichannel_mask, fill=fill)
-
-
-    def render_label_instances(self, label_classes, multichannel_mask=False, fill=True):
-        """
-        Render a label instance image suitable for use as an instance segmentation ground truth image.
-
-        To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
-
-        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
-            is they are ordered. If True, return a (height, width, n_labels) array of dtype=bool that is a stack
-            of masks, with one mask corresponding to each label.
-        :param fill: if True, labels will be filled, otherwise they will be outlined
-        :return: tuple of (label_image, label_index_to_cls) where:
-            label_image is a (H,W) array with dtype=int
-            label_index_to_cls is a 1D array that gives the class index of each labels. The first entry
-                at index 0 will have a value of 0 as it is the background label. The class indices are the
-                index of the class in `label_class` + 1.
-        """
-        return self.labels.render_label_instances(label_classes, self.image_size, multichannel_mask=multichannel_mask,
-                                                  fill=fill)
-
-
-    def extract_label_images(self, label_class_set=None):
-        """
-        Extract an image of each labelled entity.
-        The resulting image is the original image masked with an alpha channel that results from rendering the label
-
-        :param label_class_set: a sequence of classes whose labels should be rendered, or None for all labels
-        :return: a list of (H,W,C) image arrays
-        """
-        return self.labels.extract_label_images(self.pixels, label_class_set=label_class_set)
-
-
-
-class InMemoryLabelledImage (AbsractLabelledImage):
-    def __init__(self, pixels, labels=None, completed_tasks=None):
-        super(InMemoryLabelledImage, self).__init__()
-        if labels is None:
-            labels = ImageLabels([])
-        if completed_tasks is None:
-            completed_tasks = []
-        self.__pixels = pixels
-        self.__labels = labels
-        self.__completed_tasks = completed_tasks
-
-
-    def read_pixels(self):
-        return self.__pixels
-
-    @property
-    def pixels(self):
-        return self.__pixels
-
-    @property
-    def image_size(self):
-        return self.__pixels.shape[:2]
-
-    def data_and_mime_type(self):
-        buf = io.BytesIO()
-        pix_u8 = img_as_ubyte(self.__pixels)
-        img = Image.fromarray(pix_u8)
-        img.save(buf, format='png')
-        return buf.getvalue(), 'image/png'
-
-
-
-    @property
-    def labels(self):
-        return self.__labels
-
-    @labels.setter
-    def labels(self, l):
-        self.__labels = l
-
-    def has_labels(self):
-        return True
-
-    @property
-    def labels_json(self):
-        return self.__labels.to_json()
-
-    @labels_json.setter
-    def labels_json(self, l):
-        self.__labels = ImageLabels.from_json(l)
-
-
-    @property
-    def completed_tasks(self):
-        return self.__completed_tasks
-
-    @completed_tasks.setter
-    def completed_tasks(self, c):
-        self.__completed_tasks = c
-
-
-class PersistentLabelledImage (AbsractLabelledImage):
-    def __init__(self, image_path, labels_path, readonly=False):
-        super(PersistentLabelledImage, self).__init__()
-        self.__image_path = image_path
-        self.__labels_path = labels_path
-        self.__pixels = None
-
-        self.__labels_json = None
-        self.__completed_tasks = []
-        self.__readonly = readonly
-
-    def read_pixels(self):
-        return img_as_float(imread(self.__image_path))
-
-    @property
-    def pixels(self):
-        if self.__pixels is None:
-            self.__pixels = self.read_pixels()
-        return self.__pixels
-
-    @property
-    def image_size(self):
-        if self.__pixels is not None:
-            return self.__pixels.shape[:2]
-        else:
-            i = Image.open(self.__image_path)
-            return i.size[1], i.size[0]
-
-    def data_and_mime_type(self):
-        if os.path.exists(self.__image_path):
-            with open(self.__image_path, 'rb') as img:
-                return img.read(), mimetypes.guess_type(self.__image_path)[0]
-
-
-    @property
-    def image_path(self):
-        return self.__image_path
-
-
-
-    @property
-    def labels(self):
-        return ImageLabels.from_json(self.labels_json)
-
-    @labels.setter
-    def labels(self, l):
-        self.labels_json = l.to_json()
-
-
-    @property
-    def labels_path(self):
-        return self.__labels_path
-
-    @property
-    def labels_json(self):
-        labels_js, _ = self._get_labels()
-        return labels_js
-
-    @labels_json.setter
-    def labels_json(self, labels_json):
-        self._set_labels(labels_json, self.__completed_tasks)
-
-
-    @property
-    def completed_tasks(self):
-        labels_js, completed_tasks = self._get_labels()
-        return completed_tasks
-
-    @completed_tasks.setter
-    def completed_tasks(self, c):
-        self._set_labels(self.__labels_json, c)
-
-
-    def has_labels(self):
-        return os.path.exists(self.__labels_path)
-
-
-    def get_label_data_for_tool(self):
-        return self._get_labels()
-
-    def set_label_data_from_tool(self, labels_js, completed_tasks):
-        self._set_labels(labels_js, completed_tasks)
-
-
-
-    def _get_labels(self):
-        if self.__labels_json is None:
-            if os.path.exists(self.__labels_path):
-                with open(self.__labels_path, 'r') as f:
-                    try:
-                        js = json.load(f)
-                        self.__labels_json, self.__completed_tasks = self._unwrap_labels(js)
-                    except ValueError:
-                        traceback.print_exc()
-                        pass
-        return self.__labels_json, self.__completed_tasks
-
-
-    def _set_labels(self, labels_js, completed_tasks):
-        if not self.__readonly:
-            if labels_js is None  or  (len(labels_js) == 0 and len(completed_tasks) == 0):
-                # No data; delete the file
-                if os.path.exists(self.__labels_path):
-                    os.remove(self.__labels_path)
-            else:
-                with open(self.__labels_path, 'w') as f:
-                    wrapped = self.__wrap_labels(os.path.split(self.image_path)[1], labels_js, completed_tasks)
-                    json.dump(wrapped, f, indent=3)
-        self.__labels_json = labels_js
-        self.__completed_tasks = completed_tasks
-
-
-
-
-    @staticmethod
-    def __wrap_labels(image_path, labels, completed_tasks):
-        image_filename = os.path.split(image_path)[1]
-        return {'image_filename': image_filename,
-                'completed_tasks': completed_tasks,
-                'labels': labels}
-
-    @staticmethod
-    def _unwrap_labels(wrapped_labels):
-        if isinstance(wrapped_labels, dict):
-            if 'complete' in wrapped_labels:
-                if wrapped_labels['complete']:
-                    completed_tasks = ['finished']
-                else:
-                    completed_tasks = []
-            elif 'completed_tasks' in wrapped_labels:
-                completed_tasks = wrapped_labels['completed_tasks']
-            else:
-                completed_tasks = []
-            return wrapped_labels['labels'], completed_tasks
-        elif isinstance(wrapped_labels, list):
-            return wrapped_labels, {}
-        else:
-            raise TypeError('Labels loaded from file must either be a dict or a list, '
-                            'not a {0}'.format(type(wrapped_labels)))
-
-
-    @staticmethod
-    def __compute_labels_path(path, labels_dir=None):
-        p = os.path.splitext(path)[0] + '__labels.json'
-        if labels_dir is not None:
-            p = os.path.join(labels_dir, os.path.split(p)[1])
-        return p
-
-
-    @classmethod
-    def for_directory(cls, dir_path, image_filename_patterns=['*.png'], with_labels_only=False,
-                      labels_dir=None, readonly=False):
-        image_paths = []
-        for pat in image_filename_patterns:
-            image_paths.extend(glob.glob(os.path.join(dir_path, pat)))
-        return cls.for_files(image_paths, with_labels_only=with_labels_only, labels_dir=labels_dir,
-                             readonly=readonly)
-
-    @classmethod
-    def for_files(cls, image_paths, with_labels_only=False, labels_dir=None, readonly=False):
-        limgs = []
-        for img_path in image_paths:
-            labels_path = cls.__compute_labels_path(img_path, labels_dir=labels_dir)
-            if not with_labels_only or os.path.exists(labels_path):
-                limgs.append(PersistentLabelledImage(img_path, labels_path, readonly=readonly))
-        return limgs
-
-
-class LabelledImageFile (AbsractLabelledImage):
-    def __init__(self, path, labels=None, tasks_complete=None, on_set_labels=None):
-        super(LabelledImageFile, self).__init__()
-        if labels is None:
-            labels = ImageLabels([])
-        if tasks_complete is None:
-            tasks_complete = []
-        self.__labels = labels
-        self.__tasks_complete = tasks_complete
-        self.__image_path = path
-        self.__pixels = None
-        self.__on_set_labels = on_set_labels
-
-
-
-    def read_pixels(self):
-        return img_as_float(imread(self.__image_path))
-
-    @property
-    def pixels(self):
-        if self.__pixels is None:
-            self.__pixels = self.read_pixels()
-        return self.__pixels
-
-    @property
-    def image_size(self):
-        if self.__pixels is not None:
-            return self.__pixels.shape[:2]
-        else:
-            i = Image.open(self.__image_path)
-            return i.size[1], i.size[0]
-
-    def data_and_mime_type(self):
-        if os.path.exists(self.__image_path):
-            with open(self.__image_path, 'rb') as img:
-                return img.read(), mimetypes.guess_type(self.__image_path)[0]
-
-
-    @property
-    def image_path(self):
-        return self.__image_path
-
-
-
-    @property
-    def labels(self):
-        return self.__labels
-
-    @labels.setter
-    def labels(self, l):
-        self.__labels = l
-        if self.__on_set_labels is not None:
-            self.__on_set_labels(self.__labels)
-
-
-    def has_labels(self):
-        return True
-
-
-    @property
-    def labels_json(self):
-        return self.__labels.to_json()
-
-    @labels_json.setter
-    def labels_json(self, l):
-        self.__labels = ImageLabels.from_json(l)
-        if self.__on_set_labels is not None:
-            self.__on_set_labels(self.__labels)
-
-
-    @property
-    def completed_tasks(self):
-        return self.__tasks_complete
-
-    @completed_tasks.setter
-    def completed_tasks(self, c):
-        self.__tasks_complete = c
-
-
-
-def shuffle_images_without_labels(labelled_images):
-    with_labels = [img   for img in labelled_images   if img.has_labels()]
-    without_labels = [img   for img in labelled_images   if not img.has_labels()]
-    random.shuffle(without_labels)
-    return with_labels + without_labels
-
+    return LabelledImage(image_source, labels_store)

@@ -255,14 +255,17 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
             ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
-            ensure_config_option_exists(config.tools, 'compositeLabel', false);
             ensure_config_option_exists(config.tools, 'groupLabel', false);
             ensure_config_option_exists(config.tools, 'deleteLabel', true);
+
+            config.tools.legacy = config.tools.deleteConfig || {};
+            ensure_config_option_exists(config.tools.legacy, 'compositeLabel', false);
 
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
+            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'oriented_ellipse', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
@@ -811,7 +814,7 @@ module labelling_tool {
                 });
             }
 
-            if (config.tools.compositeLabel) {
+            if (config.tools.legacy.compositeLabel) {
                 var composite_button: any = $('#draw_composite_button');
                 composite_button.button().click(function (event: any) {
                     self.root_view.create_composite_label_from_selection();

@@ -191,6 +191,11 @@ Please see the Jupyter notebook `Image labeller notebook.ipynb` for API usage. I
 labels and render them into class maps, instance maps, or image stacks.
 
 
+## Changes
+
+Please see the [change log](./CHANGES.md) for recent changes.
+
+
 ## Libraries, Credits and License
 
 Incorporates the public domain [json2.js](https://github.com/douglascrockford/JSON-js) library.

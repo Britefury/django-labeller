@@ -3,7 +3,7 @@ import fnmatch
 from setuptools import find_packages
 from setuptools import setup
 
-version = '0.1.5'
+version = '0.2.0'
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -23,7 +23,8 @@ install_requires = [
     'Pillow',
     'scikit-image',
     'click',
-    'flask'
+    'flask',
+    'deprecated'
 ]
 
 tests_require = [
@@ -35,6 +36,10 @@ django_require = [
 
 dextr_require = [
     'dextr'
+]
+
+qt_require = [
+    'PyQt5'
 ]
 
 include_package_data = True
@@ -57,7 +62,7 @@ data_files = [
 setup(
     name="django-labeller",
     version=version,
-    description="An image labelling tool for creating segmentation data sets, for Django and Flask.",
+    description="An image labelling tool for creating segmentation data sets, for Django, Flask and Qt.",
     long_description="\n\n".join([README]),
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -68,7 +73,7 @@ setup(
         "Topic :: Software Development :: User Interfaces",
     ],
     keywords="",
-    author="Geoffrey French",
+    author="Geoff French",
     # author_email="brittix1023 at gmail dot com",
     url="https://github.com/Britefury/django-labeller",
     license="MIT",
@@ -81,5 +86,6 @@ setup(
         'testing': tests_require,
         'django': django_require,
         'dextr': dextr_require,
+        'qt5': qt_require,
     },
 )

@@ -23,40 +23,19 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 import os
+from copy import deepcopy
 import json
 import collections
 import multiprocessing, queue
 import urllib.parse
+from image_labelling_tool import labelling_tool
 
 
 DEFAULT_PORT = 5000
 
-DEFAULT_CONFIG = {
-    'tools': {
-        'imageSelector': True,
-        'labelClassSelector': True,
-        'drawPointLabel': False,
-        'drawBoxLabel': True,
-        'drawOrientedEllipseLabel': True,
-        'drawPolyLabel': True,
-        'compositeLabel': False,
-        'deleteLabel': True,
-        'deleteConfig': {
-            'typePermissions': {
-                'point': True,
-                'box': True,
-                'polygon': True,
-                'composite': True,
-                'group': True,
-            }
-        }
-    },
-    'settings': {
-        'brushWheelRate': 0.025,  # Change rate for brush radius (mouse wheel)
-        'brushKeyRate': 2.0,  # Change rate for brush radius (keyboard)
-        'fullscreenButton': False,
-    }
-}
+DEFAULT_CONFIG = deepcopy(labelling_tool.DEFAULT_CONFIG)
+# No fullscreen button for Qt-based labellers
+DEFAULT_CONFIG.setdefault('settings', dict()).setdefault('fullscreenButton', False)
 
 # The two kinds of images that we share between the main process and the Flask web server
 # process

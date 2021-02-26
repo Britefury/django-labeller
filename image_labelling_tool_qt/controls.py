@@ -23,6 +23,7 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 import uuid
+import copy
 import numpy as np
 from PyQt5 import QtCore, QtWebChannel
 from image_labelling_tool import labelling_tool
@@ -128,7 +129,12 @@ class QAbstractLabeller (QtCore.QObject):
 
         # Configuration
         if config is None:
-            config = web_server.DEFAULT_CONFIG
+            # None provided, use default
+            config = labelling_tool.DEFAULT_CONFIG
+        # Copy it
+        config = copy.deepcopy(config)
+        # Set settings.fullscreenButton to False if not provided
+        config.setdefault('settings', dict()).setdefault('fullscreenButton', False)
         self._config = config
 
         settings = dict(
@@ -336,12 +342,14 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         # Each descriptor provides the image ID, the URL and the size
         self.__image_descriptors = []
         for image_id, img in zip(image_ids, labelled_images):
-            height, width = img.image_size
-            if img.image_path is not None:
+            print('image ID {}: type(img)={}, type(img.image_source)={}'.format(image_id, type(img), type(img.image_source)))
+            height, width = img.image_source.image_size
+            local_path = img.image_source.local_path
+            if local_path is not None:
                 self._server_pipe.add_image(image_id, web_server._ImagePath(
-                    path=img.image_path, width=width, height=height))
+                    path=str(local_path.absolute()), width=width, height=height))
             else:
-                data, mime_type = img.data_and_mime_type
+                data, mime_type = img.image_source.image_binary_and_mime_type
                 self._server_pipe.add_image(image_id, web_server._ImageBinary(
                     data=data, mime_type=mime_type, width=width, height=height))
             self.__image_descriptors.append(labelling_tool.image_descriptor(
@@ -356,15 +364,20 @@ class QLabellerForLabelledImages (QAbstractLabeller):
 
     def get_image_labels_for_tool(self, image_id):
         image = self.__images_table[image_id]
-        return dict(labels_json=image.labels_json, completed_tasks=image.completed_tasks)
+        wrapped_labels = image.labels_store.get_wrapped_labels()
+        return dict(labels_json=wrapped_labels.labels_json, completed_tasks=wrapped_labels.completed_tasks)
 
     def on_update_image_labels_from_tool(self, image_id, labels_and_metadata):
         image = self.__images_table[image_id]
-        image.set_label_data_from_tool(labels_and_metadata['labels_json'], labels_and_metadata['completed_tasks'])
+
+        wrapped_labels = image.labels_store.get_wrapped_labels()
+        wrapped_labels.labels_json = labels_and_metadata['labels_json']
+        wrapped_labels.completed_tasks = labels_and_metadata['completed_tasks']
+        image.labels_store.update_wrapped_labels(wrapped_labels)
 
     def dextr_predict_mask(self, image_id, dextr_points):
         image = self.__images_table[image_id]
-        return self._dextr_fn(image.read_pixels(), dextr_points)
+        return self._dextr_fn(image.image_source.image_as_array_or_pil(), dextr_points)
 
     @property
     def dextr_available(self):

@@ -342,14 +342,13 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         # Each descriptor provides the image ID, the URL and the size
         self.__image_descriptors = []
         for image_id, img in zip(image_ids, labelled_images):
-            print('image ID {}: type(img)={}, type(img.image_source)={}'.format(image_id, type(img), type(img.image_source)))
             height, width = img.image_source.image_size
             local_path = img.image_source.local_path
             if local_path is not None:
                 self._server_pipe.add_image(image_id, web_server._ImagePath(
                     path=str(local_path.absolute()), width=width, height=height))
             else:
-                data, mime_type = img.image_source.image_binary_and_mime_type
+                data, mime_type = img.image_source.image_binary_and_mime_type()
                 self._server_pipe.add_image(image_id, web_server._ImageBinary(
                     data=data, mime_type=mime_type, width=width, height=height))
             self.__image_descriptors.append(labelling_tool.image_descriptor(

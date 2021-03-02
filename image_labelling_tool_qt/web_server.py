@@ -23,12 +23,18 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 import os
+import socket
 from copy import deepcopy
 import json
+import pathlib
 import collections
 import multiprocessing, queue
 import urllib.parse
 from image_labelling_tool import labelling_tool
+
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
 
 
 DEFAULT_PORT = 5000
@@ -53,6 +59,8 @@ class LabellerServer:
     static files (CSS/JS) and the images that are to be labelled.
     """
     def __init__(self, port=DEFAULT_PORT):
+        while is_port_in_use(port):
+            port += 1
         self.img_reg_command_q = multiprocessing.Queue()
         self.server_process = None
         self.port = port
@@ -164,9 +172,11 @@ def _flask_server(img_reg, port=5000, debug=False):
     import json
     from flask import Flask, render_template, send_file, make_response, abort, request
 
-    template_dir = os.path.join('..', 'image_labelling_tool', 'templates')
-    static_dir = os.path.join('..', 'image_labelling_tool', 'static')
-    app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
+    my_path = pathlib.Path(__file__)
+    template_dir = my_path.parent.parent / 'image_labelling_tool' / 'templates'
+    static_dir = my_path.parent.parent / 'image_labelling_tool' / 'static'
+
+    app = Flask(__name__, static_folder=str(static_dir), template_folder=str(template_dir))
 
     @app.route('/')
     def index():

@@ -90,6 +90,16 @@ class QAbstractLabeller (QtCore.QObject):
     dextr_predict_mask(): predict a mask using DEXTR for automatically assisted labelling
     dextr_available: determine if DEXTR is available/supported
 
+    WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+    as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+    available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+    that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+    garbage collector from deleting `self`. As a consequence, it is important to ensure that
+    a reference to `self` is kept as long as it is needed for display.
+    Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+    to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+    passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
+    please keep a reference to it.
     """
     def __init__(self, server, label_classes, tasks=None, colour_schemes=None,
                  anno_controls=None, config=None, enable_firebug=False):
@@ -210,6 +220,16 @@ class QAbstractLabeller (QtCore.QObject):
         """
         Attach the labeller to a `QtWebEngineWidgets.QWebEngineView` widget
 
+        WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+        as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+        available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+        that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+        garbage collector from deleting `self`. As a consequence, it is important to ensure that
+        a reference to `self` is kept as long as it is needed for display.
+        Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+        to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+        passed as a parameter. If you need `self` to last longer, please keep a reference to it.
+
         :param web_engine_view: A `QtWebEngineWidgets.QWebEngineView` instance that is the widget in which the
             labeller is to be rendered
         """
@@ -324,6 +344,17 @@ class QLabellerForLabelledImages (QAbstractLabeller):
     """Qt side labeller that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
 
     Operates on a provided list of labelled images (see `labelled_image.LabelledImage`)
+
+    WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+    as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+    available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+    that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+    garbage collector from deleting `self`. As a consequence, it is important to ensure that
+    a reference to `self` is kept as long as it is needed for display.
+    Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+    to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+    passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
+    please keep a reference to it.
     """
     def __init__(self, server, label_classes, labelled_images, tasks=None, colour_schemes=None,
                  anno_controls=None, config=None, dextr_fn=None, enable_firebug=False):

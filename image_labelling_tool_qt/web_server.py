@@ -192,12 +192,14 @@ def _flask_server(img_reg, port=5000, debug=False):
             colour_schemes = settings.get('colour_schemes', None)
             label_class_groups = settings.get('label_class_groups', [])
             anno_controls = settings.get('anno_controls', [])
+            enable_firebug = settings.get('enable_firebug', False)
         else:
             config = DEFAULT_CONFIG
             tasks = None
             colour_schemes = None
             label_class_groups = []
             anno_controls = []
+            enable_firebug = False
 
         dextr_available = 'dextr' in request.args
 
@@ -207,7 +209,8 @@ def _flask_server(img_reg, port=5000, debug=False):
                                colour_schemes=colour_schemes,
                                label_class_groups=label_class_groups,
                                anno_controls=anno_controls,
-                               dextr_available=dextr_available)
+                               dextr_available=dextr_available,
+                               enable_firebug=enable_firebug)
 
     @app.route('/image/<image_id>')
     def get_image(image_id):

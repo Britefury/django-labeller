@@ -29,7 +29,8 @@ from image_labelling_tool_qt import controls, web_server
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.option('--dextr_weights', type=click.Path())
-def run_app(dextr_weights):
+@click.option('--enable_firebug', is_flag=True, default=False)
+def run_app(dextr_weights, enable_firebug):
     import pathlib
     import glob
     from image_labelling_tool import labelled_image, labelling_tool
@@ -291,7 +292,8 @@ def run_app(dextr_weights):
             lbl = controls.QLabellerForLabelledImages(
                 server=server, label_classes=label_classes, labelled_images=labelled_images,
                 tasks=tasks, colour_schemes=colour_schemes,
-                anno_controls=anno_controls, config=config, dextr_fn=dextr_fn)
+                anno_controls=anno_controls, config=config, dextr_fn=dextr_fn,
+                enable_firebug=enable_firebug)
             # Create the web engine view
             view = QtWebEngineWidgets.QWebEngineView()
             # Attach the labeller to the web engine view

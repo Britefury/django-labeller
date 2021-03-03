@@ -94,7 +94,7 @@ class QAbstractLabeller (QtCore.QObject):
     _LABELLER_COUNT = 0
 
     def __init__(self, server, label_classes, tasks=None, colour_schemes=None,
-                 anno_controls=None, config=None):
+                 anno_controls=None, config=None, enable_firebug=False):
         """
         :param server: the `web_server.LabellerServer` instance that manages the Flask server.
         :param label_classes: grouped label classes that will be passed to the tool
@@ -102,6 +102,7 @@ class QAbstractLabeller (QtCore.QObject):
         :param colour_schemes: [optional] the list of colour schemes for display
         :param anno_controls: [optional] additional annotation controls for metadata
         :param config: [optional] labelling tool configuration
+        :param enable_firebug: [optional] load Firebug-lite dev tools
         """
         super(QAbstractLabeller, self).__init__()
 
@@ -143,6 +144,7 @@ class QAbstractLabeller (QtCore.QObject):
             colour_schemes=colour_schemes,
             label_class_groups=self._label_classes_json,
             anno_controls=self._anno_controls_json,
+            enable_firebug=enable_firebug,
         )
         self._server_pipe.add_settings(self._tool_id, settings)
 
@@ -317,7 +319,7 @@ class QLabellerForLabelledImages (QAbstractLabeller):
     Operates on a provided list of labelled images (see `labelling_tool.AbstractLabelledImage`)
     """
     def __init__(self, server, label_classes, labelled_images, tasks=None, colour_schemes=None,
-                 anno_controls=None, config=None, dextr_fn=None):
+                 anno_controls=None, config=None, dextr_fn=None, enable_firebug=False):
         """
         :param server: the `web_server.LabellerServer` instance that manages the Flask server.
         :param label_classes: grouped label classes that will be passed to the tool
@@ -330,7 +332,7 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         """
         super(QLabellerForLabelledImages, self).__init__(
             server=server, label_classes=label_classes, tasks=tasks, colour_schemes=colour_schemes,
-            anno_controls=anno_controls, config=config)
+            anno_controls=anno_controls, config=config, enable_firebug=enable_firebug)
 
         self._dextr_fn = dextr_fn
 

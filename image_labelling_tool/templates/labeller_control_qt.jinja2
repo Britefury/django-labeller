@@ -5,6 +5,9 @@
 
         {% include "inline/image_labeller_css.html" %}
         <script language="javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        {% if enable_firebug %}
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/firebug-lite/1.4.0/firebug-lite.js" integrity="sha512-0p6aYPiAsdFaNHCYYsq5sqb1v3q5h3pD2qBZq2piwCU9vS6KTSeIaqKkwJWc1Yl7kc2jC6YpVF2amtSLdblCsA==" crossorigin="anonymous"></script>
+        {% endif %}
         {% include "inline/image_labeller_scripts.html" %}
     </head>
 
@@ -16,26 +19,26 @@
         new QWebChannel(qt.webChannelTransport, function (channel) {
             var qt_tool = channel.objects.qt_tool;
 
-            qt_tool._tool_load_labels.connect(function(label_header) {
+            qt_tool._tool_load_labels.connect(function (label_header) {
                 tool.loadLabels(label_header);
             });
 
-            qt_tool._tool_set_labels_reply.connect(function(msg) {
+            qt_tool._tool_set_labels_reply.connect(function (msg) {
                 tool.notifyLabelUpdateResponse(msg);
             });
 
-            qt_tool._tool_dextr_reply.connect(function(msg) {
+            qt_tool._tool_dextr_reply.connect(function (msg) {
                 if (msg.labels !== undefined) {
                     tool.dextrSuccess(msg.labels);
                 }
             });
 
-            var get_labels = function(image_id) {
+            var get_labels = function (image_id) {
                 qt_tool._tool_request_labels(image_id);
             };
 
             // set labels callback function
-            var set_labels = function(label_header) {
+            var set_labels = function (label_header) {
                 qt_tool._tool_set_labels(label_header);
             };
 

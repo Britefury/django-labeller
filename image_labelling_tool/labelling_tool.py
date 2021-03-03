@@ -1660,10 +1660,11 @@ class WrappedImageLabels:
         json.dump(self.to_json(), f)
 
     @staticmethod
-    def from_json(js, image_filename=None):
+    def from_json(js):
         if isinstance(js, dict):
             metadata = js.copy()
             completed_tasks = []
+            image_filename = None
             if 'complete' in js:
                 # Old-style complete flag; transform to 'finished' task
                 del metadata['complete']
@@ -1676,8 +1677,7 @@ class WrappedImageLabels:
                 completed_tasks = js['completed_tasks']
             if 'image_filename' in js:
                 del metadata['image_filename']
-                if image_filename is None:
-                    image_filename = js['image_filename']
+                image_filename = js['image_filename']
             del metadata['labels']
             return WrappedImageLabels(image_filename=image_filename, completed_tasks=completed_tasks,
                                       metadata=metadata, labels_json=js['labels'])
@@ -1689,7 +1689,7 @@ class WrappedImageLabels:
                             'not a {0}'.format(type(js)))
 
     @staticmethod
-    def from_file(f, image_filename=None):
+    def from_file(f):
         if isinstance(f, str):
             f = pathlib.Path(f)
         if isinstance(f, pathlib.Path):
@@ -1701,7 +1701,7 @@ class WrappedImageLabels:
         else:
             raise TypeError('f should be a path as a string or `pathlib.Path` or a file, not a {}'.format(type(f)))
         js = json.load(file)
-        return WrappedImageLabels.from_json(js, image_filename=image_filename)
+        return WrappedImageLabels.from_json(js)
 
 
 @deprecated(reason='Please use labelled_image.LabelledImage.in_memory()')

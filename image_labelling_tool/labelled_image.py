@@ -237,7 +237,7 @@ class LabelsStore:
 
 
 class FileLabelsStore (LabelsStore):
-    def __init__(self, labels_path: PathType, image_filename: str = None,
+    def __init__(self, labels_path: PathType, image_filename: Optional[str] = None,
                  readonly: bool = False, delete_if_blank: bool = True):
         """Labels stored in a file on disk.
 
@@ -257,11 +257,6 @@ class FileLabelsStore (LabelsStore):
         """
         if isinstance(labels_path, str):
             labels_path = pathlib.Path(labels_path)
-
-        if image_filename is None:
-            image_filename = labels_path.stem
-            if image_filename.endswith('__labels'):
-                image_filename = image_filename[:-8]
 
         self.labels_path = labels_path
         self.image_filename = image_filename
@@ -343,13 +338,13 @@ class InMemoryLabelsStore (LabelsStore):
         return not self.wrapped_labels.is_blank
 
     @staticmethod
-    def from_json(labels_js: Any, image_filename: Optional[str] = None) -> 'InMemoryLabelsStore':
+    def from_json(labels_js: Any) -> 'InMemoryLabelsStore':
         """Construct an in-memory labels store from JSON representation
 
         :param labels_js: labels in JSON form
         :return: an `InMemoryLabelsStore`
         """
-        wrapped_labels = WrappedImageLabels.from_json(labels_js, image_filename=image_filename)
+        wrapped_labels = WrappedImageLabels.from_json(labels_js)
         return InMemoryLabelsStore(wrapped_labels)
 
 

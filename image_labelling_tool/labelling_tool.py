@@ -1683,7 +1683,7 @@ class WrappedImageLabels:
                                       metadata=metadata, labels_json=js['labels'])
         elif isinstance(js, list):
             # No metadata: use defaults
-            return WrappedImageLabels(image_filename=image_filename, labels_json=js)
+            return WrappedImageLabels(labels_json=js)
         else:
             raise TypeError('Labels loaded from file must either be a dict or a list, '
                             'not a {0}'.format(type(js)))
@@ -1694,8 +1694,6 @@ class WrappedImageLabels:
             f = pathlib.Path(f)
         if isinstance(f, pathlib.Path):
             file = f.open('r')
-            if image_filename is None:
-                image_filename = f.name
         elif isinstance(f, io.IOBase):
             file = f
         else:

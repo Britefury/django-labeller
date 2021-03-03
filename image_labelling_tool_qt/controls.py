@@ -91,8 +91,6 @@ class QAbstractLabeller (QtCore.QObject):
     dextr_available: determine if DEXTR is available/supported
 
     """
-    _LABELLER_COUNT = 0
-
     def __init__(self, server, label_classes, tasks=None, colour_schemes=None,
                  anno_controls=None, config=None, enable_firebug=False):
         """
@@ -106,11 +104,17 @@ class QAbstractLabeller (QtCore.QObject):
         """
         super(QAbstractLabeller, self).__init__()
 
+        if tasks is None:
+            tasks = []
+
+        if colour_schemes is None:
+            colour_schemes = []
+
+
         self._server = server
         self._server_pipe = self._server.image_registry()
 
-        self._tool_id = str(QAbstractLabeller._LABELLER_COUNT)
-        QAbstractLabeller._LABELLER_COUNT += 1
+        self._tool_id = str(uuid.uuid4())
 
         # Convert the label classes to JSON
         self._label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
@@ -220,6 +224,9 @@ class QAbstractLabeller (QtCore.QObject):
         tool_url = self._server.server_url(tool_id=self._tool_id, dextr_available=self._dextr_fn is not None)
         # Have the web view widget navigate there
         web_engine_view.setUrl(QtCore.QUrl(tool_url))
+        # Set the '_django_labeller' attribute so that self is not garbage collected while
+        # `web_engine_view` still exists
+        web_engine_view._django_labeller = self
 
 
     _tool_load_labels = QtCore.pyqtSignal("QJsonObject")
@@ -314,9 +321,9 @@ class QAbstractLabeller (QtCore.QObject):
 
 
 class QLabellerForLabelledImages (QAbstractLabeller):
-    """Qt side Django labeller that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
+    """Qt side labeller that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
 
-    Operates on a provided list of labelled images (see `labelling_tool.AbstractLabelledImage`)
+    Operates on a provided list of labelled images (see `labelled_image.LabelledImage`)
     """
     def __init__(self, server, label_classes, labelled_images, tasks=None, colour_schemes=None,
                  anno_controls=None, config=None, dextr_fn=None, enable_firebug=False):

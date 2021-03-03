@@ -310,6 +310,9 @@ var labelling_tool;
                     });
                 }
             }
+            else {
+                this._image_index_input = null;
+            }
             this._lockNotification = $('#lock_warning');
             if (config.settings.fullScreenButton) {
                 // Full screen button
@@ -523,6 +526,9 @@ var labelling_tool;
                         self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
+            }
+            else {
+                this._label_class_selector_select = null;
             }
             var anno_ctrl_on_change = function (identifier, value) {
                 self.root_view.set_selection_anno_data_value(identifier, value);
@@ -850,7 +856,9 @@ var labelling_tool;
         };
         DjangoLabeller.prototype._update_image_index_input_by_id = function (image_id) {
             var image_index = this._image_id_to_index(image_id);
-            this._image_index_input.val((image_index + 1).toString());
+            if (this._image_index_input !== null) {
+                this._image_index_input.val((image_index + 1).toString());
+            }
         };
         ;
         DjangoLabeller.prototype._get_current_image_id = function () {
@@ -899,7 +907,9 @@ var labelling_tool;
                 var task_check = self._task_checkboxes[task_name];
                 task_check.prop('checked', false);
             }
-            this._image_index_input.val("");
+            if (this._image_index_input !== null) {
+                this._image_index_input.val("");
+            }
             this.set_current_tool(null);
             this._requestLabelsCallback(image.image_id);
             this._image_loaded = false;
@@ -1149,7 +1159,7 @@ var labelling_tool;
             if (this._label_class_selector_popup !== null) {
                 this._label_class_selector_popup.setChoice(label_class);
             }
-            else {
+            else if (this._label_class_selector_select !== null) {
                 this._label_class_selector_select.val(label_class);
             }
         };

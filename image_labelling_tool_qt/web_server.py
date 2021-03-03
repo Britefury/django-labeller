@@ -23,6 +23,7 @@
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
 import os
+import atexit
 import socket
 from copy import deepcopy
 import json
@@ -71,13 +72,13 @@ class LabellerServer:
             self.server_process = multiprocessing.Process(
                 target=_flask_server, args=(img_reg,), kwargs=dict(port=self.port))
             self.server_process.start()
+            atexit.register(_kill_server_at_exit, self)
         return self.server_process
 
     def stop_server(self):
         if self.server_process is not None:
             self.server_process.terminate()
-        else:
-            raise RuntimeError('Flasks server not started')
+            self.server_process = None
 
     def server_url(self, tool_id=None, dextr_available=False):
         query_dict = {}
@@ -90,6 +91,10 @@ class LabellerServer:
 
     def image_registry(self):
         return _ImageRegistry(self.img_reg_command_q)
+
+
+def _kill_server_at_exit(server):
+    server.stop_server()
 
 
 class _ImageRegistryConsumer:

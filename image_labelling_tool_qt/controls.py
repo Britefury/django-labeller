@@ -110,7 +110,7 @@ class QAbstractLabeller (QtCore.QObject):
         :param colour_schemes: [optional] the list of colour schemes for display
         :param anno_controls: [optional] additional annotation controls for metadata
         :param config: [optional] labelling tool configuration
-        :param enable_firebug: [optional] load Firebug-lite dev tools
+        :param enable_firebug: [default=False] if True, load Firebug-lite development tools
         """
         super(QAbstractLabeller, self).__init__()
 
@@ -367,6 +367,7 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         :param anno_controls: [optional] additional annotation controls for metadata
         :param config: [optional] labelling tool configuration
         :param dextr_fn: [optional] DEXTR prediction function
+        :param enable_firebug: [default=False] if True, load Firebug-lite development tools
         """
         super(QLabellerForLabelledImages, self).__init__(
             server=server, label_classes=label_classes, tasks=tasks, colour_schemes=colour_schemes,

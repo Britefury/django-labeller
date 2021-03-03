@@ -164,7 +164,7 @@ module labelling_tool {
         private _loading_notification_text: JQuery;
         world: any;
         private _image: d3.Selection<any>;
-        private _image_index_input: JQuery;
+        private _image_index_input: JQuery = null;
         private _task_checkboxes: {[name: string]: JQuery};
 
         private _zoom_node: d3.Selection<any>;

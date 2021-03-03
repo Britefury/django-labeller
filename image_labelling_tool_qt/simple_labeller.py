@@ -30,7 +30,8 @@ from image_labelling_tool_qt import controls, web_server
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.option('--dextr_weights', type=click.Path())
 @click.option('--enable_firebug', is_flag=True, default=False)
-def run_app(dextr_weights, enable_firebug):
+@click.option('--use_http_memory_cache', is_flag=True, default=False)
+def run_app(dextr_weights, enable_firebug, use_http_memory_cache):
     import pathlib
     import glob
     from image_labelling_tool import labelled_image, labelling_tool
@@ -296,6 +297,14 @@ def run_app(dextr_weights, enable_firebug):
                 enable_firebug=enable_firebug)
             # Create the web engine view
             view = QtWebEngineWidgets.QWebEngineView()
+
+            # If requested, use a memory-based HTTP cache
+            # This is very useful if the client-side Javascript code is being developed
+            # as otherwise chromium's cache will often store old versions of the code that
+            # will hamper debugging and deveopment
+            if use_memory_cache:
+                page.profile().setHttpCacheType(QtWebEngineWidgets.QWebEngineProfile.MemoryHttpCache)
+
             # Attach the labeller to the web engine view
             lbl.attach_to_web_engine_view(view)
 

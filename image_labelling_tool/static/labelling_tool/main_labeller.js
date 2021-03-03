@@ -71,6 +71,7 @@ var labelling_tool;
             this._label_class_selector_popup = null;
             this._label_class_filter_select = null;
             this._label_class_filter_popup = null;
+            this._image_index_input = null;
             /*
             label_classes: label class definitions in JSON format
             colour_schemes: colour scheme definitions in JSON format

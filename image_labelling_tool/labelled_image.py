@@ -17,7 +17,7 @@ from typing import Union, Tuple, List, Any, Optional, Sequence, Mapping, Contain
 from PIL import Image
 from skimage.util import img_as_ubyte
 from skimage import transform
-from image_labelling_tool.labelling_tool import WrappedImageLabels, ImageLabels
+from image_labelling_tool.labelling_tool import WrappedImageLabels, ImageLabels, LabelClass
 
 
 PathType = Union[pathlib.Path, str]
@@ -348,6 +348,11 @@ class InMemoryLabelsStore (LabelsStore):
         return InMemoryLabelsStore(wrapped_labels)
 
 
+_LabelClassMappingType = Union[Mapping[str, int],
+                               Callable[[str], int],
+                               Sequence[Union[str, LabelClass, Sequence[Union[str, LabelClass]]]]]
+
+
 class LabelledImage:
     """A labelled image; pairs an image source (file/memory/etc.) with a labels store (file/memory/etc.)
 
@@ -405,42 +410,33 @@ class LabelledImage:
         warped_labels = wlabels.with_labels(warped_image_labels)
         return LabelledImage(InMemoryImageSource(warped_pixels), InMemoryLabelsStore(warped_labels))
 
-    def render_label_classes(self, label_classes: Union[Sequence[str], Mapping[str, int]],
+    def render_label_classes(self, label_classes: _LabelClassMappingType,
                              multichannel_mask: bool = False, fill: bool = True) -> np.ndarray:
         """
         Render label classes to a create a label class image suitable for use as a
         semantic segmentation ground truth image.
 
-        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
-            class as it appears in `label_classes. If True, return a (height, width, n_classes) array of dtype=bool
-            that is a stack of per-channel masks where each mask indicates coverage by one or more labels of that class.
-            Classes are specified in `label_classes`.
+        See `ImageLabels.render_label_classes` for full description and parameter documentation.
+
+        :param label_classes: label class mapping
+        :param multichannel_mask: if False return label class image, if True return multi-channel mask
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
         """
         return self.labels_store.get_wrapped_labels().labels.render_label_classes(
             label_classes, self.image_source.image_size, multichannel_mask=multichannel_mask, fill=fill)
 
-    def render_label_instances(self, label_classes: Union[Sequence[str], Mapping[str, int]],
-                               multichannel_mask: bool = False, fill: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def render_label_instances(self, label_classes: Optional[_LabelClassMappingType],
+                               multichannel_mask: bool = False,
+                               fill: bool = True) -> Union[Tuple[np.ndarray, np.ndarray],
+                                                           Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """
         Render a label instance image suitable for use as an instance segmentation ground truth image.
 
         To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
 
-        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present in this list are ignored.
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
-            is they are ordered. If True, return a (height, width, n_labels) array of dtype=bool that is a stack
-            of masks, with one mask corresponding to each label.
+        :param label_classes: [optional] label class mapping, if None render all labels
+        :param multichannel_mask: if False return label class image, if True return multi-channel mask
         :param fill: if True, labels will be filled, otherwise they will be outlined
         :return: tuple of (label_image, label_index_to_cls) where:
             label_image is a (H,W) array with dtype=int
@@ -456,7 +452,7 @@ class LabelledImage:
         Extract an image of each labelled entity.
         The resulting image is the original image masked with an alpha channel that results from rendering the label
 
-        :param label_class_set: a sequence of classes whose labels should be rendered, or None for all labels
+        :param label_class_set: a set/container of classes whose labels should be rendered, or None for all labels
         :return: a list of (H,W,C) image arrays
         """
         # Get the image as a NumPy array

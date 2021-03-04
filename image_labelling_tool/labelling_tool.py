@@ -30,6 +30,7 @@ import math
 import itertools
 import pathlib
 import re
+from typing import Sequence, Mapping
 import collections
 import copy
 from deprecated import deprecated
@@ -134,6 +135,7 @@ DEFAULT_CONFIG = {
 class AbstractLabelClass (object):
     def to_json(self):
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
+
 
 class LabelClass (AbstractLabelClass):
     def __init__(self, name, human_name, colour=None, colours=None):
@@ -307,7 +309,6 @@ def _simplify_contour(cs):
     return None
 
 
-
 _LABEL_CLASS_REGISTRY = {}
 
 
@@ -315,7 +316,6 @@ def label_cls(cls):
     json_label_type = cls.__json_type_name__
     _LABEL_CLASS_REGISTRY[json_label_type] = cls
     return cls
-
 
 
 class LabelContext (object):
@@ -891,7 +891,6 @@ class ImageLabels (object):
             obj_table = ObjectTable(id_prefix, list(self.flatten()))
         self._obj_table = obj_table
 
-
     def __len__(self):
         return len(self.labels)
 
@@ -907,19 +906,16 @@ class ImageLabels (object):
         else:
             raise TypeError('item should be an int, a str, a slice or a sequence, not a {}'.format(type(item)))
 
-
     def flatten(self):
         for lab in self.labels:
             for f in lab.flatten():
                 yield f
-
 
     def label_class_histogram(self):
         histogram = {}
         for lab in self.labels:
             lab.fill_label_class_histogram(histogram)
         return histogram
-
 
     def retain(self, items, id_prefix=None):
         """
@@ -946,7 +942,6 @@ class ImageLabels (object):
 
         return ImageLabels(retained_labels, obj_table=obj_table)
 
-
     def warp(self, xform_fn):
         """
         Warp the labels given a warping function
@@ -961,23 +956,41 @@ class ImageLabels (object):
         warped_labels = [lab.warped(xform_fn, warped_obj_table) for lab in self.labels]
         return ImageLabels(warped_labels, obj_table=warped_obj_table)
 
-
-    @staticmethod
-    def _label_class_list_to_mapping(label_classes, start_at=0):
+    def _label_class_list_to_mapping_fn(self, label_classes, start_at=0):
         """
-        Coerce label_classes to a mapping.
+        Coerce `label_classes` to a tuple of a mapping function that maps label class name (string) to class index
+        (or None to skip) and the number of classes.
 
-        If it is a dict, leave it as is.
+        If `label_classes` is callable then use it as is. We do however invoke `label_classes` for the class
+            of every label and take the maximum class index returned in order to determine the number of classes.
 
-        If it is a list, map class names to indices as per `render_label_classes` and `render_label_instances`.
+        If `label_classes` is a dict, return its `get` method, along with the number of classes.
 
-        :param label_classes:
-        :param start_at: Label offset
-        :return: `(cls_to_name, n_classes)`
+        If `label_classes` is a list, then each entry should be a class (class name as a str or
+            a `LabelClass` instance) or list of classes (str/LabelClass).
+            The class or classes in each entry is/are mapped to the position of the entry, with the offset
+            `start_at` applied.
+            For example `['a', ['b', 'c'], 'd']` will map the class 'a' to 0, 'b' and 'c' to 1 and 'd' to 2.
+
+        :param label_classes: the mapping as a function, dictionary or list.
+        :param start_at: class index offset used if `label_classes` is a list, ignored otherwise
+        :return: `(cls_name_to_index_fn, n_classes)` where `cls_name_to_index_fn` is a function of the form
+            `f(class_name) -> index` and `n_classes` is the number of classes
         """
-        if isinstance(label_classes, dict):
-            return label_classes, max(label_classes.values()) + 1
-        elif isinstance(label_classes, list) or isinstance(label_classes, tuple):
+        if isinstance(label_classes, Mapping):
+            # Dict, compute number of classes and return along with `get` method
+            n_classes = max(label_classes.values()) + 1
+            return label_classes.get, n_classes
+        elif callable(label_classes):
+            # Function: determine number of classes and return
+            n_classes = 0
+            for label in self.labels:
+                cls_i = label_classes(label.classification)
+                if cls_i is not None:
+                    n_classes = max(n_classes, cls_i + 1)
+            return label_classes, n_classes
+        elif isinstance(label_classes, Sequence):
+            # List
             cls_to_index = {}
             for i, cls in enumerate(label_classes):
                 if isinstance(cls, LabelClass):
@@ -996,36 +1009,55 @@ class ImageLabels (object):
                 else:
                     raise TypeError('Item {0} in label_classes is not a LabelClass, string or list, '
                                     'but a {1}'.format(i, type(cls).__name__))
-            return cls_to_index, len(label_classes)
+            n_classes = len(label_classes)
+            return (lambda cls_name: cls_to_index.get(cls_name, None)), n_classes
         else:
             raise TypeError('label_classes must be a dict or a sequence. The sequence can contain LabelClass '
                             'instances, strings or nested sequences of the former')
 
-
     def render_label_classes(self, label_classes, image_shape, multichannel_mask=False, fill=True, ctx=None):
-        """
-        Render label classes to a create a label class image suitable for use as a
+        """Render label classes to a create a label class image suitable for use as a
         semantic segmentation ground truth image.
 
-        :param label_classes: either a dict mapping class name to class index or a sequence of classes.
-            If a dictionary is used, note that the background of a non-multichannel image will be filled with 0,
-            so avoid using values of zero.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present `label_classes` are ignored.
-            E.g. [['tree', 'grass'], ['building']] will render labels of class 'tree' or 'grass' with the value 1
-            and labels of class 'building' with the value 2
+        If `multichannel_mask` is False, then a label class image is generated. A label class image uses integer
+        pixel values to indicate the class of the label the pixel belongs to. They cannot represent overlapping labels;
+        in such cases labels that come later in the list will appear 'in front' of prior labels, overwriting them.
+        A label class image is an array of shape `(height, width)` with integer dtype. A value of 0 represents
+        background/empty. Each label is drawn into the image, with the value determined by its class index. Its
+        class index is determined by the mapping provided as the `label_classes` parameter.
+
+        If `multichannel_mask` is True, then a multi-channel mask is generated. A multi-channel mask
+        is an array of shape `(height, width, n_classes)` with boolean dtype. Each label is drawn into the channel
+        with the value `True` where the channel index is determined by its class index. Once again, the class
+        index for a label is determined using the `label_classes` mapping.
+
+        The label class mapping (`label_classes` parameter) is provided as either a callable/function,
+        dictionary or sequence of classes:
+            Function of the form `fn(class_name) -> class_index`: the function returns the class index given
+                the label class name. If it returns `None` the label will be skipped. Note that when
+                rendering a label image (`multichannel_mask` is `False`) the function should *not* return 0
+                as that is the index given to the background.
+            Dictionary: maps class name to class index. Uses the same rules when using a function, as above.
+                We effectively use the `get` method of the dictionary as the mapping function.
+            Sequence: each entry in the sequence should be a class (class name as a str or a `LabelClass` instance)
+                or list of classes (str/LabelClass). The class or classes in each entry is/are mapped to the
+                position of the entry, where the position starts at 1 for label images or 0 for multi-channel
+                masks. For example `['a', ['b', 'c'], 'd']` will map the class 'a' to class index 1 for
+                a label class image or channel 0 for multi-channel mask, 'b' and 'c' to class index 2/channel 1
+                and 'd' to class index 3/channel 2.
+
+        :param label_classes: label class mapping as described above
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + class_index` where `class_index` is the index of the labels
-            class as it appears in `label_classes. If True, return a (height, width, n_classes) array of dtype=bool
-            that is a stack of per-channel masks where each mask indicates coverage by one or more labels of that class.
-            Classes are specified in `label_classes`.
-        :param fill: if True, labels will be filled, otherwise they will be outlined
-        :param ctx: [optional] a `LabelContext` instance that provides parameters
-        :return: (H,W) array with dtype=int if multichannel is False, otherwise (H,W,n_classes) with dtype=bool
+        :param multichannel_mask: If `False`, return a label image (`(height, width)` shaped array of dtype=int)
+            If `True` return a multi-channel mask (`(height, width, n_classes)` array of dtype=bool)
+        :param fill: if True, labels will be filled, otherwise their outlines will be drawn
+        :param ctx: [optional] a `LabelContext` instance that provides parameters that control the rendering
+            of some labels (e.g. point labels)
+        :return: label image as (H,W) array with dtype=int or multi-channel mask as (H,W,n_classes) array
+            with dtype=bool
         """
-        cls_to_index, n_classes = self._label_class_list_to_mapping(label_classes, 0 if multichannel_mask else 1)
+        cls_to_index_fn, n_classes = self._label_class_list_to_mapping_fn(
+            label_classes, 0 if multichannel_mask else 1)
 
         height, width = image_shape
 
@@ -1035,7 +1067,7 @@ class ImageLabels (object):
             label_image = np.zeros((height, width), dtype=int)
 
         for label in self.labels:
-            label_cls_n = cls_to_index.get(label.classification, None)
+            label_cls_n = cls_to_index_fn(label.classification,)
             if label_cls_n is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
                 if mask is not None:
@@ -1047,44 +1079,76 @@ class ImageLabels (object):
 
         return label_image
 
-
     def render_label_instances(self, label_classes, image_shape, multichannel_mask=False,
                                fill=True, return_object_ids=False, ctx=None):
-        """
-        Render a label instance image suitable for use as an instance segmentation ground truth image.
+        """Render a label instance image suitable for use as an instance segmentation ground truth image.
+        Can render either a label image or a multi-channel mask.
 
-        To get a stack of masks with one mask per object/label, give `multichannel_mask` a value of True
+        If `multichannel_mask` is False, then a label image is generated. A label image uses integer pixel values
+        to indicate which label the pixel belongs to. They cannot represent overlapping labels; in such cases labels
+        that come later in the list will appear 'in front' of prior labels. A label image is an array of shape
+        `(height, width)` with integer dtype. A value of 0 represents background/empty. Each label is drawn
+        into the image, with an instance index starting at 1, incrementing with each label that is drawn.
+        Labels skipped as a result of the `label_classes` mapping indicating as such will not cause the instance
+        index to increment).
 
-        :param label_classes: either None, a dict mapping class name to class index or a sequence of classes.
-            If None, the `label_index_to_cls` that is returned will contain zeros
-            If a dictionary is used, note that the background of a non-multichannel image will be filled with 0.
-            If a sequence of classes is used, an item that is a list or tuple will cause the classes contained
-            within the item to be mapped to the same label index. Each class should be a string giving the class name
-            or a `LabelClass` instance. Labels whose class are not present `label_classes` are ignored.
-            E.g. [['tree', 'grass'], ['building']] will render labels of class 'tree' or 'grass' with the value 1
-            and labels of class 'building' with the value 2
+        A multi-channel mask image has a boolean dtype and uses one channel or mask for each label/instance, where
+        a pixel value of `True` indicates that the corresponding label covers that pixel. Overlapping labels are
+        faithfully represented. A multi-channel mask is an array of shape `(height, width, n_instances)` with
+        boolean dtype. Each label/instance is drawn into a `(height, width)` shaped mask image that is added to
+        the stack of masks/channels. Labels that are skipped as indicated by the mapping in `label_classes`
+        do *not* result add anything to the result.
+
+        In addition to the label image or multi-channel mask this method also returns `label_index_to_cls`; a
+        label index to class mapping that gives the class index of each label that was rendered.
+        If `self` consists of one label and that label class is mapped to a class index of 5,
+        if `multichannel_mask` is `False` this method will render a label image with a value of 1 in the
+        pixels covered by the label and `label_index_to_cls` will have the values `[0, 5]`, with the first entry
+        corresponding to the background. If `multichannel_mask` is `True` the resulting multi-channel mask
+        will have one channel that will be `True` for pixels covered by the label and `label_index_to_cls`
+        will have the value `[5]`.
+
+        If `return_object_ids` is `True` then the unqiue object IDs (a UUID strong followed by underscores and
+        an index) of the rendered labels will also be returned. The list of object IDs will follow the same form
+        as `label_index_to_cls`; if `multichannel_mask` is `False` then the first entry that corresponds to the
+        background will have an object ID of `None`, otherwise if `True` then the background will not have
+        an object ID.
+
+        The class indices are determined by thee label class mapping (`label_classes` parameter) that is provided
+        as either a callable/function, dictionary, sequence of classes or None:
+            Function of the form `fn(class_name) -> class_index`: the function returns the class index given
+                the label class name. If it returns `None` the label will be skipped. Returning 0
+                does not pose the same problems as with the `render_label_classes` method as the background
+                class 0 only appears in the first entry of `label_index_to_cls`.
+            Dictionary: maps class name to class index. Uses the same rules when using a function, as above.
+                We effectively use the `get` method of the dictionary as the mapping function.
+            Sequence: each entry in the sequence should be a class (class name as a str or a `LabelClass` instance)
+                or list of classes (str/LabelClass). The class or classes in each entry is/are mapped to the
+                position of the entry, where the position starts at 1. For example `['a', ['b', 'c'], 'd']` will
+                map the class 'a' to 1, 'b' and 'c' to 2 and 'd' to 3.
+            None: all labels will be rendered and assigned a class index of 1
+
+        :param label_classes: label class mapping as described above
         :param image_shape: `(height, width)` tuple specifying the shape of the image to be returned
-        :param multichannel_mask: If `False`, return an (height, width) array of dtype=int with zero indicating
-            background and non-zero values giving `1 + label_index` where `label_index` is the index of the label
-            is they are ordered. If `True`, return a (height, width, n_labels) array of dtype=bool that is a stack
-            of masks, with one mask corresponding to each label.
-        :param fill: if True, labels will be filled, otherwise they will be outlined
+        :param multichannel_mask: If `False`, return a label image (`(height, width)` shaped array of dtype=int)
+            If `True` return a multi-channel mask (`(height, width, n_classes)` array of dtype=bool)
+        :param fill: if True, labels will be filled, otherwise their outlines will be drawn
         :param return_object_ids: if True, the returned tuple will contain a list that gives the object ID of
             each instance
-        :param ctx: [optional] a `LabelContext` instance that provides parameters
+        :param ctx: [optional] a `LabelContext` instance that provides parameters that control the rendering
+            of some labels (e.g. point labels)
         :return: tuple of (label_image, label_index_to_cls) or (label_image, label_index_to_cls, object_ids) where:
             label_image is a (H,W) or (H,W,N) array with dtype=int
             label_index_to_cls is a 1D array that gives the class index of each labels. If `multichannel_mask` is
                 False, the first entry at index 0 will have a value of 0 as it is the background label.
-                Class 0 is assumed to be background, objects whose class matches the first entry in
-                `label_classes` will have a class of 1.
             object_ids: a list containing the object ID for each label/instance (only present if return_object_ids
-                is True)
+                is True). If `multichannel_mask` is False, the first entry at index 0 will have a value of None as it
+                is the background label.
         """
         if label_classes is not None:
-            cls_to_index, _ = self._label_class_list_to_mapping(label_classes, 1)
+            cls_to_index_fn, _ = self._label_class_list_to_mapping_fn(label_classes, 1)
         else:
-            cls_to_index = None
+            cls_to_index_fn = None
 
         height, width = image_shape
 
@@ -1098,17 +1162,18 @@ class ImageLabels (object):
         if multichannel_mask:
             label_i = 0
             label_index_to_cls = []
+            object_ids = []
         else:
             label_i = 1
             label_index_to_cls = [0]
+            object_ids = [None]
 
-        object_ids = []
 
         for label in self.labels:
-            if cls_to_index is not None:
-                label_cls = cls_to_index.get(label.classification, None)
+            if cls_to_index_fn is not None:
+                label_cls = cls_to_index_fn(label.classification)
             else:
-                label_cls = 0
+                label_cls = 1
             if label_cls is not None:
                 mask = label.render_mask(width, height, fill, ctx=ctx)
                 if mask is not None:
@@ -1132,10 +1197,8 @@ class ImageLabels (object):
         else:
             return label_image, np.array(label_index_to_cls)
 
-
     def extract_label_images(self, image_2d, label_class_set=None, ctx=None):
-        """
-        Extract an image of each labelled entity from a given image.
+        """Extract an image of each labelled entity from a given image.
         The resulting image is the original image masked with an alpha channel that results from rendering the label
 
         :param image_2d: the image from which to extract images of labelled objects
@@ -1168,7 +1231,6 @@ class ImageLabels (object):
                     h = uy - ly
 
                     if w > 0 and h > 0:
-
                         mask = label.render_mask(w, h, fill=True, dx=float(-lx), dy=float(-ly), ctx=ctx)
                         if mask is not None and (mask > 0).any():
                             img_box = image_2d[ly:uy, lx:ux]
@@ -1181,7 +1243,6 @@ class ImageLabels (object):
                             label_images.append(object_img)
 
         return label_images
-
 
     def to_json(self):
         return [lab.to_json() for lab in self.labels]
@@ -1197,12 +1258,10 @@ class ImageLabels (object):
         else:
             raise ValueError('existing_json should be a list or a dict')
 
-
     def wrapped_json(self, image_filename, completed_tasks):
         return {'image_filename': image_filename,
                 'completed_tasks': completed_tasks,
                 'labels': self.to_json()}
-
 
     @classmethod
     def merge(cls, *image_labels):
@@ -1224,7 +1283,6 @@ class ImageLabels (object):
                 else:
                     used_ids.add(f_label.object_id)
         return ImageLabels(merged_labels, obj_table=obj_table)
-
 
     @staticmethod
     def from_json(label_data_js, id_prefix=None):
@@ -1254,7 +1312,6 @@ class ImageLabels (object):
         obj_table = ObjectTable(id_prefix=id_prefix)
         labs = [AbstractLabel.from_json(label, obj_table) for label in labels]
         return ImageLabels(labs, obj_table=obj_table)
-
 
     @staticmethod
     def from_file(f):

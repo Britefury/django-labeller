@@ -22,16 +22,15 @@
 #
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
-
-
 import json
+from abc import abstractmethod
 import io
 import math
 import itertools
 import pathlib
 import re
-from typing import Sequence, Mapping
-import collections
+from typing import Any, Optional, Union, Container, Sequence, Tuple, List, Generator
+from typing import Mapping, MutableMapping, Dict, Callable, IO
 import copy
 from deprecated import deprecated
 
@@ -42,7 +41,6 @@ import uuid
 from PIL import Image, ImageDraw
 
 from skimage.color import gray2rgb
-from skimage.util import pad
 from skimage.measure import find_contours
 
 # Try to import cv2
@@ -133,12 +131,16 @@ DEFAULT_CONFIG = {
 
 
 class AbstractLabelClass (object):
-    def to_json(self):
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+    @abstractmethod
+    def to_json(self) -> Any:
+        pass
 
+
+ColourTriple = Union[Tuple[int, int, int], List[int]]
 
 class LabelClass (AbstractLabelClass):
-    def __init__(self, name, human_name, colour=None, colours=None):
+    def __init__(self, name: str, human_name: str, colour: Optional[ColourTriple] = None,
+                 colours: Optional[Mapping[str, ColourTriple]] = None):
         """
         Label class constructor
         
@@ -150,6 +152,8 @@ class LabelClass (AbstractLabelClass):
         self.name = name
         self.human_name = human_name
         if colour is not None:
+            if colours is not None:
+                raise TypeError('only one of colour or colours should be provided, not both')
             if isinstance(colour, (tuple, list)):
                 colour = list(colour)
                 if len(colour) != 3:
@@ -169,13 +173,12 @@ class LabelClass (AbstractLabelClass):
 
         self.colours = colours
 
-
-    def to_json(self):
+    def to_json(self) -> Any:
         return {'name': self.name, 'human_name': self.human_name, 'colours': self.colours}
 
 
 class LabelClassGroup (AbstractLabelClass):
-    def __init__(self, human_name, classes):
+    def __init__(self, human_name: str, classes: List[LabelClass]):
         """
         Label class group constructor
 
@@ -185,21 +188,21 @@ class LabelClassGroup (AbstractLabelClass):
         self.group_name = human_name
         self.classes = classes
 
-
-    def to_json(self):
+    def to_json(self) -> Any:
         return {'group_name': self.group_name, 'group_classes': [cls.to_json() for cls in self.classes]}
 
 
-def label_class(name, human_name, rgb):
+def label_class(name: str, human_name: str, rgb: Tuple[int, int, int]) -> Any:
     return {'name': name,
             'human_name': human_name,
             'colour': rgb}
 
-def label_class_group(human_name, classes_json):
+def label_class_group(human_name: str, classes_json: List[Any]) -> Any:
     return {'group_name': human_name,
             'group_classes': classes_json}
 
-def image_descriptor(image_id, url=None, width=None, height=None):
+def image_descriptor(image_id: Any, url: Optional[Any] = None,
+                     width: Optional[int] = None, height: Optional[int] = None):
     return {'image_id': str(image_id),
             'img_url': str(url) if url is not None else None,
             'width': width,
@@ -209,33 +212,34 @@ def image_descriptor(image_id, url=None, width=None, height=None):
 class _AnnoControl (object):
     __control_type__ = None
 
-    def __init__(self, identifier):
+    def __init__(self, identifier: str):
         self.identifier = identifier
 
-    def to_json(self):
+    def to_json(self) -> Any:
         return dict(control=self.__control_type__, identifier=self.identifier)
 
 
-class _AnnoControlVis (object):
+class _AnnoControlVis (_AnnoControl):
     __control_type__ = None
 
-    def __init__(self, identifier, visibility_label_text=None):
-        self.identifier = identifier
+    def __init__(self, identifier: str, visibility_label_text: Optional[str] = None):
+        super(_AnnoControlVis, self).__init__(identifier)
         self.visibility_label_text = visibility_label_text
 
-    def to_json(self):
-        return dict(control=self.__control_type__, identifier=self.identifier,
-                    visibility_label_text=self.visibility_label_text)
+    def to_json(self) -> Any:
+        js = super(_AnnoControlVis, self).to_json()
+        js['visibility_label_text'] = self.visibility_label_text
+        return js
 
 
 class AnnoControlCheckbox (_AnnoControlVis):
     __control_type__ = 'checkbox'
 
-    def __init__(self, identifier, label_text, visibility_label_text=None):
+    def __init__(self, identifier: str, label_text: str, visibility_label_text: Optional[str] = None):
         super(AnnoControlCheckbox, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(AnnoControlCheckbox, self).to_json()
         js['label_text'] = self.label_text
         return js
@@ -244,13 +248,14 @@ class AnnoControlCheckbox (_AnnoControlVis):
 class AnnoControlRadioButtons (_AnnoControlVis):
     __control_type__ = 'radio'
 
-    def __init__(self, identifier, label_text, choices, label_on_own_line=False, visibility_label_text=None):
+    def __init__(self, identifier: str, label_text: str, choices: List[Dict[str, Any]],
+                 label_on_own_line: bool = False, visibility_label_text: Optional[str] = None):
         super(AnnoControlRadioButtons, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
         self.choices = choices
         self.label_on_own_line = label_on_own_line
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(AnnoControlRadioButtons, self).to_json()
         js['label_text'] = self.label_text
         js['choices'] = self.choices
@@ -258,47 +263,64 @@ class AnnoControlRadioButtons (_AnnoControlVis):
         return js
 
     @classmethod
-    def choice(cls, value, label_text, tooltip):
+    def choice(cls, value, label_text, tooltip) -> Dict[str, Any]:
         return dict(value=value, label_text=label_text, tooltip=tooltip)
 
 
 class AnnoControlPopupMenu (_AnnoControlVis):
     __control_type__ = 'popup_menu'
 
-    def __init__(self, identifier, label_text, groups, visibility_label_text=None):
+    def __init__(self, identifier: str, label_text: str, groups: List[Dict[str, Any]], visibility_label_text=None):
         super(AnnoControlPopupMenu, self).__init__(identifier, visibility_label_text=visibility_label_text)
         self.label_text = label_text
         self.groups = groups
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(AnnoControlPopupMenu, self).to_json()
         js['label_text'] = self.label_text
         js['groups'] = self.groups
         return js
 
     @classmethod
-    def group(cls, label_text, choices):
+    def group(cls, label_text, choices) -> Dict[str, Any]:
         return dict(label_text=label_text, choices=choices)
 
     @classmethod
-    def choice(cls, value, label_text, tooltip):
+    def choice(cls, value, label_text, tooltip) -> Dict[str, Any]:
         return dict(value=value, label_text=label_text, tooltip=tooltip)
 
 
-def _next_wrapped_array(xs):
+class AnnoControlText (_AnnoControl):
+    __control_type__ = 'text'
+
+    def __init__(self, identifier: str, label_text: str, multiline: bool = False):
+        super(AnnoControlText, self).__init__(identifier)
+        self.label_text = label_text
+        self.multiline = multiline
+
+    def to_json(self) -> Any:
+        js = super(AnnoControlText, self).to_json()
+        js['label_text'] = self.label_text
+        js['multiline'] = self.multiline
+        return js
+
+
+def _next_wrapped_array(xs: np.ndarray) -> np.ndarray:
     return np.append(xs[1:], xs[:1], axis=0)
 
-def _prev_wrapped_array(xs):
+
+def _prev_wrapped_array(xs: np.ndarray) -> np.ndarray:
     return np.append(xs[-1:], xs[:-1], axis=0)
 
-def _simplify_contour(cs):
+
+def _simplify_contour(cs: np.ndarray) -> Optional[np.ndarray]:
     degenerate_verts = (cs == _next_wrapped_array(cs)).all(axis=1)
     while degenerate_verts.any():
         cs = cs[~degenerate_verts,:]
         degenerate_verts = (cs == _next_wrapped_array(cs)).all(axis=1)
 
     if cs.shape[0] > 0:
-        # Degenerate eges
+        # Degenerate edges
         edges = (_next_wrapped_array(cs) - cs)
         edges = edges / np.sqrt((edges**2).sum(axis=1))[:,None]
         degenerate_edges = (_prev_wrapped_array(edges) * edges).sum(axis=1) > (1.0 - 1.0e-6)
@@ -312,21 +334,96 @@ def _simplify_contour(cs):
 _LABEL_CLASS_REGISTRY = {}
 
 
-def label_cls(cls):
+class ObjectTable:
+    def __init__(self, id_prefix: Optional[str], objects: Optional[Sequence[Any]] = None):
+        if id_prefix is None or id_prefix == '':
+            id_prefix = str(uuid.uuid4())
+        self._id_prefix = id_prefix
+        self._object_id_to_obj = {}
+        self._old_object_id_to_obj = {}
+        self._next_object_idx = 1
+
+        if objects is not None:
+            # Register objects with object IDs
+            for obj in objects:
+                self.register(obj)
+
+    def register(self, obj: Any) -> str:
+        obj_id = obj.object_id
+
+        if obj_id is None:
+            obj_id = '{}__{}'.format(self._id_prefix, self._next_object_idx)
+            self._next_object_idx += 1
+            obj.object_id = obj_id
+        elif isinstance(obj_id, int):
+            self._next_object_idx = max(self._next_object_idx, obj_id + 1)
+            obj_id = '{}__{}'.format(self._id_prefix, obj_id)
+            obj.object_id = obj_id
+
+        if obj_id in self._object_id_to_obj:
+            if self._object_id_to_obj[obj_id] is not obj:
+                raise ValueError('Duplicate object ID {}'.format(obj_id))
+        else:
+            self._object_id_to_obj[obj_id] = obj
+
+        return obj_id
+
+    def __getitem__(self, obj_id: Optional[str]) -> Optional[Any]:
+        if obj_id is None:
+            return None
+        else:
+            return self._object_id_to_obj[obj_id]
+
+    def get(self, obj_id: Optional[str], default: Optional[Any] = None) -> Optional[Any]:
+        if obj_id is None:
+            return None
+        else:
+            return self._object_id_to_obj.get(obj_id, default)
+
+    def _new_style_id(self, obj_id: Optional[Union[str, int]]) -> Optional[str]:
+        """
+        Convert object ID to new '<prefix_uuid>__<index>' style.
+        Object IDs used to be integers; if `obj_id` is an int, then convert it to the new style.
+
+        :param obj_id: [optional] object ID as either str (new style) or int (old style)
+        :return: new style object ID as str or None if `obj_id` is None
+        """
+        if obj_id is None:
+            return None
+        elif isinstance(obj_id, int):
+            return '{}__{}'.format(self._id_prefix, obj_id)
+        else:
+            return obj_id
+
+    def __contains__(self, obj_id: Optional[str]) -> bool:
+        return obj_id in self._object_id_to_obj
+
+
+class LabelContext:
+    def __init__(self, point_radius: float = 0.0):
+        self.point_radius = point_radius
+
+
+def label_cls(cls: Any) -> Any:
+    """Label class decorator
+
+    Registers a label class
+
+    Exmaple:
+    >>> @label_cls
+    ... class SomeLabel (AbstractLabel):
+    ...     __json_type_name__ = 'some'
+    """
     json_label_type = cls.__json_type_name__
     _LABEL_CLASS_REGISTRY[json_label_type] = cls
     return cls
 
 
-class LabelContext (object):
-    def __init__(self, point_radius=0.0):
-        self.point_radius = point_radius
-
-
 class AbstractLabel (object):
     __json_type_name__ = None
 
-    def __init__(self, object_id=None, classification=None, source=None, anno_data=None):
+    def __init__(self, object_id: Optional[str] = None, classification: Optional[str] = None,
+                 source: Optional[str] = None, anno_data: Optional[Dict[str, Any]] = None):
         """
         Constructor
 
@@ -344,37 +441,43 @@ class AbstractLabel (object):
         self.anno_data = anno_data
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Sequence['AbstractLabel']:
         return []
 
-    def flatten(self):
+    def flatten(self) -> Generator['AbstractLabel', None, None]:
         yield self
 
-    def fill_label_class_histogram(self, histogram):
+    def fill_label_class_histogram(self, histogram: MutableMapping[str, int]):
         histogram[self.classification] = histogram.get(self.classification, 0) + 1
 
-    def bounding_box(self, ctx=None):
-        raise NotImplementedError('Abstract')
+    @abstractmethod
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        pass
 
-    def _warp(self, xform_fn, object_table):
-        raise NotImplementedError('Abstract')
+    @abstractmethod
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> 'AbstractLabel':
+        pass
 
-    def warped(self, xform_fn, object_table=None, id_prefix=None):
+    def warped(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: Optional[ObjectTable] = None,
+               id_prefix: Optional[str] = None):
         if object_table is None:
             object_table = ObjectTable(id_prefix)
         w = self._warp(xform_fn, object_table)
         object_table.register(w)
         return w
 
-    def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
-        raise NotImplementedError('Abstract')
+    @abstractmethod
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
+        pass
 
-    def render_mask(self, width, height, fill, dx=0.0, dy=0.0, ctx=None):
+    def render_mask(self, width: int, height: int, fill: bool, dx: float = 0.0, dy: float = 0.0,
+                    ctx: Optional[LabelContext] = None):
         img = Image.new('L', (width, height), 0)
         self._render_mask(img, fill, dx, dy, ctx)
         return np.array(img)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         return dict(label_type=self.__json_type_name__,
                     object_id=self.object_id,
                     label_class=self.classification,
@@ -382,12 +485,12 @@ class AbstractLabel (object):
                     anno_data=self.anno_data)
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
-        raise NotImplementedError('Abstract')
-
+    @abstractmethod
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> 'AbstractLabel':
+        pass
 
     @staticmethod
-    def from_json(label_json, object_table):
+    def from_json(label_json: Any, object_table: ObjectTable) -> 'AbstractLabel':
         label_type = label_json['label_type']
         cls = _LABEL_CLASS_REGISTRY.get(label_type)
         if cls is None:
@@ -401,7 +504,8 @@ class AbstractLabel (object):
 class PointLabel (AbstractLabel):
     __json_type_name__ = 'point'
 
-    def __init__(self, position_xy, object_id=None, classification=None, source=None, anno_data=None):
+    def __init__(self, position_xy: np.ndarray, object_id: Optional[str] = None, classification: Optional[str] = None,
+                 source: Optional[str] = None, anno_data: Optional[Dict[str, Any]] = None):
         """
         Constructor
 
@@ -415,19 +519,16 @@ class PointLabel (AbstractLabel):
         super(PointLabel, self).__init__(object_id, classification, source, anno_data)
         self.position_xy = np.array(position_xy).astype(float)
 
-    @property
-    def dependencies(self):
-        return []
-
-    def bounding_box(self, ctx=None):
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         point_radius = ctx.point_radius if ctx is not None else 0.0
         return self.position_xy - point_radius, self.position_xy + point_radius
 
-    def _warp(self, xform_fn, object_table):
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
         warped_pos = xform_fn(self.position_xy[None, :])
         return PointLabel(warped_pos[0, :], self.object_id, self.classification, self.source, self.anno_data)
 
-    def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
         point_radius = ctx.point_radius if ctx is not None else 0.0
 
         x = self.position_xy[0] + dx
@@ -443,18 +544,18 @@ class PointLabel (AbstractLabel):
             else:
                 ImageDraw.Draw(img).ellipse(ellipse, outline=1, fill=0)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(PointLabel, self).to_json()
         js['position'] = dict(x=self.position_xy[0], y=self.position_xy[1])
         return js
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'PointLabel(object_id={}, classification={}, position_xy={})'.format(
             self.object_id, self.classification, self.position_xy.tolist()
         )
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
         pos_xy = np.array([label_json['position']['x'], label_json['position']['y']])
         return PointLabel(pos_xy, label_json.get('object_id'),
                           classification=label_json['label_class'],
@@ -481,19 +582,16 @@ class PolygonLabel (AbstractLabel):
         regions = [np.array(region).astype(float) for region in regions]
         self.regions = regions
 
-    @property
-    def dependencies(self):
-        return []
-
-    def bounding_box(self, ctx=None):
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         all_verts = np.concatenate(self.regions, axis=0)
         return all_verts.min(axis=0), all_verts.max(axis=0)
 
-    def _warp(self, xform_fn, object_table):
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
         warped_regions = [xform_fn(region) for region in self.regions]
         return PolygonLabel(warped_regions, self.object_id, self.classification, self.source, self.anno_data)
 
-    def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
         # Rendering helper function: create a binary mask for a given label
 
         # Polygonal label
@@ -531,22 +629,22 @@ class PolygonLabel (AbstractLabel):
                     ImageDraw.Draw(img).polygon(polygon, outline=1, fill=0)
 
     @staticmethod
-    def regions_to_json(regions):
+    def regions_to_json(regions) -> Any:
         return [[dict(x=float(region[i,0]), y=float(region[i,1])) for i in range(len(region))]
                          for region in regions]
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(PolygonLabel, self).to_json()
         js['regions'] = PolygonLabel.regions_to_json(self.regions)
         return js
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'PolygonLabel(object_id={}, classification={}, regions={})'.format(
             self.object_id, self.classification, self.regions
         )
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
         if 'vertices' in label_json:
             regions_json = [label_json['vertices']]
         else:
@@ -557,9 +655,8 @@ class PolygonLabel (AbstractLabel):
                             source=label_json.get('source'),
                             anno_data=label_json.get('anno_data'))
 
-
     @staticmethod
-    def mask_image_to_regions(mask):
+    def mask_image_to_regions(mask: np.ndarray) -> List[np.ndarray]:
         """
         Convert a mask label image to regions/contours that can be used as regions for a Polygonal label
 
@@ -576,17 +673,16 @@ class PolygonLabel (AbstractLabel):
 
             if ystop >= ystart+1 and xstop >= xstart+1:
                 mask_trim = mask[ystart:ystop, xstart:xstop]
-                mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
+                mask_trim = np.pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
                 cs = find_contours(mask_trim, 0.5)
                 for contour in cs:
                     simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
                     if simp is not None:
-                        contours.append([simp[:, ::-1]])
+                        contours.append(simp[:, ::-1])
         return contours
 
-
     @staticmethod
-    def mask_image_to_regions_cv(mask, sort_decreasing_area=True):
+    def mask_image_to_regions_cv(mask: np.ndarray, sort_decreasing_area: bool = True) -> List[np.ndarray]:
         """
         Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
         Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
@@ -642,19 +738,15 @@ class BoxLabel (AbstractLabel):
         self.centre_xy = np.array(centre_xy).astype(float)
         self.size_xy = np.array(size_xy).astype(float)
 
-    @property
-    def dependencies(self):
-        return []
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        return self.centre_xy - self.size_xy * 0.5, self.centre_xy + self.size_xy * 0.5
 
-    def bounding_box(self, ctx=None):
-        return self.centre_xy - self.size_xy, self.centre_xy + self.size_xy
-
-    def _warp(self, xform_fn, object_table):
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
         corners = np.array([
-            self.centre_xy + self.size_xy * -1,
-            self.centre_xy + self.size_xy * np.array([1, -1]),
-            self.centre_xy + self.size_xy,
-            self.centre_xy + self.size_xy * np.array([-1, 1]),
+            self.centre_xy + self.size_xy * -0.5,
+            self.centre_xy + self.size_xy * np.array([0.5, -0.5]),
+            self.centre_xy + self.size_xy * 0.5,
+            self.centre_xy + self.size_xy * np.array([-0.5, 0.5]),
         ])
         xf_corners = xform_fn(corners)
         lower = xf_corners.min(axis=0)
@@ -663,7 +755,8 @@ class BoxLabel (AbstractLabel):
         xf_size = upper - lower
         return BoxLabel(xf_centre, xf_size, self.object_id, self.classification, self.source, self.anno_data)
 
-    def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
         # Rendering helper function: create a binary mask for a given label
 
         centre = self.centre_xy + np.array([dx, dy])
@@ -671,23 +764,23 @@ class BoxLabel (AbstractLabel):
         upper = centre + self.size_xy * 0.5
 
         if fill:
-            ImageDraw.Draw(img).rectangle([lower, upper], outline=1, fill=1)
+            ImageDraw.Draw(img).rectangle([tuple(lower), tuple(upper)], outline=1, fill=1)
         else:
-            ImageDraw.Draw(img).rectangle([lower, upper], outline=1, fill=0)
+            ImageDraw.Draw(img).rectangle([tuple(lower), tuple(upper)], outline=1, fill=0)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(BoxLabel, self).to_json()
         js['centre'] = dict(x=self.centre_xy[0], y=self.centre_xy[1])
         js['size'] = dict(x=self.size_xy[0], y=self.size_xy[1])
         return js
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'BoxLabel(object_id={}, classification={}, centre_xy={}, size_xy={})'.format(
             self.object_id, self.classification, self.centre_xy.tolist(), self.size_xy.tolist()
         )
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
         centre = np.array([label_json['centre']['x'], label_json['centre']['y']])
         size = np.array([label_json['size']['x'], label_json['size']['y']])
         return BoxLabel(centre, size, label_json.get('object_id'),
@@ -715,13 +808,13 @@ class CompositeLabel (AbstractLabel):
         self.components = components
 
     @property
-    def dependencies(self):
+    def dependencies(self) -> Sequence[AbstractLabel]:
         return self.components
 
-    def bounding_box(self, ctx=None):
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         return None, None
 
-    def _warp(self, xform_fn, object_table):
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
         warped_components = []
         for comp in self.components:
             if comp.object_id in object_table:
@@ -731,22 +824,23 @@ class CompositeLabel (AbstractLabel):
             warped_components.append(warped_comp)
         return CompositeLabel(warped_components, self.object_id, self.classification, self.source, self.anno_data)
 
-    def render_mask(self, width, height, fill, dx=0.0, dy=0.0, ctx=None):
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
         return None
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(CompositeLabel, self).to_json()
         js['components'] = [component.object_id for component in self.components]
         return js
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'CompositeLabel(object_id={}, classification={}, ids(components)={}'.format(
             self.object_id, self.classification, [c.object_id for c in self.components]
         )
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
-        component_ids = [object_table.new_style_id(obj_id) for obj_id in label_json['components']]
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
+        component_ids = [object_table._new_style_id(obj_id) for obj_id in label_json['components']]
         components = [object_table.get(obj_id) for obj_id in component_ids]
         components = [comp for comp in components if comp is not None]
         return CompositeLabel(components, label_json.get('object_id'),
@@ -773,13 +867,13 @@ class GroupLabel (AbstractLabel):
         super(GroupLabel, self).__init__(object_id, classification, source, anno_data)
         self.component_labels = component_labels
 
-    def flatten(self):
+    def flatten(self) -> Generator[AbstractLabel, None, None]:
         for comp in self.component_labels:
             for f in comp.flatten():
                 yield f
         yield self
 
-    def bounding_box(self, ctx=None):
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         lowers, uppers = list(zip(*[comp.bounding_box(ctx) for comp in self.component_labels]))
         lowers = [x for x in lowers if x is not None]
         uppers = [x for x in uppers if x is not None]
@@ -788,26 +882,27 @@ class GroupLabel (AbstractLabel):
         else:
             return None, None
 
-    def _warp(self, xform_fn, object_table):
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
         comps = [comp.warped(xform_fn, object_table) for comp in self.component_labels]
         return GroupLabel(comps, self.object_id, self.classification, self.source, self.anno_data)
 
-    def _render_mask(self, img, fill, dx=0.0, dy=0.0, ctx=None):
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
         for label in self.component_labels:
             label._render_mask(img, fill, dx, dy, ctx)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = super(GroupLabel, self).to_json()
         js['component_models'] = [component.to_json() for component in self.component_labels]
         return js
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'GroupLabel(object_id={}, classification={}, component_labels={}'.format(
             self.object_id, self.classification, self.component_labels
         )
 
     @classmethod
-    def new_instance_from_json(cls, label_json, object_table):
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
         components = [AbstractLabel.from_json(comp, object_table)
                       for comp in label_json['component_models']]
         return GroupLabel(components, label_json.get('object_id'),
@@ -816,108 +911,57 @@ class GroupLabel (AbstractLabel):
                           anno_data=label_json.get('anno_data'))
 
 
+_ClassIndexMappingFunction = Callable[[str], Optional[int]]
+_ClassIndexMappingMap = Mapping[str, int]
+_ClassIndexMappingCls = Union[str, LabelClass, None]
+_ClassIndexMappingListEntry = Union[str, LabelClass, None, Sequence[_ClassIndexMappingCls]]
+_ClassIndexMappingList = Sequence[_ClassIndexMappingListEntry]
 
-class ObjectTable (object):
-    def __init__(self, id_prefix, objects=None):
-        if id_prefix is None or id_prefix == '':
-            id_prefix = str(uuid.uuid4())
-        self._id_prefix = id_prefix
-        self._object_id_to_obj = {}
-        self._old_object_id_to_obj = {}
-        self._next_object_idx = 1
+ClassIndexMapping = Union[_ClassIndexMappingFunction,
+                          _ClassIndexMappingMap,
+                          _ClassIndexMappingList]
 
-        if objects is not None:
-            # Register objects with object IDs
-            for obj in objects:
-                self.register(obj)
-
-    def register(self, obj):
-        obj_id = obj.object_id
-
-        if obj_id is None:
-            obj_id = '{}__{}'.format(self._id_prefix, self._next_object_idx)
-            self._next_object_idx += 1
-            obj.object_id = obj_id
-        elif isinstance(obj_id, int):
-            self._next_object_idx = max(self._next_object_idx, obj_id + 1)
-            obj_id = '{}__{}'.format(self._id_prefix, obj_id)
-            obj.object_id = obj_id
-
-        if obj_id in self._object_id_to_obj:
-            if self._object_id_to_obj[obj_id] is not obj:
-                raise ValueError('Duplicate object ID {}'.format(obj_id))
-        else:
-            self._object_id_to_obj[obj_id] = obj
-
-    def __getitem__(self, obj_id):
-        if obj_id is None:
-            return None
-        else:
-            return self._object_id_to_obj[obj_id]
-
-    def get(self, obj_id, default=None):
-        if obj_id is None:
-            return None
-        else:
-            return self._object_id_to_obj.get(obj_id, default)
-
-    def new_style_id(self, obj_id):
-        """
-        Convert object ID to new '<prefix_uuid>__<index>' style
-
-        :param obj_id:
-        :return:
-        """
-        if obj_id is None:
-            return None
-        elif isinstance(obj_id, int):
-            return '{}__{}'.format(self._id_prefix, obj_id)
-        else:
-            return obj_id
-
-    def __contains__(self, obj_id):
-        return obj_id in self._object_id_to_obj
-
-
-class ImageLabels (object):
+class ImageLabels:
     """
     Represents labels in vector format, stored in JSON form. Has methods for
     manipulating and rendering them.
 
     """
-    def __init__(self, labels, obj_table=None, id_prefix=None):
+    def __init__(self, labels: List[AbstractLabel], obj_table: Optional[ObjectTable] = None,
+                 id_prefix: Optional[str] = None):
         self.labels = labels
         if obj_table is None:
             obj_table = ObjectTable(id_prefix, list(self.flatten()))
         self._obj_table = obj_table
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.labels)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: Union[int, str, slice, Sequence[Union[str, int]]]) -> \
+            Union[AbstractLabel, 'ImageLabels']:
         if isinstance(item, int):
             return self.labels[item]
         elif isinstance(item, str):
             return self._obj_table[item]
         elif isinstance(item, slice):
             return self.retain(item)
-        elif isinstance(item, collections.Sequence):
+        elif isinstance(item, Sequence):
             return self.retain(item)
         else:
             raise TypeError('item should be an int, a str, a slice or a sequence, not a {}'.format(type(item)))
 
-    def flatten(self):
+    def flatten(self) -> Generator[AbstractLabel, None, None]:
         for lab in self.labels:
             for f in lab.flatten():
                 yield f
 
-    def label_class_histogram(self):
+    def label_class_histogram(self) -> Mapping[str, int]:
         histogram = {}
         for lab in self.labels:
             lab.fill_label_class_histogram(histogram)
         return histogram
 
-    def retain(self, items, id_prefix=None):
+    def retain(self, items: Union[slice, Sequence[Union[str, int]]], id_prefix: Optional[str] = None) -> 'ImageLabels':
         """
         Create a clone of the labels listed in `items`
 
@@ -942,7 +986,7 @@ class ImageLabels (object):
 
         return ImageLabels(retained_labels, obj_table=obj_table)
 
-    def warp(self, xform_fn):
+    def warp(self, xform_fn: Callable[[np.ndarray], np.ndarray]) -> 'ImageLabels':
         """
         Warp the labels given a warping function
 
@@ -956,7 +1000,8 @@ class ImageLabels (object):
         warped_labels = [lab.warped(xform_fn, warped_obj_table) for lab in self.labels]
         return ImageLabels(warped_labels, obj_table=warped_obj_table)
 
-    def _label_class_list_to_mapping_fn(self, label_classes, start_at=0):
+    def _label_class_list_to_mapping_fn(self, label_classes: ClassIndexMapping, start_at: int = 0) -> \
+            Tuple[Callable[[str], Optional[int]], int]:
         """
         Coerce `label_classes` to a tuple of a mapping function that maps label class name (string) to class index
         (or None to skip) and the number of classes.
@@ -964,7 +1009,7 @@ class ImageLabels (object):
         If `label_classes` is callable then use it as is. We do however invoke `label_classes` for the class
             of every label and take the maximum class index returned in order to determine the number of classes.
 
-        If `label_classes` is a dict, return its `get` method, along with the number of classes.
+        If `label_classes` is a mapping, return its `get` method, along with the number of classes.
 
         If `label_classes` is a list, then each entry should be a class (class name as a str or
             a `LabelClass` instance) or list of classes (str/LabelClass).
@@ -1015,7 +1060,8 @@ class ImageLabels (object):
             raise TypeError('label_classes must be a dict or a sequence. The sequence can contain LabelClass '
                             'instances, strings or nested sequences of the former')
 
-    def render_label_classes(self, label_classes, image_shape, multichannel_mask=False, fill=True, ctx=None):
+    def render_label_classes(self, label_classes: ClassIndexMapping, image_shape: Tuple[int, int],
+                             multichannel_mask: bool = False, fill: bool = True, ctx: Optional[LabelContext] = None):
         """Render label classes to a create a label class image suitable for use as a
         semantic segmentation ground truth image.
 
@@ -1079,8 +1125,9 @@ class ImageLabels (object):
 
         return label_image
 
-    def render_label_instances(self, label_classes, image_shape, multichannel_mask=False,
-                               fill=True, return_object_ids=False, ctx=None):
+    def render_label_instances(self, label_classes: Optional[ClassIndexMapping], image_shape: Tuple[int, int],
+                               multichannel_mask: bool = False, fill: bool = True,
+                               return_object_ids: bool = False, ctx: Optional[LabelContext] = None):
         """Render a label instance image suitable for use as an instance segmentation ground truth image.
         Can render either a label image or a multi-channel mask.
 
@@ -1108,7 +1155,7 @@ class ImageLabels (object):
         will have one channel that will be `True` for pixels covered by the label and `label_index_to_cls`
         will have the value `[5]`.
 
-        If `return_object_ids` is `True` then the unqiue object IDs (a UUID strong followed by underscores and
+        If `return_object_ids` is `True` then the unique object IDs (a UUID strong followed by underscores and
         an index) of the rendered labels will also be returned. The list of object IDs will follow the same form
         as `label_index_to_cls`; if `multichannel_mask` is `False` then the first entry that corresponds to the
         background will have an object ID of `None`, otherwise if `True` then the background will not have
@@ -1197,7 +1244,8 @@ class ImageLabels (object):
         else:
             return label_image, np.array(label_index_to_cls)
 
-    def extract_label_images(self, image_2d, label_class_set=None, ctx=None):
+    def extract_label_images(self, image_2d: np.ndarray, label_class_set: Optional[Container[str]]=None,
+                             ctx: Optional[LabelContext]=None):
         """Extract an image of each labelled entity from a given image.
         The resulting image is the original image masked with an alpha channel that results from rendering the label
 
@@ -1244,10 +1292,10 @@ class ImageLabels (object):
 
         return label_images
 
-    def to_json(self):
+    def to_json(self) -> Any:
         return [lab.to_json() for lab in self.labels]
 
-    def replace_json(self, existing_json):
+    def replace_json(self, existing_json: Any) -> Any:
         if isinstance(existing_json, dict):
             new_dict = {}
             new_dict.update(existing_json)
@@ -1258,13 +1306,13 @@ class ImageLabels (object):
         else:
             raise ValueError('existing_json should be a list or a dict')
 
-    def wrapped_json(self, image_filename, completed_tasks):
+    def wrapped_json(self, image_filename: str, completed_tasks: List[str]) -> Any:
         return {'image_filename': image_filename,
                 'completed_tasks': completed_tasks,
                 'labels': self.to_json()}
 
     @classmethod
-    def merge(cls, *image_labels):
+    def merge(cls, *image_labels: 'ImageLabels') -> 'ImageLabels':
         """
         Merge multiple `ImageLabel` label collections.
 
@@ -1285,7 +1333,7 @@ class ImageLabels (object):
         return ImageLabels(merged_labels, obj_table=obj_table)
 
     @staticmethod
-    def from_json(label_data_js, id_prefix=None):
+    def from_json(label_data_js: Any, id_prefix: Optional[str] = None) -> 'ImageLabels':
         """
         Load from labels in JSON format
 
@@ -1314,7 +1362,7 @@ class ImageLabels (object):
         return ImageLabels(labs, obj_table=obj_table)
 
     @staticmethod
-    def from_file(f):
+    def from_file(f: Union[str, pathlib.Path, IO]) -> 'ImageLabels':
         if isinstance(f, str):
             f = pathlib.Path(f).open('r')
         elif isinstance(f, pathlib.Path):
@@ -1325,10 +1373,11 @@ class ImageLabels (object):
             raise TypeError('f should be a path as a string or `pathlib.Path` or a file, not a {}'.format(type(f)))
         return ImageLabels.from_json(json.load(f))
 
-
-
     @classmethod
-    def from_contours(cls, label_contours, label_classes=None, sources=None, id_prefix=None):
+    def from_contours(cls, label_contours: Sequence[Sequence[np.ndarray]],
+                      label_classes: Optional[Union[str, Sequence[str]]] = None,
+                      sources: Optional[Union[str, Sequence[str]]] = None,
+                      id_prefix: Optional[str] = None) -> 'ImageLabels':
         """
         Convert a list of contours to an `ImageLabels` instance.
 
@@ -1362,7 +1411,7 @@ class ImageLabels (object):
 
 
     @staticmethod
-    def _get_label_meta(meta, label_i):
+    def _get_label_meta(meta: Optional[Union[str, Mapping, Sequence]], label_i) -> Optional[Any]:
         """
         Get label metadata from a metadata mapping:
         - if `meta` is None, will return `None`
@@ -1372,19 +1421,21 @@ class ImageLabels (object):
 
         :param meta: metadata mapping
         :param label_i: label index
-        :return: label metadatga
+        :return: label metadata
         """
         if meta is None or isinstance(meta, str):
             return meta
-        elif isinstance(meta, dict):
+        elif isinstance(meta, Mapping):
             return meta.get(label_i)
-        elif isinstance(meta, list):
+        elif isinstance(meta, Sequence):
             return meta[label_i]
         else:
             raise TypeError('should be None, str, dict or list, not a {}'.format(type(meta)))
 
     @classmethod
-    def from_label_image(cls, labels, label_classes=None, sources=None, return_label_indices=False):
+    def from_label_image(cls, labels: np.ndarray, label_classes: Optional[Union[str, Sequence[str]]] = None,
+                         sources: Optional[Union[str, Sequence[str]]] = None,
+                         return_label_indices: bool = False) -> Union['ImageLabels', Tuple['ImageLabels', List[int]]]:
         """
         Convert a integer label image to an `ImageLabels` instance.
 
@@ -1423,13 +1474,13 @@ class ImageLabels (object):
 
                 if ystop >= ystart+1 and xstop >= xstart+1:
                     mask_trim = lmask[ystart:ystop, xstart:xstop]
-                    mask_trim = pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
+                    mask_trim = np.pad(mask_trim, [(1,1), (1,1)], mode='constant').astype(np.float32)
                     cs = find_contours(mask_trim, 0.5)
                     regions = []
                     for contour in cs:
                         simp = _simplify_contour(contour + np.array((ystart, xstart)) - np.array([[1.0, 1.0]]))
                         if simp is not None:
-                            regions.append([simp])
+                            regions.append(simp)
                     contours.append(regions)
                     lcls.append(cls._get_label_meta(label_classes, i))
                     lsrc.append(cls._get_label_meta(sources, i))
@@ -1443,7 +1494,7 @@ class ImageLabels (object):
             return img_labels
 
     @staticmethod
-    def _contour_areas(contours):
+    def _contour_areas(contours: Sequence[np.ndarray]) -> np.ndarray:
         contour_areas = []
         for contour in contours:
             # Vectors from vertex 0 to all others
@@ -1454,8 +1505,11 @@ class ImageLabels (object):
         return np.array(contour_areas)
 
     @classmethod
-    def from_mask_images_cv(cls, masks, label_classes=None, sources=None, sort_decreasing_area=True,
-                            return_mask_indices=False):
+    def from_mask_images_cv(cls, masks: Sequence[np.ndarray],
+                            label_classes: Optional[Union[str, Sequence[str]]] = None,
+                            sources: Optional[Union[str, Sequence[str]]] = None, sort_decreasing_area: bool = True,
+                            return_mask_indices: bool = False) -> \
+            Union['ImageLabels', Tuple['ImageLabels', List[int]]]:
         """
         Convert labels represented as a sequence of mask images to an `ImageLabels` instance.
         Mask to contour conversion performed using OpenCV `findContours`, finding external contours only.
@@ -1478,9 +1532,9 @@ class ImageLabels (object):
         if cv2 is None:
             raise RuntimeError('OpenCV is not available!')
         if label_classes is not None and not isinstance(label_classes, (str, dict, list)):
-            raise TypeError('label_classes should be Nonr or a str, dict or list, not a {}'.format(type(label_classes)))
+            raise TypeError('label_classes should be None or a str, dict or list, not a {}'.format(type(label_classes)))
         if sources is not None and not isinstance(sources, (str, dict, list)):
-            raise TypeError('sources should be Nonr or a str, dict or list, not a {}'.format(type(sources)))
+            raise TypeError('sources should be None or a str, dict or list, not a {}'.format(type(sources)))
 
         mask_areas = []
         contours_classes_sources = []
@@ -1600,7 +1654,7 @@ def ensure_json_object_ids_have_prefix(labels_json, id_prefix, id_remapping=None
     Exmaple:
     >>> import uuid
     >>> id_prefix = str(uuid.uuid4())
-    >>> AbstractLabel.ensure_json_object_ids_have_prefix(labels_json, id_prefix)
+    >>> ensure_json_object_ids_have_prefix(labels_json, id_prefix)
 
     :param labels_json: labels in JSON form
     :param id_prefix: object ID prefix
@@ -1616,7 +1670,9 @@ def ensure_json_object_ids_have_prefix(labels_json, id_prefix, id_remapping=None
 
 
 class WrappedImageLabels:
-    def __init__(self, image_filename=None, completed_tasks=None, metadata=None, labels_json=None, labels=None):
+    def __init__(self, image_filename: Optional[str] = None, completed_tasks: Optional[Container[str]] = None,
+                 metadata: Optional[Dict] = None, labels_json: Optional[Any] = None,
+                 labels: Optional[ImageLabels] = None):
         """
         :param image_filename: the image filename as a string
         :param completed_tasks: a list of completed tasks
@@ -1639,19 +1695,19 @@ class WrappedImageLabels:
         self.__labels = labels
 
     @property
-    def labels(self):
+    def labels(self) -> ImageLabels:
         if self.__labels is None:
             self.__labels = ImageLabels.from_json(self.__labels_json)
             self.__labels_json = None
         return self.__labels
 
     @labels.setter
-    def labels(self, lab):
+    def labels(self, lab: ImageLabels):
         self.__labels = lab
         self.__labels_json = None
 
     @property
-    def labels_json(self):
+    def labels_json(self) -> Any:
         if self.__labels_json is not None:
             return self.__labels_json
         elif self.__labels is not None:
@@ -1660,12 +1716,12 @@ class WrappedImageLabels:
             raise RuntimeError
 
     @labels_json.setter
-    def labels_json(self, js):
+    def labels_json(self, js: Any):
         self.__labels_json = js
         self.__labels = None
 
     @property
-    def is_blank(self):
+    def is_blank(self) -> bool:
         """Determine if these wrapped labels are blank. If they are blank, then there is no data store, so
         e.g. a labels file can be deleted. A `WrappedLabelsInstance` is considered blank if no
         labels/annotations are defined and no tasks have been marked as completed.
@@ -1684,7 +1740,7 @@ class WrappedImageLabels:
 
         return True
 
-    def with_labels(self, labels):
+    def with_labels(self, labels: ImageLabels) -> 'WrappedImageLabels':
         """Create a new WrappedLabels instance, replacing the labels
 
         :param labels: replacement `ImageLabels` instance
@@ -1693,7 +1749,7 @@ class WrappedImageLabels:
         return WrappedImageLabels(image_filename=self.image_filename, completed_tasks=self.completed_tasks,
                                   metadata=self.metadata, labels=labels)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         js = self.metadata.copy()
         if self.image_filename is not None:
             js['image_filename'] = self.image_filename
@@ -1701,7 +1757,7 @@ class WrappedImageLabels:
                    'labels': self.labels_json})
         return js
 
-    def write_to_file(self, f):
+    def write_to_file(self, f: IO):
         """Write labels to file
 
         :param f: a file-like object, or a path as a `str` or `pathlib.File`
@@ -1717,7 +1773,7 @@ class WrappedImageLabels:
         json.dump(self.to_json(), f)
 
     @staticmethod
-    def from_json(js):
+    def from_json(js: Any) -> 'WrappedImageLabels':
         if isinstance(js, dict):
             metadata = js.copy()
             completed_tasks = []
@@ -1746,7 +1802,7 @@ class WrappedImageLabels:
                             'not a {0}'.format(type(js)))
 
     @staticmethod
-    def from_file(f):
+    def from_file(f: IO) -> 'WrappedImageLabels':
         if isinstance(f, str):
             f = pathlib.Path(f)
         if isinstance(f, pathlib.Path):
@@ -1772,9 +1828,11 @@ def PersistentLabelledImage(image_path, labels_path, readonly=False):
 
 
 @deprecated(reason='Please use labelled_image.LabelledImage.for_directory()')
-def _PersistentLabelledImage__for_directory(dir_path, image_filename_patterns=['*.png'], with_labels_only=False,
+def _PersistentLabelledImage__for_directory(dir_path, image_filename_patterns=None, with_labels_only=False,
                                             labels_dir=None, readonly=False):
     from image_labelling_tool.labelled_image import LabelledImage
+    if image_filename_patterns is None:
+        image_filename_patterns = ['*.png']
     return LabelledImage.for_directory(dir_path, image_filename_patterns, with_labels_only=with_labels_only,
                                        labels_dir=labels_dir, readonly=readonly)
 

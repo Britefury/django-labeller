@@ -45,16 +45,23 @@ var labelling_tool;
         function AnnotationControl(ctrl_json, on_change) {
             this.on_change = on_change;
             this.identifier = ctrl_json.identifier;
+            this.label = $("label[for='anno_ctrl_" + this.identifier + "']");
         }
-        AnnotationControl.prototype.update_from_value = function (value) {
-        };
-        AnnotationControl.prototype.update_from_anno_data = function (anno_data) {
-            if (anno_data !== undefined && anno_data !== null) {
-                var value = anno_data[this.identifier];
-                this.update_from_value(value);
+        AnnotationControl.prototype.update_from_value = function (value, active) {
+            if (active) {
+                this.label.removeClass('text-muted');
             }
             else {
-                this.update_from_value(undefined);
+                this.label.addClass('text-muted');
+            }
+        };
+        AnnotationControl.prototype.update_from_anno_data = function (anno_data, valid_selection) {
+            if (anno_data !== undefined && anno_data !== null) {
+                var value = anno_data[this.identifier];
+                this.update_from_value(value, valid_selection);
+            }
+            else {
+                this.update_from_value(undefined, valid_selection);
             }
         };
         AnnotationControl.from_json = function (ctrl_json, on_change) {
@@ -66,6 +73,9 @@ var labelling_tool;
             }
             else if (ctrl_json.control === 'popup_menu') {
                 return new AnnotationPopupMenu(ctrl_json, on_change);
+            }
+            else if (ctrl_json.control === 'text') {
+                return new AnnotationText(ctrl_json, on_change);
             }
             else {
                 throw "Unknown control type " + ctrl_json.control;
@@ -86,7 +96,8 @@ var labelling_tool;
             });
             return _this;
         }
-        AnnotationCheckbox.prototype.update_from_value = function (value) {
+        AnnotationCheckbox.prototype.update_from_value = function (value, active) {
+            _super.prototype.update_from_value.call(this, value, active);
             if (value !== undefined) {
                 this.checkbox.prop("checked", value);
                 this.checkbox.prop("indeterminate", false);
@@ -94,6 +105,12 @@ var labelling_tool;
             }
             else {
                 this.checkbox.prop("indeterminate", true);
+            }
+            if (active) {
+                this.checkbox.removeAttr('disabled');
+            }
+            else {
+                this.checkbox.attr('disabled', 'disabled');
             }
         };
         return AnnotationCheckbox;
@@ -118,13 +135,20 @@ var labelling_tool;
             }
             return _this;
         }
-        AnnotationRadio.prototype.update_from_value = function (value) {
+        AnnotationRadio.prototype.update_from_value = function (value, active) {
+            _super.prototype.update_from_value.call(this, value, active);
             for (var i = 0; i < this.radio_buttons.length; i++) {
                 if (this.ctrl_json.choices[i].value === value) {
                     this.radio_buttons[i].closest('label.btn').addClass('active');
                 }
                 else {
                     this.radio_buttons[i].closest('label.btn').removeClass('active');
+                }
+                if (active) {
+                    this.radio_buttons[i].removeAttr('disabled');
+                }
+                else {
+                    this.radio_buttons[i].attr('disabled', 'disabled');
                 }
             }
         };
@@ -137,19 +161,51 @@ var labelling_tool;
             var _this = _super.call(this, ctrl_json, on_change) || this;
             _this.ctrl_json = ctrl_json;
             var self = _this;
-            var menu_button = $('#anno_ctrl_' + _this.identifier);
-            _this.menu = new popup_menu.PopupMenu(menu_button, $('#anno_ctrl_contents_' + _this.identifier), { placement: 'bottom' });
-            menu_button.on('change', function (el, event) {
+            self.menu_button = $('#anno_ctrl_' + _this.identifier);
+            _this.menu = new popup_menu.PopupMenu(self.menu_button, $('#anno_ctrl_contents_' + _this.identifier), { placement: 'bottom' });
+            self.menu_button.on('change', function (el, event) {
                 self.on_change(self.identifier, event.value);
             });
             return _this;
         }
-        AnnotationPopupMenu.prototype.update_from_value = function (value) {
+        AnnotationPopupMenu.prototype.update_from_value = function (value, active) {
+            _super.prototype.update_from_value.call(this, value, active);
             this.menu.setChoice(value);
+            if (active) {
+                this.menu_button.removeAttr('disabled');
+            }
+            else {
+                this.menu_button.attr('disabled', 'disabled');
+            }
         };
         return AnnotationPopupMenu;
     }(AnnotationControl));
     labelling_tool.AnnotationPopupMenu = AnnotationPopupMenu;
+    var AnnotationText = /** @class */ (function (_super) {
+        __extends(AnnotationText, _super);
+        function AnnotationText(ctrl_json, on_change) {
+            var _this = _super.call(this, ctrl_json, on_change) || this;
+            _this.ctrl_json = ctrl_json;
+            var self = _this;
+            _this.text_entry = $('#anno_ctrl_' + _this.identifier);
+            _this.text_entry.on('input', function (event, ui) {
+                self.on_change(self.identifier, event.target.value);
+            });
+            return _this;
+        }
+        AnnotationText.prototype.update_from_value = function (value, active) {
+            _super.prototype.update_from_value.call(this, value, active);
+            this.text_entry.val(value);
+            if (active) {
+                this.text_entry.removeAttr('disabled');
+            }
+            else {
+                this.text_entry.attr('disabled', 'disabled');
+            }
+        };
+        return AnnotationText;
+    }(AnnotationControl));
+    labelling_tool.AnnotationText = AnnotationText;
     var AnnotationVisFilter = /** @class */ (function () {
         function AnnotationVisFilter(ctrl_json, on_change) {
             var self = this;

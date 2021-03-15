@@ -1463,13 +1463,13 @@ module labelling_tool {
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data);
+                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data, true);
                 }
             }
             else {
                 this._update_label_class_menu(null);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(null);
+                    this._anno_controls[i].update_from_anno_data(null, false);
                 }
             }
         };

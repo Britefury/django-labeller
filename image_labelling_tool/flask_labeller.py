@@ -323,29 +323,33 @@ def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_id
     # Labels may also have optional meta-data associated with them
     # You could use this for e.g. indicating if an object is fully visible, mostly visible or significantly obscured.
     # You could also indicate quality (e.g. blurriness, etc)
-    # There are three types of annotation. They have some common properties:
-    #   name: symbolic name (Python identifier)
-    #   label_text: label text in UI
-    #   visibility_label_text: [optional] if provided, label visibility can be filtered by this annotation value,
+    # There are four types of annotation. They have some common properties:
+    #   - name: symbolic name (Python identifier)
+    #   - label_text: label text in UI
+    #   Check boxes, radio buttons and popup menus also have:
+    #     - visibility_label_text: [optional] if provided, label visibility can be filtered by this annotation value,
     #       in which case a drop down will appear in the UI allowing the user to select a filter value
-    #       that will hide/show labels accordinly
+    #       that will hide/show labels accordingly
+    # Control types:
     # Check box (boolean value):
     #   `labelling_tool.AnnoControlCheckbox`; only the 3 common parameters listed above
     # Radio button (choice from a list):
     #   `labelling_tool.AnnoControlRadioButtons`; the 3 common parameters listed above and:
-    #       choices: list of `labelling_tool.AnnoControlRadioButtons.choice` that provide:
-    #           value: symbolic value name for choice
-    #           label_text: choice label text in UI
-    #           tooltip: extra information for user
-    #       label_on_own_line [optional]: if True, place the label and the buttons on a separate line in the UI
+    #       - choices: list of `labelling_tool.AnnoControlRadioButtons.choice` that provide:
+    #           - value: symbolic value name for choice
+    #           - tooltip: extra information for user
+    #       - label_on_own_line [optional]: if True, place the label and the buttons on a separate line in the UI
     # Popup menu (choice from a grouped list):
-    #   `labelling_tool.AnnoControlPopupMenu`; the 3 common parameters listed above and::
-    #       groups: list of groups `labelling_tool.AnnoControlPopupMenu.group`:
-    #           label_text: group label text in UI
-    #           choices: list of `labelling_tool.AnnoControlPopupMenu.choice` that provide:
-    #               value: symbolic value name for choice
-    #               label_text: choice label text in UI
-    #               tooltip: extra information for user
+    #   `labelling_tool.AnnoControlPopupMenu`; the 3 common parameters listed above and:
+    #       - groups: list of groups `labelling_tool.AnnoControlPopupMenu.group`:
+    #           - label_text: label text in UI
+    #           - choices: list of `labelling_tool.AnnoControlPopupMenu.choice` that provide:
+    #               - value: symbolic value name for choice
+    #               - label_text: choice label text in UI
+    #               - tooltip: extra information for user
+    # Text (free form plain text):
+    #   `labelling_tool.AnnoControlText`; only the 2 common parameters listed above and:
+    #       - multiline: boolean; if True a text area will be used, if False a single line text entry
     anno_controls = [
         labelling_tool.AnnoControlCheckbox('good_quality', 'Good quality',
                                            visibility_label_text='Filter by good quality'),
@@ -377,7 +381,8 @@ def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_id
                 labelling_tool.AnnoControlPopupMenu.choice(value='flowers', label_text='Flowers',
                                                            tooltip='Flowers'),
                 labelling_tool.AnnoControlPopupMenu.choice(value='ivy', label_text='Ivy', tooltip='Ivy')]),
-        ], visibility_label_text='Filter by material')
+        ], visibility_label_text='Filter by material'),
+        # labelling_tool.AnnoControlText('comment', 'Comment', multiline=False),
     ]
 
     image_pats = images_pat.split('|')

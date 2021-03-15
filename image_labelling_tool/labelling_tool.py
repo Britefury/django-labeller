@@ -567,7 +567,9 @@ class PointLabel (AbstractLabel):
 class PolygonLabel (AbstractLabel):
     __json_type_name__ = 'polygon'
 
-    def __init__(self, regions, object_id=None, classification=None, source=None, anno_data=None):
+    def __init__(self, regions: List[np.ndarray], object_id: Optional[str] = None,
+                 classification: Optional[str] = None, source: Optional[str] = None,
+                 anno_data: Optional[Dict[str, Any]] = None):
         """
         Constructor
 
@@ -722,7 +724,9 @@ class PolygonLabel (AbstractLabel):
 class BoxLabel (AbstractLabel):
     __json_type_name__ = 'box'
 
-    def __init__(self, centre_xy, size_xy, object_id=None, classification=None, source=None, anno_data=None):
+    def __init__(self, centre_xy: np.ndarray, size_xy: np.ndarray, object_id: Optional[str] = None,
+                 classification: Optional[str] = None, source: Optional[str] = None,
+                 anno_data: Optional[Dict[str, Any]] = None):
         """
         Constructor
 

@@ -1,4 +1,4 @@
-from typing import Union
+import math
 import numpy as np
 from PIL import Image, ImageDraw
 from unittest import TestCase
@@ -27,16 +27,18 @@ class AbstractLabelTestCase(TestCase):
         a = labelling_tool.AbstractLabel()
         self.assertEqual(list(a.flatten()), [a])
 
-    def test_fill_label_class_histogram(self):
+    def test_accumulate_label_class_histogram(self):
         a = labelling_tool.AbstractLabel()
         b = labelling_tool.AbstractLabel(object_id='abc_123', classification='cls_a',
                                          source='manual', anno_data={'purpose': 'test'})
         h1 = {}
-        a.fill_label_class_histogram(h1)
+        a.accumulate_label_class_histogram(h1)
         self.assertEqual(h1, {None: 1})
         h2 = {}
-        b.fill_label_class_histogram(h2)
+        b.accumulate_label_class_histogram(h2)
         self.assertEqual(h2, {'cls_a': 1})
+        b.accumulate_label_class_histogram(h2)
+        self.assertEqual(h2, {'cls_a': 2})
 
 
 class PointLabelTestCase(TestCase):
@@ -372,10 +374,10 @@ class BoxLabelTestCase(TestCase):
                          np.array(tgt_a_outline)).all())
 
         # Outlined, offset
-        tgt_b_filled_dxy = Image.new('L', (50, 50), 0)
-        ImageDraw.Draw(tgt_b_filled_dxy).rectangle([(16.0, 14.0), (24.0, 26.0)], outline=1, fill=0)
+        tgt_b_outline_dxy = Image.new('L', (50, 50), 0)
+        ImageDraw.Draw(tgt_b_outline_dxy).rectangle([(16.0, 14.0), (24.0, 26.0)], outline=1, fill=0)
         self.assertTrue((a.render_mask(50, 50, fill=False, dx=5.0, dy=-5.0, ctx=None) ==
-                         np.array(tgt_b_filled_dxy)).all())
+                         np.array(tgt_b_outline_dxy)).all())
 
         # Filled
         tgt_a_filled = Image.new('L', (50, 50), 0)
@@ -407,6 +409,187 @@ class BoxLabelTestCase(TestCase):
         self.assertTrue(isinstance(a, labelling_tool.BoxLabel))
         self.assertTrue((a.centre_xy == np.array([15.0, 25.0])).all())
         self.assertTrue((a.size_xy == np.array([8.0, 12.0])).all())
+        self.assertEqual(a.object_id, 'abc_123')
+        self.assertEqual(a.classification, 'cls_a')
+        self.assertEqual(a.source, 'manual')
+        self.assertEqual(a.anno_data, {'purpose': 'test'})
+
+
+class OrientedEllipseLabelTestCase(TestCase):
+    def test_constructor(self):
+        a = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=10.0, radius2=3.0, orientation_rad=math.radians(30.0),
+            object_id='abc_123', classification='cls_a', source='manual', anno_data={'purpose': 'test'})
+        self.assertTrue((a.centre_xy == np.array([15.0, 25.0])).all())
+        self.assertEqual(a.radius1, 10.0)
+        self.assertEqual(a.radius2, 3.0)
+        self.assertEqual(a.orientation_rad, math.radians(30.0))
+        self.assertEqual(a.object_id, 'abc_123')
+        self.assertEqual(a.classification, 'cls_a')
+        self.assertEqual(a.source, 'manual')
+        self.assertEqual(a.anno_data, {'purpose': 'test'})
+
+    def test_bounding_box(self):
+        # Ellipse with no orientation
+        a = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=0.0)
+        self.assertTrue(np.allclose(a.bounding_box()[0], np.array([11.0, 19.0])))
+        self.assertTrue(np.allclose(a.bounding_box()[1], np.array([19.0, 31.0])))
+        # 90 degrees orientation
+        b = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=math.radians(90.0))
+        self.assertTrue(np.allclose(b.bounding_box()[0], np.array([9.0, 21.0])))
+        self.assertTrue(np.allclose(b.bounding_box()[1], np.array([21.0, 29.0])))
+        # 45 degrees orientation
+        c = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=math.radians(45.0))
+        self.assertTrue(np.allclose(c.bounding_box()[0], np.array([9.900980486407214, 19.900980486407214])))
+        self.assertTrue(np.allclose(c.bounding_box()[1], np.array([20.099019513592786, 30.099019513592786])))
+        # 30 degrees orientation
+        d = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=math.radians(30.0))
+        self.assertTrue(np.allclose(d.bounding_box()[0], np.array([10.41742430504416, 19.432235637169978])))
+        self.assertTrue(np.allclose(d.bounding_box()[1], np.array([19.58257569495584, 30.567764362830022])))
+
+    def test_warped(self):
+        a = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=0.0)
+
+        a_7 = a.warped(lambda p_xy: p_xy + 7.0)
+        self.assertTrue(np.allclose(a_7.centre_xy, np.array([22.0, 32.0])))
+        self.assertTrue(np.allclose(a_7.radius1, 4.0 ))
+        self.assertTrue(np.allclose(a_7.radius2, 6.0 ))
+        self.assertTrue(np.allclose(a_7.orientation_rad, 0.0))
+
+        # Rotation matrix
+        theta = np.radians(20.0)
+        c = np.cos(theta)
+        s = np.sin(theta)
+        r = np.array([[c, -s],
+                      [s, c]])
+        a_r = a.warped(lambda p_xy: (r @ p_xy.T).T)
+        self.assertTrue(np.allclose(a_r.centre_xy, r @ np.array([15.0, 25.0])))
+        self.assertTrue(np.allclose(a_r.radius1, 4.0))
+        self.assertTrue(np.allclose(a_r.radius2, 6.0))
+        self.assertTrue(np.allclose(a_r.orientation_rad, math.radians(20.0)))
+
+    def test_render_mask(self):
+        def draw_polygon_image(verts_xy, outline, fill, image_size):
+            img = Image.new('L', image_size, 0)
+            xy = [(v[0], v[1]) for v in verts_xy]
+            ImageDraw.Draw(img).polygon(xy, outline=outline, fill=fill)
+            return img
+
+        a = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=0.0)
+
+        # 38 vertices for
+        n_verts = 38
+        thetas = np.linspace(0.0, math.pi * 2, n_verts + 1)[:-1]
+        # Axis aligned verts, centred on origin
+        aa_verts_xy = np.stack([np.cos(thetas) * 4.0, np.sin(thetas) * 6.0], axis=1)
+
+        # Outlined
+        tgt_a_outline = draw_polygon_image(aa_verts_xy + np.array([15.0, 25.0]),
+                                           outline=1, fill=0, image_size=(50,50))
+        self.assertTrue((a.render_mask(50, 50, fill=False, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_a_outline)).all())
+
+        # Outlined, offset
+        tgt_a_outline_dxy = draw_polygon_image(aa_verts_xy + np.array([20.0, 20.0]),
+                                               outline=1, fill=0, image_size=(50,50))
+        self.assertTrue((a.render_mask(50, 50, fill=False, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_a_outline_dxy)).all())
+
+        # Filled
+        tgt_a_filled = draw_polygon_image(aa_verts_xy + np.array([15.0, 25.0]),
+                                          outline=1, fill=1, image_size=(50,50))
+        self.assertTrue((a.render_mask(50, 50, fill=True, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_a_filled)).all())
+
+        # Filled, offset
+        tgt_b_filled_dxy = draw_polygon_image(aa_verts_xy + np.array([20.0, 20.0]),
+                                              outline=1, fill=1, image_size=(50,50))
+        self.assertTrue((a.render_mask(50, 50, fill=True, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_b_filled_dxy)).all())
+
+        # With orientation
+        b = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=4.0, radius2=6.0, orientation_rad=math.radians(25.0))
+
+        rot_theta = np.radians(25.0)
+        c = np.cos(rot_theta)
+        s = np.sin(rot_theta)
+        r = np.array([[c, -s],
+                      [s, c]])
+
+        # Outlined
+        tgt_b_outline = draw_polygon_image((r @ aa_verts_xy.T).T + np.array([15.0, 25.0]),
+                                           outline=1, fill=0, image_size=(50,50))
+        self.assertTrue((b.render_mask(50, 50, fill=False, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_b_outline)).all())
+
+        # Outlined, offset
+        tgt_b_outline_dxy = draw_polygon_image((r @ aa_verts_xy.T).T + np.array([20.0, 20.0]),
+                                               outline=1, fill=0, image_size=(50,50))
+        self.assertTrue((b.render_mask(50, 50, fill=False, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_b_outline_dxy)).all())
+
+        # Filled
+        tgt_b_filled = draw_polygon_image((r @ aa_verts_xy.T).T + np.array([15.0, 25.0]),
+                                          outline=1, fill=1, image_size=(50,50))
+        self.assertTrue((b.render_mask(50, 50, fill=True, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_b_filled)).all())
+
+        # Filled, offset
+        tgt_b_filled_dxy = draw_polygon_image((r @ aa_verts_xy.T).T + np.array([20.0, 20.0]),
+                                              outline=1, fill=1, image_size=(50,50))
+        self.assertTrue((b.render_mask(50, 50, fill=True, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_b_filled_dxy)).all())
+
+    def test_uv_points_to_params(self):
+        a_cen_xy, a_rad1, a_rad2, a_ori = labelling_tool.OrientedEllipseLabel.uv_points_to_params(
+            np.array([[5.0, 5.0], [15.0, 15.0]]), np.array([12.0, 8.0]))
+        self.assertTrue(np.allclose(a_cen_xy, np.array([10.0, 10.0])))
+        self.assertTrue(np.allclose(a_rad1, 5.0 * math.sqrt(2.0)))
+        self.assertTrue(np.allclose(a_rad2, 2.0 * math.sqrt(2.0)))
+        self.assertTrue(np.allclose(a_ori, np.radians(45.0)))
+
+    def test_to_json(self):
+        a = labelling_tool.OrientedEllipseLabel(
+            centre_xy=np.array([15.0, 25.0]), radius1=10.0, radius2=3.0, orientation_rad=math.radians(30.0),
+            object_id='abc_123', classification='cls_a', source='manual', anno_data={'purpose': 'test'})
+
+        self.assertEqual(a.to_json(),
+                         dict(label_type='oriented_ellipse', centre=dict(x=15.0, y=25.0), radius1=10.0,
+                              radius2=3.0, orientation_radians=math.radians(30.0),
+                              object_id='abc_123', label_class='cls_a', source='manual',
+                              anno_data={'purpose': 'test'}))
+
+    def test_from_uv_points(self):
+        a = labelling_tool.OrientedEllipseLabel.new_instance_from_uv_points(
+            np.array([[5.0, 5.0], [15.0, 15.0]]), np.array([12.0, 8.0]),
+            object_id='abc_123', classification='cls_a', source='manual', anno_data={'purpose': 'test'})
+        self.assertTrue(np.allclose(a.centre_xy, np.array([10.0, 10.0])))
+        self.assertTrue(np.allclose(a.radius1, 5.0 * math.sqrt(2.0)))
+        self.assertTrue(np.allclose(a.radius2, 2.0 * math.sqrt(2.0)))
+        self.assertTrue(np.allclose(a.orientation_rad, np.radians(45.0)))
+        self.assertEqual(a.object_id, 'abc_123')
+        self.assertEqual(a.classification, 'cls_a')
+        self.assertEqual(a.source, 'manual')
+        self.assertEqual(a.anno_data, {'purpose': 'test'})
+
+    def test_from_json(self):
+        obj_tab = labelling_tool.ObjectTable('abc')
+        js_a = dict(label_type='oriented_ellipse', centre=dict(x=15.0, y=25.0), radius1=10.0,
+                    radius2=3.0, orientation_radians=math.radians(30.0),
+                    object_id='abc_123', label_class='cls_a', source='manual', anno_data={'purpose': 'test'})
+        a = labelling_tool.AbstractLabel.from_json(js_a, obj_tab)
+        self.assertTrue(isinstance(a, labelling_tool.OrientedEllipseLabel))
+        self.assertTrue((a.centre_xy == np.array([15.0, 25.0])).all())
+        self.assertEqual(a.radius1, 10.0)
+        self.assertEqual(a.radius2, 3.0)
+        self.assertEqual(a.orientation_rad, math.radians(30.0))
         self.assertEqual(a.object_id, 'abc_123')
         self.assertEqual(a.classification, 'cls_a')
         self.assertEqual(a.source, 'manual')

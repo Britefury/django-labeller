@@ -442,16 +442,41 @@ class AbstractLabel (object):
 
     @property
     def dependencies(self) -> Sequence['AbstractLabel']:
+        """Get a sequence of labels that `self` depends on
+
+        :return: a sequence of label instances
+        """
         return []
 
     def flatten(self) -> Generator['AbstractLabel', None, None]:
+        """Get an iterator that yields a sequence of labels within this subtree, e.g. flattens groups
+
+        :return: an iterator that yields label instances
+        """
         yield self
 
-    def fill_label_class_histogram(self, histogram: MutableMapping[str, int]):
+    def accumulate_label_class_histogram(self, histogram: MutableMapping[str, int]):
+        """Accumulate a histogram of label classifications.
+        Increments the count in `histogram` associated with the classification of this label.
+
+        If `histogram` has no entry for the classification of this label, one will be created, e.g.:
+        >>> label = AbstractLabel(classification='x')
+        >>> hist = {}
+        >>> label.accumulate_label_class_histogram(hist)
+        >>> assert list(hist.keys()) == ['x']
+        >>> assert hist['x'] == 1
+
+        :param histogram: the histogram as a mapping, e.g. a dictionary
+        """
         histogram[self.classification] = histogram.get(self.classification, 0) + 1
 
     @abstractmethod
     def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """Get an axis-aligned bounding box that surrounds self
+
+        :param ctx: some context information that provides e.g. the size that a point label should occupy
+        :return: bounding box as a tuple of `(min_xy, max_xy)` where `min_xy` and `max_xy` are `[x, y]` NumPy arrays
+        """
         pass
 
     @abstractmethod
@@ -794,6 +819,132 @@ class BoxLabel (AbstractLabel):
 
 
 @label_cls
+class OrientedEllipseLabel (AbstractLabel):
+    __json_type_name__ = 'oriented_ellipse'
+
+    def __init__(self, centre_xy: np.ndarray, radius1: float, radius2: float, orientation_rad: float,
+                 object_id: Optional[str] = None,
+                 classification: Optional[str] = None, source: Optional[str] = None,
+                 anno_data: Optional[Dict[str, Any]] = None):
+        """
+        Constructor
+
+        :param centre_xy: centre of box as a (2,) NumPy array providing the x and y co-ordinates
+        :param radius1: radius in orientation axis (X-axis rotated counter-clockwise by `orientation_rad`)
+        :param radius2: radius in axis perpendicular to orientation axis
+        :param orientation_rad: orientation/rotation measured in radians counter-clockwise from positive x-axis
+        :param object_id: a unique integer object ID or None
+        :param classification: a str giving the label's ground truth classification
+        :param source: [optional] a str stating how the label was created
+            (e.g. 'manual', 'auto:dextr', 'auto:maskrcnn', etc)
+        :param anno_data: [optional] a dict mapping field names to values
+        """
+        super(OrientedEllipseLabel, self).__init__(object_id, classification, source, anno_data)
+        self.centre_xy = np.array(centre_xy).astype(float)
+        self.radius1 = radius1
+        self.radius2 = radius2
+        self.orientation_rad = orientation_rad
+
+    def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        # The solution to this problem was obtained from here:
+        # https://stackoverflow.com/questions/87734/how-do-you-calculate-the-axis-aligned-bounding-box-of-an-ellipse
+        # https://gist.github.com/smidm/b398312a13f60c24449a2c7533877dc0
+        tan_orient = math.tan(self.orientation_rad)
+        s0 = math.atan(-self.radius2 * tan_orient / self.radius1)
+        s1 = s0 + math.pi
+        if tan_orient != 0.0:
+            t0 = math.atan((self.radius2 / tan_orient) / self.radius1)
+        else:
+            t0 = math.pi * 0.5
+        t1 = t0 + math.pi
+        max_x, min_x = [self.centre_xy[0] + self.radius1 * math.cos(s) * math.cos(self.orientation_rad) -
+                        self.radius2 * math.sin(s) * math.sin(self.orientation_rad) for s in [s0, s1]]
+        max_y, min_y = [self.centre_xy[1] + self.radius2 * math.sin(s) * math.cos(self.orientation_rad) +
+                        self.radius1 * math.cos(s) * math.sin(self.orientation_rad) for s in [t0, t1]]
+        return np.array([min_x, min_y]), np.array([max_x, max_y])
+
+    def _warp(self, xform_fn: Callable[[np.ndarray], np.ndarray], object_table: ObjectTable) -> AbstractLabel:
+        u_xy = np.array([math.cos(self.orientation_rad), math.sin(self.orientation_rad)])
+        v_xy = np.array([-math.sin(self.orientation_rad), math.cos(self.orientation_rad)])
+        u_points_xy = self.centre_xy[None, :] + u_xy[None, :] * self.radius1 * np.array([-1.0, 1.0])[:, None]
+        v_point_xy = self.centre_xy + v_xy * self.radius2
+        uv = np.append(u_points_xy, v_point_xy[None, :], axis=0)
+        uv = xform_fn(uv)
+        return OrientedEllipseLabel.new_instance_from_uv_points(
+            uv[0:2], uv[2], self.object_id, self.classification, self.source, self.anno_data)
+
+    def _render_mask(self, img: Image, fill: bool, dx: float=0.0, dy: float=0.0,
+                     ctx: Optional[LabelContext] = None):
+        # We will draw it as a polygon. We want the vertices to be space at most 1 pixel apart, so take
+        # the maximum radius and compute the circumference of a circle of that radius and round
+        n_thetas = int(round(2.0 * math.pi * max(self.radius1, self.radius2)))
+        thetas = np.linspace(0.0, 2.0 * math.pi, n_thetas + 1)[:-1]
+        vx = self.centre_xy[0] + dx + self.radius1 * np.cos(thetas) * math.cos(self.orientation_rad) - \
+                                      self.radius2 * np.sin(thetas) * math.sin(self.orientation_rad)
+        vy = self.centre_xy[1] + dy + self.radius2 * np.sin(thetas) * math.cos(self.orientation_rad) + \
+                                      self.radius1 * np.cos(thetas) * math.sin(self.orientation_rad)
+        polygon = list(zip(vx, vy))
+        ImageDraw.Draw(img).polygon(polygon, outline=1, fill=(1 if fill else 0))
+
+    def to_json(self) -> Any:
+        js = super(OrientedEllipseLabel, self).to_json()
+        js['centre'] = dict(x=self.centre_xy[0], y=self.centre_xy[1])
+        js['radius1'] = self.radius1
+        js['radius2'] = self.radius2
+        js['orientation_radians'] = self.orientation_rad
+        return js
+
+    def __str__(self) -> str:
+        return 'OrientedEllipseLabel(object_id={}, classification={}, centre_xy={}, radius1={}, radius2={}, ' \
+               'orientation={})'.format(self.object_id, self.classification, self.centre_xy.tolist(), self.radius1,
+                                        self.radius2, self.orientation_rad)
+
+    @classmethod
+    def uv_points_to_params(cls, u_points_xy: np.ndarray, v_point_xy: np.ndarray) -> \
+                Tuple[np.ndarray, float, float, float]:
+        """Compute oriented ellipse parameters from three points; two end points that defines the U-axis that
+        provides the orientation and whose distance apart is twice `radius1` and a 3rd point whose distance
+        from the U-axis is the second radius.
+
+        This is how the client-side Javascript tool constructs the ellipse from mouse clicks.
+
+        :param u_points_xy: end points defining the U-axis as a `(2, [x, y])` NumPy array
+        :param v_point_xy: 3rd point as a `[x, y]` NumPy array
+        :return: (centre_xy, radius1, radius2, orientation) where `centre_xy` is a `[x, y]` NumPy array,
+            `radius1` and `radius2` are the radii in the U-axis and perpendicular V-axis and `orientation`
+            is the orientation of the U-axis measured in radians, counter-clockwise from the positive X-axis
+        """
+        u = u_points_xy[1] - u_points_xy[0]
+        centre_xy = (u_points_xy[0] + u_points_xy[1]) * 0.5
+        radius1_x2 = np.sqrt(u @ u)
+        radius1 = radius1_x2 * 0.5
+        orientation = math.atan2(float(u[1]), float(u[0]))
+        u_nrm = u / radius1_x2
+        n = np.array([u_nrm[1], -u_nrm[0]])
+        d_origin_u = n @ u_points_xy[0]
+        d_origin_v = n @ v_point_xy
+        radius2 = abs(d_origin_v - d_origin_u)
+        return centre_xy, radius1, radius2, orientation
+
+    @classmethod
+    def new_instance_from_uv_points(cls, u_points_xy: np.ndarray, v_point_xy: np.ndarray,
+                                    object_id: Optional[str] = None,
+                                    classification: Optional[str] = None, source: Optional[str] = None,
+                                    anno_data: Optional[Dict[str, Any]] = None) -> 'OrientedEllipseLabel':
+        centre_xy, radius1, radius2, orientation = cls.uv_points_to_params(u_points_xy, v_point_xy)
+        return OrientedEllipseLabel(centre_xy, radius1, radius2, orientation, object_id, classification, source,
+                                    anno_data)
+
+    @classmethod
+    def new_instance_from_json(cls, label_json: Any, object_table: ObjectTable) -> AbstractLabel:
+        centre = np.array([label_json['centre']['x'], label_json['centre']['y']])
+        return OrientedEllipseLabel(
+            centre, label_json['radius1'], label_json['radius2'], label_json['orientation_radians'],
+            label_json.get('object_id'), classification=label_json['label_class'], source=label_json.get('source'),
+            anno_data=label_json.get('anno_data'))
+
+
+@label_cls
 class CompositeLabel (AbstractLabel):
     __json_type_name__ = 'composite'
 
@@ -962,7 +1113,7 @@ class ImageLabels:
     def label_class_histogram(self) -> Mapping[str, int]:
         histogram = {}
         for lab in self.labels:
-            lab.fill_label_class_histogram(histogram)
+            lab.accumulate_label_class_histogram(histogram)
         return histogram
 
     def retain(self, items: Union[slice, Sequence[Union[str, int]]], id_prefix: Optional[str] = None) -> 'ImageLabels':

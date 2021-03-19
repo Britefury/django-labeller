@@ -307,8 +307,8 @@ def run_app(dextr_weights, enable_firebug, use_http_memory_cache):
             # This is very useful if the client-side Javascript code is being developed
             # as otherwise chromium's cache will often store old versions of the code that
             # will hamper debugging and deveopment
-            if use_memory_cache:
-                page.profile().setHttpCacheType(QtWebEngineWidgets.QWebEngineProfile.MemoryHttpCache)
+            if use_http_memory_cache:
+                view.page().profile().setHttpCacheType(QtWebEngineWidgets.QWebEngineProfile.MemoryHttpCache)
 
             # Attach the labeller to the web engine view
             lbl.attach_to_web_engine_view(view)

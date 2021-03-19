@@ -1957,7 +1957,7 @@ class WrappedImageLabels:
                             'not a {0}'.format(type(js)))
 
     @staticmethod
-    def from_file(f: IO) -> 'WrappedImageLabels':
+    def from_file(f: Union[str, pathlib.Path, IO]) -> 'WrappedImageLabels':
         if isinstance(f, str):
             f = pathlib.Path(f)
         if isinstance(f, pathlib.Path):

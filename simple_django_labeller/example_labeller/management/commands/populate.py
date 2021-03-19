@@ -1,4 +1,7 @@
-import os, mimetypes, json, datetime
+import os
+import mimetypes
+import json
+import datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.core.files import File
 from django.db import transaction
@@ -31,22 +34,14 @@ class Command(BaseCommand):
             for image_path, labels_path in image_and_label_files:
                 if labels_path is not None:
                     self.stdout.write('Adding image {} with labels from {}'.format(image_path, labels_path))
-                    wrapped_labels = json.load(open(labels_path, 'r'))
-                    labels, completed_tasks = labelling_tool.PersistentLabelledImage._unwrap_labels(
-                        wrapped_labels)
-
-                    if isinstance(completed_tasks, list):
-                        pass
-                    elif isinstance(completed_tasks, bool):
-                        completed_tasks = ['finished'] if completed_tasks else []
-                    else:
-                        completed_tasks = []
+                    wrapped_labels = labelling_tool.WrappedImageLabels.from_file(labels_path)
+                    completed_tasks = wrapped_labels.completed_tasks
 
                     # Convert task names to instances
                     tasks = list(lt_models.LabellingTask.objects.filter(name__in=completed_tasks).distinct())
 
                     labels_model = lt_models.Labels(
-                        labels_json_str=json.dumps(labels),
+                        labels_json_str=json.dumps(wrapped_labels.labels_json),
                         creation_date=datetime.date.today())
                     labels_model.save()
                     if len(tasks) > 0:

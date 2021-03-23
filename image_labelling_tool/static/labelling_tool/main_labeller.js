@@ -498,8 +498,9 @@ var labelling_tool;
                 this._confirm_delete = $('#confirm-delete');
                 var delete_label_button = $('#delete_label_button');
                 delete_label_button.click(function (event) {
-                    self._confirm_delete.modal({ show: true });
+                    var modal = new bootstrap.Modal(self._confirm_delete[0]);
                     var confirm_button = $('#btn_delete_confirm_delete');
+                    modal.show();
                     confirm_button.button().click(function (event) {
                         self.root_view.delete_selection(canDelete);
                     });

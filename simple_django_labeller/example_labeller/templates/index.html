@@ -4,50 +4,49 @@
     <head>
         <title>UEA Computer Vision - Labelling Tool</title>
 
-        <link rel="stylesheet" href="/static/bootstrap-4.3.1.min.css">
-        <link rel="stylesheet" href="/static/open-iconic/css/open-iconic-bootstrap.css">
+    <link rel="stylesheet" href="/static/bootstrap-5.0.0-beta2-dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/bootstrap-icons-1.4.0/bootstrap-icons.css">
 
         <script src="/static/jquery-3.6.0.min.js"></script>
-        <script src="/static/popper-1.14.7.min.js"></script>
-        <script src="/static/bootstrap-4.3.1.min.js"></script>
+        <script src="/static/bootstrap-5.0.0-beta2-dist/js/bootstrap.bundle.min.js"></script>
+{#        <script src="/static/popper-1.14.7.min.js"></script>#}
+{#        <script src="/static/bootstrap-4.3.1.min.js"></script>#}
 
         <script src="/static/js.cookie.js"></script>
     </head>
 
     <body>
 
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item active" aria-current="page">Home</li>
-        </ol>
-    </nav>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm" aria-label="breadcrumb">
+            <a class="nav-link active" aria-current="page" href="#">Home</a>
+        </nav>
 
-    <h1>Simple Django Labeller App</h1>
+        <h1>Simple Django Labeller App</h1>
 
-    {% if message == 'unknown_upload_filetype' %}
-        <p style="color: #ff4080">Error: unknown upload file type; please upload PNG, JPEG or ZIP files.</p>
-    {% endif %}
+        {% if message == 'unknown_upload_filetype' %}
+            <p style="color: #ff4080">Error: unknown upload file type; please upload PNG, JPEG or ZIP files.</p>
+        {% endif %}
 
-    {% if num_images == 0 %}
-        <p>You don't have any images to annotate; please upload some.</p>
-    {% endif %}
+        {% if num_images == 0 %}
+            <p>You don't have any images to annotate; please upload some.</p>
+        {% endif %}
 
-    <a class="btn btn-success" href="{% url "example_labeller:tool" %}">Labelling tool</a>
 
-    <br/>
-    <br/>
-
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#upload_modal">Upload images</button>
+        <div class="row">
+            <div class="col-4 d-flex justify-content-center"><a class="btn btn-success" href="{% url "example_labeller:tool" %}">Labelling tool</a></div>
+            <div class="col-4 d-flex justify-content-center"><button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#upload_modal">Upload images</button></div>
+            <div class="col-4 d-flex justify-content-center"><a class="btn btn-danger" href="/admin">Django admin</a></div>
+        </div>
+    </div>
 
     <!-- Modal -->
     <div class="modal fade" id="upload_modal" tabindex="-1" role="dialog" aria-labelledby="upload_modal_label" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="upload_modal_label">Upload images</h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form action="{% url "example_labeller:upload_images" %}" method="POST" enctype="multipart/form-data">
@@ -62,7 +61,7 @@
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

@@ -139,10 +139,10 @@ var labelling_tool;
             _super.prototype.update_from_value.call(this, value, active);
             for (var i = 0; i < this.radio_buttons.length; i++) {
                 if (this.ctrl_json.choices[i].value === value) {
-                    this.radio_buttons[i].closest('label.btn').addClass('active');
+                    this.radio_buttons[i].attr('checked', 'checked');
                 }
                 else {
-                    this.radio_buttons[i].closest('label.btn').removeClass('active');
+                    this.radio_buttons[i].removeAttr('checked');
                 }
                 if (active) {
                     this.radio_buttons[i].removeAttr('disabled');

@@ -44,6 +44,8 @@ Dr. M. Mackiewicz.
 /// <reference path="./popup_menu.ts" />
 /// <reference path="./anno_controls.ts" />
 
+declare var bootstrap: any;
+
 module labelling_tool {
     /*
     Image model
@@ -681,8 +683,9 @@ module labelling_tool {
                 this._confirm_delete = $('#confirm-delete');
                 var delete_label_button: any = $('#delete_label_button');
                 delete_label_button.click(function (event: any) {
-                    self._confirm_delete.modal({show: true});
+                    let modal = new bootstrap.Modal(self._confirm_delete[0]);
                     var confirm_button: any = $('#btn_delete_confirm_delete');
+                    modal.show();
 
                     confirm_button.button().click(function (event: any) {
                         self.root_view.delete_selection(canDelete);

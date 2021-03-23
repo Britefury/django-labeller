@@ -5,28 +5,27 @@
         </div>
             <!-- We use `not x == False` so that the if succeeds by default if `x` does not exist !-->
             {% if not labelling_tool_config.tools.imageSelector == False %}
-                <button type="button" class="btn btn-sm btn-warning btn-xs" id="btn_prev_image" data-toggle="tooltip"
-                        data-placement="top" title="Previous image"><span class="oi oi-chevron-left"></span></button>
+                <button type="button" class="btn btn-sm btn-warning btn-xs" id="btn_prev_image" data-bs-toggle="tooltip"
+                        data-placement="top" title="Previous image"><i class="bi-chevron-left"></i></button>
                 <input type="number" class="form-control btn-sm bg-secondary image-chooser-control text-light"
                        id="image_index_input"
-                       name="image_index" data-toggle="tooltip" data-placement="top" title="Choose image">
+                       name="image_index" data-bs-toggle="tooltip" data-placement="top" title="Choose image">
                     / {{ num_images }}
-                <button type="button" class="btn btn-sm btn-warning btn-xs" id="btn_next_image" data-toggle="tooltip"
-                        data-placement="top" title="Next image"><span class="oi oi-chevron-right"></span></button>
+                <button type="button" class="btn btn-sm btn-warning btn-xs" id="btn_next_image" data-bs-toggle="tooltip"
+                        data-placement="top" title="Next image"><i class="bi-chevron-right"></i></button>
                 {% if enable_locking %}
-                    <button type="button" class="btn btn-sm btn-success btn-xs" id="btn_next_unlocked_image" data-toggle="tooltip" data-placement="right" title="Next unlocked image"><span class="oi oi-chevron-right"></span><span class="oi oi-lock-unlocked"></span></button>
+                    <button type="button" class="btn btn-sm btn-success btn-xs" id="btn_next_unlocked_image" data-bs-toggle="tooltip" data-placement="right" title="Next unlocked image"><span class="oi oi-chevron-right"></span><span class="oi oi-lock-unlocked"></span></button>
                 {% endif %}
             {% endif %}
 
             <div class="labeller_menu_sep"></div>
 
-            <button class="btn btn-sm btn-danger" data-toggle="modal" data-target="#help_modal"><span class="oi
-            oi-question-mark"></span> Instructions</button>
+            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#help_modal"><i class="bi-question-circle-fill"></i> Instructions</button>
 
             <div class="labeller_menu_sep"></div>
 
             {% if not labelling_tool_config.settings.fullscreenButton == False %}
-                <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+                <button class="btn btn-sm btn-info" id="btn_fullscreen"><i class="bi-fullscreen"></i> Fullscreen</button>
             {% endif %}
     </nav>
 
@@ -35,7 +34,7 @@
         <!-- Tasks section !-->
         <div class="anno_lockable">
             {% if tasks %}
-                <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Completed tasks</div>
+                <div class="tool_bar_header" data-bs-toggle="collapse" data-bs-target="#tool_group_tasks">Completed tasks</div>
 
                 <div class="collapse show tool_bar_group" id="tool_group_tasks">
                     <div class="tool_bar_content">
@@ -51,30 +50,24 @@
         </div>
 
         <!-- Label visibility section !-->
-{#        <div class="tool_bar_header" data-toggle="tooltip" data-placement="right"#}
+{#        <div class="tool_bar_header" data-bs-toggle="tooltip" data-placement="right"#}
 {#                   title="Control overall appearance, filter by class">Label visibility</div>#}
-        <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_label_appearance"
+        <div class="tool_bar_header" data-bs-toggle="collapse" data-bs-target="#tool_group_label_appearance"
                    title="Control overall appearance, filter by class">Label appearance</div>
         <div class="collapse show tool_bar_group" id="tool_group_label_appearance">
 
             <!-- Labels hidden, faint or full !-->
-            <div class="btn-group btn-group-toggle tool_bar_content" data-toggle="buttons">
-                <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
-                       title="Make labels completely invisible">
-                    <input type="radio" name="labelvis" value="hidden" id="label_vis_radio_hidden"
-                           autocomplete="off">
-                    Hidden
-                </label>
-                <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
-                       title="Make labels faint, revealing image underneath">
-                    <input type="radio" name="labelvis" value="faint" id="label_vis_radio_faint" autocomplete="off">
-                    Faint
-                </label>
-                <label class="btn btn-sm btn-info active" data-toggle="tooltip" data-placement="top"
-                       title="Labels fully visible">
-                    <input type="radio" name="labelvis" value="full" id="label_vis_radio_full" autocomplete="off"
-                           checked> Full
-                </label>
+            <div class="btn-group tool_bar_content" role="group">
+                <input type="radio" class="btn-check" name="labelvis" value="hidden" id="label_vis_radio_hidden"
+                       autocomplete="off">
+                <label class="btn btn-sm btn-primary" for="label_vis_radio_hidden" data-bs-toggle="tooltip" data-placement="top"
+                       title="Make labels completely invisible">Hidden</label>
+                <input type="radio" class="btn-check" name="labelvis" value="faint" id="label_vis_radio_faint" autocomplete="off">
+                <label class="btn btn-sm btn-primary" for="label_vis_radio_faint" data-bs-toggle="tooltip" data-placement="top"
+                       title="Make labels faint, revealing image underneath">Faint</label>
+                <input type="radio" class="btn-check" name="labelvis" value="full" id="label_vis_radio_full" autocomplete="off" checked>
+                <label class="btn btn-sm btn-primary" for="label_vis_radio_full" data-bs-toggle="tooltip" data-placement="top"
+                       title="Labels fully visible">Full</label>
             </div>
 
             {% if not labelling_tool_config.tools.labelClassFilter == False %}
@@ -168,23 +161,23 @@
         <!-- Tools section !-->
         <div class="anno_lockable">
             <!-- Select and annotate sub-section !-->
-            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_select">Select / annotate</div>
+            <div class="tool_bar_header" data-bs-toggle="collapse" data-bs-target="#tool_group_select">Select / annotate</div>
 
             <div class="collapse show tool_bar_group" id="tool_group_select">
 
                 <div class="tool_bar_content">
                     {% if not labelling_tool_config.tools.deleteLabel == False %}
-                        <button class="btn btn-sm btn-danger w-25 float-right" type="button" id="delete_label_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-danger w-25 float-end mb-1" type="button" id="delete_label_button" data-bs-toggle="tooltip"
                                 data-placement="top" title="Delete selected labels (groups will be opened; the group will
                                 be deleted but its members will remain)">
-                            <span class="oi oi-trash"></span></button>
+                            <i class="bi-trash"></i></button>
                     {% endif %}
 
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
+                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
                             selection">Pick</button>
                     {% if not labelling_tool_config.tools.brushSelect == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_brush_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_brush_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Select labels by sweeping a brush over them,
                             change brush size with &lt;shift&gt;+scroll">Brush</button>
                     {% endif %}
@@ -226,13 +219,12 @@
                         <div class="tool_bar_content">
                             <label class="{% if ann_ctrl.label_on_own_line %}form-text{% endif %} text-muted" for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
                         {% if ann_ctrl.label_on_own_line %}</div>{% endif %}
-                            <div class="btn-group btn-group-toggle{% if ann_ctrl.label_on_own_line %} tool_bar_content{% endif %}" data-toggle="buttons" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                            <div class="btn-group{% if ann_ctrl.label_on_own_line %} tool_bar_content{% endif %}" role="group" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
                                 {% for radio_choice in ann_ctrl.choices %}
-                                    <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top" title="{{ radio_choice.tooltip | safe }}">
-                                        <input type="radio" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}" value="{{ radio_choice.value | safe }}" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}_{{ radio_choice.value | safe }}"
-                                               autocomplete="off" disabled>
-                                        {{ radio_choice.label_text | safe }}
-                                    </label>
+                                    <input type="radio" class="btn-check" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}" value="{{ radio_choice.value | safe }}" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}_{{ radio_choice.value | safe }}"
+                                           autocomplete="off" disabled>
+                                    <label class="btn btn-sm btn-primary" for="#anno_ctrl_{{ ann_ctrl.identifier | safe }}_{{ radio_choice.value | safe }}" data-bs-toggle="tooltip" data-placement="top" title="{{ radio_choice.tooltip | safe }}">
+                                        {{ radio_choice.label_text | safe }}</label>
                                 {% endfor %}
                             </div>
                         {% if not ann_ctrl.label_on_own_line %}</div>{% endif %}
@@ -260,41 +252,41 @@
 
 
             <!-- Edit labels sub-section !-->
-            <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_edit">Edit labels</div>
+            <div class="tool_bar_header" data-bs-toggle="collapse" data-bs-target="#tool_group_edit">Edit labels</div>
 
             <div class="collapse show tool_bar_group" id="tool_group_edit">
 
                 <div class="tool_bar_content">
                     {% if not labelling_tool_config.tools.drawPolyLabel == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_poly_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Draw a polygonal label">Poly</button>
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="merge_poly_labels_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Merge polygonal labels; select labels first then
                             click here to merge them">MergeP</button>
                         {% if dextr_available %}
-                            <button class="btn btn-sm btn-primary w-25 mb-1" type="button" id="dextr_button" data-toggle="tooltip"
+                            <button class="btn btn-sm btn-primary w-25 mb-1" type="button" id="dextr_button" data-bs-toggle="tooltip"
                                 data-placement="top" title="Automatic polygonal label">AutoP</button>
                         {% endif %}
                     {% endif %}
                     {% if not labelling_tool_config.tools.drawBoxLabel == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_box_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Draw a box label">Box</button>
                     {% endif %}
                     {% if not labelling_tool_config.tools.drawPointLabel == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_point_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_point_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Draw a point label">Point</button>
                     {% endif %}
                     {% if not labelling_tool_config.tools.drawOrientedEllipseLabel == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_oriented_ellipse_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_oriented_ellipse_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Draw an oriented ellipse label">OEllipse</button>
                     {% endif %}
                     {% if labelling_tool_config.tools.groupLabel == True %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_group_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_group_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Group labels together; select labels first then
                             click here to group them">Group</button>
                     {% endif %}
                     {% if labelling_tool_config.tools.legacy.compositeLabel == True %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_composite_button" data-toggle="tooltip"
+                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_composite_button" data-bs-toggle="tooltip"
                             data-placement="top" title="Associate labels; select labels first then
                             click here to associate them">Assoc.</button>
                     {% endif %}
@@ -308,46 +300,36 @@
 
             <div class="tool_bar_content">
                 Mode:
-                <div class="btn-group btn-group-toggle mb-1" data-toggle="buttons">
-                    <label class="btn btn-sm btn-warning active" data-toggle="tooltip" data-placement="top"
-                           title="The drawn region creates a new label">
-                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_boolean_new"
-                               autocomplete="off">
-                        New
-                    </label>
-                    <label class="btn btn-sm btn-warning" data-toggle="tooltip" data-placement="top"
-                           title="Joins the new region with the existing label">
-                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_boolean_add"
-                               autocomplete="off">
-                        Add
-                    </label>
-                    <label class="btn btn-sm btn-warning" data-toggle="tooltip" data-placement="top"
-                           title="Cuts the new region away from the current label">
-                        <input type="radio" name="labelvis" value="faint" id="multi_poly_boolean_subtract" autocomplete="off">
-                        Subtract
-                    </label>
-                    <label class="btn btn-sm btn-primary" data-toggle="tooltip" data-placement="top"
-                           title="Splits the part of the current label under the drawn region into a separate label">
-                        <input type="radio" name="labelvis" value="faint" id="multi_poly_boolean_split" autocomplete="off">
-                        Split
-                    </label>
+                <div class="btn-group mb-1" role="group">
+                    <input type="radio" class="btn-check" name="labelvis" value="hidden" id="multi_poly_boolean_new" autocomplete="off" checked>
+                    <label for="multi_poly_boolean_new" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-placement="top"
+                           title="The drawn region creates a new label">New</label>
+
+                    <input type="radio" class="btn-check" name="labelvis" value="hidden" id="multi_poly_boolean_add"
+                           autocomplete="off">
+                    <label for="multi_poly_boolean_add" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-placement="top"
+                           title="Joins the new region with the existing label">Add</label>
+
+                    <input type="radio" class="btn-check" name="labelvis" value="faint" id="multi_poly_boolean_subtract" autocomplete="off">
+                    <label for="multi_poly_boolean_subtract" class="btn btn-sm btn-success" data-bs-toggle="tooltip" data-placement="top"
+                           title="Cuts the new region away from the current label">Subtract</label>
+
+                    <input type="radio" class="btn-check" name="labelvis" value="faint" id="multi_poly_boolean_split" autocomplete="off">
+                    <label for="multi_poly_boolean_split" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-placement="top"
+                           title="Splits the part of the current label under the drawn region into a separate label">Split</label>
                 </div>
             </div>
 
             <div class="tool_bar_content">
                 Draw:
-                <div class="btn-group btn-group-toggle mb-1" data-toggle="buttons">
-                    <label class="btn btn-sm btn-info active" data-toggle="tooltip" data-placement="top"
-                           title="Draw polygon vertex by vertex">
-                        <input type="radio" name="labelvis" value="hidden" id="multi_poly_draw_poly"
-                               autocomplete="off">
-                        Polygon
-                    </label>
-                    <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
-                           title="Brush">
-                        <input type="radio" name="labelvis" value="faint" id="multi_poly_draw_brush" autocomplete="off">
-                        Brush
-                    </label>
+                <div class="btn-group mb-1" role="group">
+                    <input type="radio" class="btn-check" name="labelvis" value="hidden" id="multi_poly_draw_poly" autocomplete="off" checked>
+                    <label for="multi_poly_draw_poly" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-placement="top"
+                           title="Draw polygon vertex by vertex">Polygon</label>
+
+                    <input type="radio" class="btn-check" name="labelvis" value="faint" id="multi_poly_draw_brush" autocomplete="off">
+                    <label for="multi_poly_draw_brush" class="btn btn-sm btn-primary" data-bs-toggle="tooltip" data-placement="top"
+                           title="Brush">Brush</label>
                 </div>
             </div>
         </div>
@@ -410,7 +392,7 @@
                 <h6 class="class_selector_group">{{ group.label_text | safe }}</h6>
                 {% for choice in group.choices %}
                   <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ choice.value | safe }}"
-                    data-toggle="tooltip" title="{{ choice.tooltip | safe }}">
+                    data-bs-toggle="tooltip" title="{{ choice.tooltip | safe }}">
                     {{ choice.label_text | safe }}
                   </button>
                 {% endfor %}
@@ -422,23 +404,21 @@
 
 
 <!-- Confirm delete -->
-<div class="modal" id="confirm-delete" tabindex="-1" role="dialog" aria-labelledby="help_modal_title"
+<div class="modal" id="confirm-delete" tabindex="-1" role="dialog" aria-labelledby="confirm_delete_title"
      aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="help_modal_title">Confirm delete</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <h5 class="modal-title" id="confirm_delete_title">Confirm delete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
           Are you sure?
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-danger" data-dismiss="modal"
+        <button type="button" class="btn btn-danger" data-bs-dismiss="modal"
                 id="btn_delete_confirm_delete">Delete</button>
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
       </div>
     </div>
   </div>
@@ -448,13 +428,11 @@
 <!-- Help modal -->
 <div class="modal fade" id="help_modal" tabindex="-1" role="dialog" aria-labelledby="help_modal_title"
      aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="help_modal_title">Help</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="container-fluid">
@@ -652,7 +630,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

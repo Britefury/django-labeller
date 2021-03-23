@@ -109,50 +109,13 @@ MEDIA_URL = '/media/'
 
 CSRF_COOKIE_SECURE = False
 
-# Colour schemes
-# The user may select different colour schemes for different tasks.
-# If you have a lot of classes, it will be difficult to select colours that are easily distinguished
-# from one another. For one task e.g. segmentation, design a colour scheme that highlights the different
-# classes for that task, while another task e.g. fine-grained classification would use another scheme.
-# Each colour scheme is a dictionary containing the following:
-#   name: symbolic name (Python identifier)
-#   human_name: human readable name for UI
-# These colour schemes are going to split the classes by 'default' (all), natural, and artificial.
-# Not really useful, but demonstrates the feature.
-LABEL_COLOUR_SCHEMES = [
-    dict(name='default', human_name='All'),
-    dict(name='natural', human_name='Natural'),
-    dict(name='artificial', human_name='Artificial'),
-]
 
-# Specify our label classes, organised in groups.
-# `LabelClass` parameters are:
-#   symbolic name (Python identifier)
-#   human readable name for UI
-#   and colours by colour scheme, as a dict mapping colour scheme name to RGB value as a list
-# The label classes are arranged in groups and will be displayed as such in the UI.
-# `LabelClassGroup` parameters are:
-#   human readable name for UI
-#   label class (`LabelClass` instance) list
-LABEL_CLASSES = [
-    labelling_tool.LabelClassGroup('Natural', [
-        labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
-                                                        artificial=[128, 128, 128])),
-        labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
-                                                       artificial=[128, 128, 128])),
-        labelling_tool.LabelClass('flower', 'Flower', dict(default=[255, 96, 192], natural=[255, 192, 96],
-                                                           artificial=[128, 128, 128])),
-        labelling_tool.LabelClass('leaf', 'Leaf', dict(default=[65, 255, 0], natural=[65, 255, 0],
-                                                       artificial=[128, 128, 128])),
-        labelling_tool.LabelClass('stem', 'Stem', dict(default=[128, 64, 0], natural=[128, 64, 0],
-                                                       artificial=[128, 128, 128])),
-    ]),
-    labelling_tool.LabelClassGroup('Artificial', [
-        labelling_tool.LabelClass('building', 'Buldings', dict(default=[255, 128, 0], natural=[128, 128, 128],
-                                                               artificial=[255, 128, 0])),
-        labelling_tool.LabelClass('wall', 'Wall', dict(default=[0, 128, 255], natural=[128, 128, 128],
-                                                       artificial=[0, 128, 255])),
-    ])]
+#
+#
+# Colour schemes and label classes are stored in the database
+#
+#
+
 
 # Annotation controls
 # Labels may also have optional meta-data associated with them

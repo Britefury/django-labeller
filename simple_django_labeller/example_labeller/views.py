@@ -5,7 +5,7 @@ from PIL import Image
 
 from dateutil.tz import tzlocal
 
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.db import transaction
 from django.db.models import Q
@@ -16,7 +16,7 @@ import django.utils.timezone
 
 from image_labelling_tool import labelling_tool
 from image_labelling_tool import models as lt_models
-from image_labelling_tool import labelling_tool_views
+from image_labelling_tool import labelling_tool_views, schema_editor_views
 
 from . import models, tasks, forms
 
@@ -162,9 +162,16 @@ def tool(request):
             image_id=img.id, url=img.image.url,
             width=img.image.width, height=img.image.height) for img in models.ImageWithLabels.objects.all()]
 
+    try:
+        schema = lt_models.LabellingSchema.objects.get(name='default')
+    except lt_models.LabellingSchema.DoesNotExist:
+        schema_js = dict(colour_schemes=[], label_class_groups=[])
+    else:
+        schema_js = schema.json_for_tool()
+
     context = {
-        'colour_schemes': settings.LABEL_COLOUR_SCHEMES,
-        'label_class_groups': [g.to_json() for g in settings.LABEL_CLASSES],
+        'colour_schemes': schema_js['colour_schemes'],
+        'label_class_groups': schema_js['label_class_groups'],
         'image_descriptors': image_descriptors,
         'initial_image_index': str(0),
         'labelling_tool_config': settings.LABELLING_TOOL_CONFIG,
@@ -245,3 +252,14 @@ class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):
             r.delete()
 
         return dextr_labels
+
+
+@ensure_csrf_cookie
+def schema_editor(request):
+    context = {'schema': lt_models.LabellingSchema.objects.get(name='default')}
+    return render(request, 'schema_editor.html', context)
+
+
+class SchemaEditorAPI (schema_editor_views.SchemaEditorView):
+    def get_schema(self, request, *args, **kwargs):
+        return lt_models.LabellingSchema.objects.get(name='default')

@@ -31,15 +31,16 @@ tests_require = [
 ]
 
 django_require = [
-    'django'
+    'django',
+    'celery',
 ]
 
 dextr_require = [
-    'dextr'
+    'dextr',
 ]
 
 qt_require = [
-    'PyQt5'
+    'PyQt5',
 ]
 
 include_package_data = True

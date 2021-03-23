@@ -102,7 +102,7 @@ module labelling_tool {
             }
         }
 
-        static uuidv4(): string {
+        public static uuidv4(): string {
             // Code adapted from:
             // https://stackoverflow.com/questions/105034/how-to-create-guid-uuid/2117523#2117523
             if (crypto !== undefined) {

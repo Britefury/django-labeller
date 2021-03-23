@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import json, datetime, uuid
 
 from django.http import HttpResponse, JsonResponse
@@ -27,7 +28,7 @@ class LabellingToolView (View):
     The `get_labels_for_update` method is the same, but is called by `update_labels`
     to retrieve a `Labels` instance to be updated. This could be used in a scenario in which
     you want to have `get_labels` return automatically generated labels when viewing,
-    but apply updates to different manually created labels.
+    but apply updates to a different labels object.
 
     Example:
     >>> class MyLabelView (LabellingToolView):
@@ -54,7 +55,54 @@ class LabellingToolView (View):
     ...         image.edit_time_elapsed = time_elapsed
     ...         image.labels_json = labels
     ...         image.save()
+
+    If you want to support DEXTR assisted labeling, you must also implement the `dextr_request` and
+    `dextr_poll` methods. Let us assume that the `tasks` module defines a celery task called `dextr` that
+    will run a DEXTR inference given an image path `image.image.path` and the points `dextr_points` as specified
+    by the user. We will create a `DextrTask` model that stores the celery task UUID.
+    The `dextr_poll` method will look through the `DextrTask` for tasks that come from the provided image ID
+    and dextr task IDs and that have completed and send back results.
+    >>> class MyDEXTRLabelView (LabellingToolView):
+    ...     def get_labels(self, request, image_id_str, *args, **kwargs):
+    ...         image = models.Image.get(id=int(image_id_string))
+    ...         # Assume `image.labels` is a field that refers to the `Labels` instance
+    ...         return image.labels
+    ...
+    ...     def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
+    ...         image = get_object_or_404(models.ImageWithLabels, id=int(image_id_str))
+    ...         cel_result = tasks.dextr.delay(image.image.path, dextr_points)
+    ...         dtask = models.DextrTask(image=image, image_id_str=image_id_str, dextr_id=dextr_id, celery_task_id=cel_result.id)
+    ...         dtask.save()
+    ...         return None
+    ...
+    ...     def dextr_poll(self, request, image_id_str, dextr_ids):
+    ...         to_remove = []
+    ...         dextr_labels = []
+    ...         for dtask in models.DextrTask.objects.filter(image__id=image_id_str, dextr_id__in=dextr_ids):
+    ...             uuid = dtask.celery_task_id
+    ...             res = celery.result.AsyncResult(uuid)
+    ...             if res.ready():
+    ...                 try:
+    ...                     regions = res.get()
+    ...                 except:
+    ...                     # An error occurred during the DEXTR task; nothing we can do
+    ...                     pass
+    ...                 else:
+    ...                     dextr_label = dict(image_id=dtask.image_id_str, dextr_id=dtask.dextr_id, regions=regions)
+    ...                     dextr_labels.append(dextr_label)
+    ...                 to_remove.append(dtask)
+    ...
+    ...         # Remove old tasks
+    ...         oldest = django.utils.timezone.now() - datetime.timedelta(minutes=10)
+    ...         for old_task in models.DextrTask.objects.filter(creation_timestamp__lt=oldest):
+    ...             to_remove.append(old_task)
+    ...
+    ...         for r in to_remove:
+    ...             r.delete()
+    ...
+    ...         return dextr_labels
     """
+    @abstractmethod
     def get_labels(self, request, image_id_str, *args, **kwargs):
         """
         Retrieve the `Labels` instance identified by `image_id_str` for display
@@ -65,7 +113,7 @@ class LabellingToolView (View):
         :param kwargs:additional keyword arguments
         :return: a `Labels` instance
         """
-        raise NotImplementedError('Abstract for type {}'.format(type(self)))
+        pass
 
     def get_labels_for_update(self, request, image_id_str, *args, **kwargs):
         """
@@ -105,7 +153,7 @@ class LabellingToolView (View):
             top edge, left edge, bottom edge, right edge
         :return: contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
         """
-        raise NotImplementedError('abstract: dextr_request not implemented for {}'.format(type(self)))
+        raise NotImplementedError('dextr_request not implemented for {}'.format(type(self)))
 
     def dextr_poll(self, request, image_id_str, dextr_ids):
         """
@@ -119,7 +167,7 @@ class LabellingToolView (View):
                 'regions': contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
             }
         """
-        raise NotImplementedError('abstract: dextr_poll not implemented for {}'.format(type(self)))
+        raise NotImplementedError('dextr_poll not implemented for {}'.format(type(self)))
 
     @method_decorator(never_cache)
     def get(self, request, *args, **kwargs):

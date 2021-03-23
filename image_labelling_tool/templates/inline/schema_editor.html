@@ -1,0 +1,12 @@
+{% load schema_editor_tags %}
+
+<script>
+    $(document).ready(function() {
+        new schema_editor.SchemaEditor(
+            "{{update_url}}",
+            {{ schema | safe }},
+        );
+    });
+</script>
+
+{{ schema_editor_vue_templates_html | safe }}

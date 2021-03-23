@@ -1,0 +1,296 @@
+<!-- Schema editor app !-->
+<div id="schema_editor">
+    <colour-schemes :schema="schema"></colour-schemes>
+    <all-label-classes :schema="schema"></all-label-classes>
+</div>
+
+<!-- Delete modal !-->
+<div class="modal fade" id="delete_modal" tabindex="-1" role="dialog" aria-labelledby="delete_modal_label"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="delete_modal_label">Delete <span class="delete_target_type"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you wish to delete the <span class="delete_target_type"></span> <em id="delete_target_name"></em>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="delete_confirm_button">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error modal !-->
+<div class="modal fade" id="error_modal" tabindex="-1" role="dialog" aria-labelledby="error_modal_label"
+     aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="error_modal_label">Error!"</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>The server replied with the following error: <span id="error_modal_code"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal" id="error_reload_button">Reload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<!-- Colour schemes component !-->
+<script type="text/x-template" id="colour_schemes_template">
+    <div class="schema_panel colour_scheme_panel shadow">
+        <div class="scheme_panel_header colour_scheme_panel_header shadow-sm">Colour schemes</div>
+        <div class="scheme_panel_body">
+            <p class="font-weight-light">Different tasks can benefit from using difference colour schemes to help
+                differentiate different
+                labels from one another.
+                For example, a segmentation task could benefit from using different colours
+                for broad categories, while a precise classification/identification task could benefit from using
+                different colours for fine-grained categories within a broad category.
+                Here you can create colour schemes that the users can choose within the labelling tool.</p>
+
+            <p class="font-weight-light">You can re-order the colour schemes by dragging the <span class="oi oi-menu small text-muted"></span> handles. </p>
+
+            <div class="editor_card_toolbar">
+                <button class="new_colour_scheme_button btn btn-warning btn-sm shadow" v-on:click="on_new()"
+                        :disabled="show_new_form">New
+                </button>
+            </div>
+
+            <table class="colour_scheme_table after_editor_card_toolbar shadow">
+                <thead>
+                <tr>
+                    <td></td>
+                    <td>Name</td>
+                    <td>Name in UI</td>
+                    <td></td>
+                </tr>
+                </thead>
+                <draggable group="colour_schemes" v-model="schema.colour_schemes" item-key="name" tag="tbody" @end="on_reorder()">
+                    <template #item="{ element }">
+                        <tr class="colour_scheme_row" v-bind:data-scheme-id="element.id">
+                            <td>
+                                <span class="oi oi-menu"></span>&nbsp;
+                            </td>
+                            <td>{{ element.name }}</td>
+                            <td>
+                                <input class="input_lcls_name" type="text" v-model="element.human_name"/>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger shadow-sm" v-on:click="open_delete_modal(element)"><span class="oi oi-trash"></span></button>
+                            </td>
+                        </tr>
+                    </template>
+                </draggable>
+            </table>
+            <div v-if="show_new_form" class="form_container shadow">
+                <h6 class="text-primary">Create new colour scheme</h6>
+                <div class="form-group row">
+                    <label for="name" class="col-2 col-form-label">Name (identifier)</label>
+                    <div class="col-4"><input type="text" name="name"
+                                              class="form-control text ui-widget-content ui-corner-all"
+                                              v-model="new_form_data.name"
+                                              v-bind:class="{'input_error': (new_name_state != 'ok') && (new_name_state != 'empty')}"/>
+                    </div>
+                    <div class="col-6">
+                        <p class="small font-weight-light">
+                            <span class="text-danger" v-bind:class="{'hidden': new_name_state != 'invalid'}">Identifers are composed of letters/underscores/digits, but cannot start with a digit. </span>
+                            <span class="text-danger" v-bind:class="{'hidden': new_name_state != 'in_use'}">Name already in use. </span>
+                            Example: <em>natural_vegetation</em>
+                        </p>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label for="human_name" class="col-2 col-form-label">Name in UI</label>
+                    <div class="col-4"><input type="text" name="human_name"
+                                              class="form-control text ui-widget-content ui-corner-all"
+                                              v-model="new_form_data.human_name"/></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-4"></div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-secondary btn-sm shadow"
+                                v-on:click="on_cancel_new()">Cancel
+                        </button>
+                    </div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-success btn-sm shadow"
+                                v-on:click="on_create_new()" :disabled="new_name_state != 'ok'">Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+
+<script type="text/x-template" id="all_label_classes_template">
+    <div class="group_container schema_panel classes_panel shadow">
+        <div class="scheme_panel_header classes_panel_header shadow-sm">Label classes by group</div>
+        <div class="scheme_panel_body">
+            <p class="font-weight-light">Label classes are divided into groups. Groups could correspond to broad
+                categories of entity, while individual label classes correspond to more precise classifications.
+                The <em>default colour</em> is the default colour that will be used to display the label if no
+                colour schemes are provided. You can assign a colour for each colour scheme defined above.</p>
+
+            <p class="font-weight-light">You can re-order the groups and label classes by dragging the
+                <span class="oi oi-menu small text-muted"></span> handles. Groups can only be deleted if they are empty.</p>
+
+            <draggable group="label_class_groups" v-model="schema.label_class_groups" item-key="id">
+                <template #item="{ element }">
+                    <label-class-group :group="element" :schema="schema"></label-class-group>
+                </template>
+            </draggable>
+
+            <p>
+                <button id="new_label_class_group_button" class="btn btn-primary btn-sm shadow" v-on:click="on_new()"
+                        :disabled="show_new_form">New label group
+                </button>
+            </p>
+
+            <div v-if="show_new_form" class="form_container shadow">
+                <h6 class="text-primary">Create new group</h6>
+                <div class="form-group row">
+                    <label for="human_name" class="col-2 col-form-label">Group name</label>
+                    <div class="col-4"><input type="text" name="human_name"
+                                              class="form-control text ui-widget-content ui-corner-all"
+                                              v-model="new_form_data.group_name"/></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-4"></div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-secondary btn-sm shadow"
+                                v-on:click="on_cancel_new()">Cancel
+                        </button>
+                    </div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-success btn-sm shadow"
+                                v-on:click="on_create_new()" :disabled="new_form_data.group_name === ''">Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</script>
+
+
+<script type="text/x-template" id="label_class_group_template">
+    <div class="schema_sub_panel group_panel shadow-sm" v-bind:data-group-id="group.id">
+
+        <div class="scheme_sub_panel_header group_panel_header shadow-sm">
+            <span class="oi oi-menu"></span> Group:
+            <input class="input_group_name" type="text" v-model="group.group_name"/>
+            <button class="btn btn-sm btn-outline-danger group_delete shadow-sm" v-on:click="open_delete_group_modal()" v-bind:disabled="!can_delete"><span class="oi oi-trash"></span></button>
+        </div>
+
+        <div class="scheme_panel_body">
+
+            <div class="editor_card_toolbar">
+                <button class="new_label_class_button btn btn-success btn-sm shadow" v-on:click="on_new()"
+                        :disabled="show_new_form">New
+                </button>
+            </div>
+
+            <table class="class_labels_table after_editor_card_toolbar shadow">
+                <thead>
+                <tr>
+                    <td></td>
+                    <td>Name</td>
+                    <td>Name in UI</td>
+                    <td>Default colour</td>
+                    <td v-for="scheme in schema.colour_schemes">{{ scheme.human_name }}</td>
+                    <td></td>
+                </tr>
+                </thead>
+                <draggable group="label_classes" v-model="group.group_classes" item-key="id" tag="tbody">
+                    <template #item="{ element }">
+                        <tr class="lcls_row" data-lcls-id="{{ element.id }}">
+                            <td>
+                                <span class="oi oi-menu"></span>
+                            </td>
+                            <td>{{ element.name }}</td>
+                            <td>
+                                <input class="input_lcls_name" type="text" v-model="element.human_name"/>
+                            </td>
+                            <td class="lcls_colour" data-colour-scheme="default">
+                                <colour-editor :colour_table="element.colours" scheme_name="default"></colour-editor>
+                            </td>
+                            <td v-for="scheme in schema.colour_schemes" class="lcls_colour"
+                                v-bind:data-colour-scheme="scheme.name">
+                                <colour-editor :colour_table="element.colours"
+                                               :scheme_name="scheme.name"></colour-editor>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-danger shadow-sm" v-on:click="open_delete_lcls_modal(element)"><span class="oi oi-trash"></span></button>
+                            </td>
+                        </tr>
+                    </template>
+                </draggable>
+            </table>
+
+            <div v-if="show_new_form" class="form_container shadow">
+                <h6 class="text-primary">Create new label class</h6>
+                <div class="form-group row">
+                    <label for="name" class="col-2 col-form-label">Name (identifier)</label>
+                    <div class="col-4"><input type="text" name="name"
+                                              class="form-control text ui-widget-content ui-corner-all"
+                                              v-model="new_lcls_form_data.name"
+                                              v-bind:class="{'input_error': (new_lcls_name_state != 'empty') && (new_lcls_name_state != 'ok')}"/>
+                    </div>
+                    <div class="col-6">
+                        <p class="small font-weight-light">
+                            <span class="text-danger" v-bind:class="{'hidden': new_lcls_name_state != 'invalid'}">Identifers are composed of letters/underscores/digits, but cannot start with a digit.</span>
+                            <span class="text-danger" v-bind:class="{'hidden': new_lcls_name_state != 'in_use'}">Name already in use. </span>
+                            Example: <em>mammal_dog</em>
+                        </p>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label for="human_name" class="col-2 col-form-label">Name in UI</label>
+                    <div class="col-4"><input type="text" name="human_name"
+                                              class="form-control text ui-widget-content ui-corner-all"
+                                              v-model="new_lcls_form_data.human_name"/></div>
+                </div>
+                <div class="form-group row">
+                    <div class="col-4"></div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-secondary btn-sm shadow"
+                                v-on:click="on_cancel_new()">Cancel
+                        </button>
+                    </div>
+                    <div class="col-1">
+                        <button class="new_colour_scheme_button btn btn-success btn-sm shadow"
+                                v-on:click="on_create_new()" :disabled="new_lcls_name_state != 'ok'">Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</script>
+
+
+<script type="text/x-template" id="colour_editor_template">
+    <input class="input_lcls_colour_picker" type='color' v-bind:value="colour_value" @input="on_colour_input($event)"/>
+    <input class="input_lcls_colour_text colour_input small" type='text' v-bind:value="text_value"
+           @input="on_text_input($event)" v-bind:class="{'input_error': !is_text_valid}"/>
+</script>

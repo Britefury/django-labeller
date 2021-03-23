@@ -129,6 +129,13 @@ To initialise, first perform migrations:
 > python simple_django_labeller/manage.py migrate
 ```
 
+Now you need to import a labelling schema. Labelling schemes are stored as JSON files. For now, there is
+a special one called `demo` that you can use. Load it into a schema named `default`:
+
+```shell script
+> python simple_django_labeller/manage.py import_schema default demo
+```
+
 Then populate the database with the example images in the `images` directory (replace `images` with the path
 of another directory if you wish to use different images):
 
@@ -200,8 +207,9 @@ Please see the [change log](./CHANGES.md) for recent changes.
 
 Incorporates the public domain [json2.js](https://github.com/douglascrockford/JSON-js) library.
 Uses [d3.js](http://d3js.org/), [jQuery](https://jquery.com/), [popper.js](https://popper.js.org/),
-[PolyK](http://polyk.ivank.net/), [polybooljs](https://github.com/voidqk/polybooljs) and
-[Bootstrap 4](https://getbootstrap.com/docs/4.0/getting-started/introduction/).
+[PolyK](http://polyk.ivank.net/), [polybooljs](https://github.com/voidqk/polybooljs),
+[Bootstrap 4](https://getbootstrap.com/docs/4.0/getting-started/introduction/),
+ [Vue.js v3](https://vuejs.org/) and [spectrum.js](https://bgrins.github.io/spectrum/).
 
 This software was developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz at the [School of Computing Sciences](http://www.uea.ac.uk/computing)

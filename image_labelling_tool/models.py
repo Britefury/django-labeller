@@ -1,9 +1,144 @@
-import json, datetime
+import json, datetime, re
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from . import managers
+from django.core.validators import RegexValidator
+from . import managers
+
+_IDENTIFIER_PAT = re.compile(r'[a-zA-Z_][a-zA-Z0-9_]*')
+_IDENTIFIER_VAL = RegexValidator(_IDENTIFIER_PAT, message='Enter a valid identifier (letters or underscore, followed'
+                                                          'by letters, numbers or underscore')
+
+
+
+class LabellingSchema (models.Model):
+    name = models.CharField(max_length=256, default='')
+    description = models.TextField(default='', blank=True)
+
+    def json_for_tool(self):
+        colour_schemes = self.colour_schemes.all().order_by('order_index', 'id')
+        return {
+            'colour_schemes': [scheme.json_for_tool() for scheme in colour_schemes],
+            'label_class_groups': [group.json_for_tool() for group in self.label_class_groups.all()],
+        }
+
+    def __str__(self):
+        return 'LabellingSchema({})'.format(self.name)
+
+
+class LabellingColourScheme (models.Model):
+    """
+    Labelling colour scheme model
+
+    Has:
+    - schema: labelling scheme to which this colour scheme belongs
+    - name: colour scheme name identifier
+    - human_name: name as shown in UI
+    - order_index: integer for ordering
+    """
+    schema = models.ForeignKey(LabellingSchema, models.PROTECT, related_name='colour_schemes')
+
+    name = models.CharField(max_length=64, unique=True, validators=[_IDENTIFIER_VAL],
+                            verbose_name='Identifier used within tool')
+    human_name = models.CharField(max_length=64, default='', verbose_name='Name of colour scheme as shown in UI')
+    order_index = models.IntegerField(default=0)
+
+    def json_for_tool(self):
+        return {'id': self.id, 'name': self.name, 'human_name': self.human_name}
+
+    def __str__(self):
+        return 'LabellingColourScheme({}, id={})'.format(self.name, self.human_name, self.id)
+
+
+class LabelClassGroup (models.Model):
+    """
+    Label class group model
+
+    Has:
+    - schema: labelling scheme to which this label class group belongs
+    - group_name: name as shown in UI
+    - order_index: integer for ordering
+    """
+    schema = models.ForeignKey(LabellingSchema, models.PROTECT, related_name='label_class_groups')
+
+    group_name = models.CharField(max_length=64, default='', verbose_name='Name of label class group as shown in UI')
+    order_index = models.IntegerField(default=0)
+
+    def json_for_tool(self):
+        lab_classes = self.group_classes.order_by('order_index', 'id')
+        return {'id': self.id,
+                'group_name': self.group_name,
+                'group_classes': [x.json_for_tool() for x in lab_classes]}
+
+    def __str__(self):
+        return 'LabelClassGroup({})'.format(self.group_name)
+
+
+class LabelClass (models.Model):
+    """
+    Label class model
+
+    Has:
+    - group - group to which this label class belongs
+    - name - string identifier
+    - human_name - name as shown in UI
+    - default_colour - default colour as an HTML string
+    - order_index - integer for ordering
+    """
+    group = models.ForeignKey(LabelClassGroup, models.PROTECT, related_name='group_classes')
+    name = models.CharField(max_length=64, unique=True, validators=[_IDENTIFIER_VAL],
+                               verbose_name='Species identifier name')
+    human_name = models.CharField(max_length=64, default='')
+    default_colour = models.CharField(max_length=8, default='#0080ff')
+    order_index = models.IntegerField(default=0)
+
+    def json_for_tool(self):
+        colours = {cls_col.scheme.name: self._html_colour_to_list(cls_col.colour)
+                   for cls_col in self.scheme_colours.all()}
+        colours['default'] = self._html_colour_to_list(self.default_colour)
+        return {'id': self.id,
+                'name': self.name,
+                'human_name': self.human_name,
+                'colours': colours}
+
+    def __str__(self):
+        return 'LabelClass({}/{}, id={})'.format(
+            self.group.group_name, self.human_name, self.id)
+
+    @staticmethod
+    def _html_colour_to_list(c):
+        c = c.strip()
+        if c.startswith('#'):
+            if len(c) == 7:
+                red = int(c[1:3], base=16)
+                green = int(c[3:5], base=16)
+                blue = int(c[5:7], base=16)
+                return [red, green, blue]
+            elif len(c) == 4:
+                # Short form using single hex digit
+                red = int(c[1:2], base=16)
+                green = int(c[2:3], base=16)
+                blue = int(c[3:4], base=16)
+                # Multiply by 17 (0x11) *not* 16 (0x10); this way e.g. 0xf -> 0xff rather than 0xf -> 0xf0
+                return [red * 0x11, green * 0x11, blue * 0x11]
+        return [128, 128, 128]
+
+    @staticmethod
+    def list_to_html_colour(c):
+        return '#{:02x}{:02x}{:02x}'.format(c[0], c[1], c[2])
+
+
+class LabelClassColour (models.Model):
+    label_class = models.ForeignKey(LabelClass, models.PROTECT, related_name='scheme_colours')
+    scheme = models.ForeignKey(LabellingColourScheme, models.PROTECT, related_name='label_class_colours')
+    colour = models.CharField(max_length=8, default='#0080ff')
+
+    def __str__(self):
+        return 'LabelClassColour(lcls={}/{}, scheme={})'.format(
+            self.label_class.group.group_name, self.label_class.human_name, self.scheme.human_name
+        )
 
 
 class LabelsLockedError (Exception):

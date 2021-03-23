@@ -4,6 +4,12 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+class LabelClassGroupManager (models.Manager):
+    def json_for_labelling_tool(self):
+        groups = self.filter(active=True).order_by('order_index', 'id')
+        return [g.json_for_labelling_tool() for g in groups]
+
+
 class LabelsManager (models.Manager):
     def empty(self):
         return self.filter(labels_json_str='[]')

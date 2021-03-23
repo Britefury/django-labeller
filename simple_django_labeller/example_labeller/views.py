@@ -5,7 +5,7 @@ from PIL import Image
 
 from dateutil.tz import tzlocal
 
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.db import transaction
 from django.db.models import Q
@@ -16,7 +16,7 @@ import django.utils.timezone
 
 from image_labelling_tool import labelling_tool
 from image_labelling_tool import models as lt_models
-from image_labelling_tool import labelling_tool_views
+from image_labelling_tool import labelling_tool_views, class_editor_views
 
 from . import models, tasks, forms
 
@@ -175,6 +175,26 @@ def tool(request):
         'dextr_polling_interval': settings.LABELLING_TOOL_DEXTR_POLLING_INTERVAL,
     }
     return render(request, 'tool.html', context)
+
+
+@ensure_csrf_cookie
+def class_editor(request):
+    context = {'colour_schemes': lt_models.LabellingColourScheme.objects.order_by('id_name'),
+               'groups': lt_models.LabelClassGroup.objects.order_by('order_index'),
+               }
+    return render(request, 'class_editor.html', context)
+
+
+@ensure_csrf_cookie
+def class_editor_form(request):
+    class_editor_views.handle_class_editor_forms(request)
+
+    return redirect('example_labeller:class_editor')
+
+
+@ensure_csrf_cookie
+def class_editor_update(request):
+    return class_editor_views.update_label_classes(request)
 
 
 class LabellingToolAPI (labelling_tool_views.LabellingToolViewWithLocking):

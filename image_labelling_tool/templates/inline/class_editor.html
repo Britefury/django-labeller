@@ -1,0 +1,217 @@
+<script>
+    $(document).ready(function() {
+        new schema_editor.LabelClassEditor("{{update_url}}");
+    });
+</script>
+
+
+{% if show_colour_scheme_editor %}
+    <div class="schema_panel colour_scheme_panel shadow">
+        <div class="scheme_panel_header colour_scheme_panel_header shadow-sm">Colour schemes</div>
+        <div class="scheme_panel_body">
+            <div class="editor_card_toolbar">
+                <button class="new_colour_scheme_button btn btn-warning btn-sm shadow" data-toggle="modal" data-target="#colour_scheme_create_form">New</button>
+            </div>
+
+            <table class="colour_scheme_table after_editor_card_toolbar shadow">
+                <thead>
+                    <tr>
+                        <td>Enabled</td>
+                        <td>Name</td>
+                        <td>Name in UI</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for col_scheme in colour_schemes %}
+                        <tr class="colour_scheme_row" data-scheme-id="{{ col_scheme.id }}">
+                            <td>
+                                <input class="input_lcls_active" type="checkbox" {% if col_scheme.active %}checked{% endif %}/>
+                            </td>
+                            <td>{{ col_scheme.id_name }}</td>
+                            <td>
+                                <input class="input_lcls_name" type="text" value="{{ col_scheme.human_name }}"/>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+{% endif %}
+
+<div class="group_container schema_panel classes_panel shadow">
+    <div class="scheme_panel_header classes_panel_header shadow-sm">Label classes by group</div>
+    {% for group in groups %}
+        <div class="scheme_panel_body">
+            <div class="schema_sub_panel group_panel shadow-sm" data-group-id="{{ group.id }}">
+                <div class="scheme_sub_panel_header group_panel_header {% if not group.active %}text-muted{% endif %} shadow-sm">
+                    <span class="oi oi-menu"></span> Group:
+                    <input class="input_group_name" type="text" value="{{ group.human_name }}"/>
+                    <input class="input_group_active" type="checkbox" {% if group.active %}checked{% endif %}/> Enabled
+                </div>
+
+                <div class="scheme_panel_body">
+
+                    <div class="editor_card_toolbar">
+                        <button class="new_label_class_button btn btn-success btn-sm shadow" data-toggle="modal" data-target="#label_class_create_form">New</button>
+                    </div>
+
+                    <table class="class_labels_table after_editor_card_toolbar shadow">
+                        <thead>
+                            <tr>
+                                <td></td>
+                                <td>Enabled</td>
+                                <td>Name</td>
+                                <td>Name in UI</td>
+                                <td>Default colour</td>
+                                {% for scheme in colour_schemes %}
+                                    <td>{{ scheme.human_name }} colour</td>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                                {% for lcls in group.label_classes_in_order %}
+                                    <tr class="lcls_row" data-lcls-id="{{ lcls.id }}">
+                                        <td>
+                                            <span class="oi oi-menu"></span>
+                                        </td>
+                                        <td>
+                                            <input class="input_lcls_active" type="checkbox" {% if lcls.active %}checked{% endif %}/>
+                                        </td>
+                                        <td>{{ lcls.id_name }}</td>
+                                        <td>
+                                            <input class="input_lcls_name" type="text" value="{{ lcls.human_name }}"/>
+                                        </td>
+                                        <td class="lcls_colour" data-colour-scheme="default">
+                                            <input class="input_lcls_colour_picker" type='text' data-colour="{{ lcls.default_colour }}"/>
+                                            <input class="input_lcls_colour_text colour_input" type='text' value="{{ lcls.default_colour }}"/>
+                                        </td>
+                                        {% for scheme_colour in lcls.scheme_colours.all %}
+                                            <td class="lcls_colour" data-colour-scheme="{{ scheme_colour.scheme.id_name }}">
+                                                <input class="input_lcls_colour_picker" type='text' data-colour="{{ scheme_colour.colour }}"/>
+                                                <input class="input_lcls_colour_text colour_input" type='text' value="{{ scheme_colour.colour }}"/>
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                        </tbody>
+                    </table>
+
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    <p><button id="new_label_class_group_button" class="btn btn-primary btn-sm shadow" style="margin-left: 1em;" data-toggle="modal" data-target="#group_create_form">New label group</button></p>
+</div>
+
+
+
+
+
+<div id="colour_scheme_create_form" class="modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ form_url }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create colour scheme</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <fieldset>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="new_colour_scheme">
+                        <div class="form-group">
+                            <label for="name">Name (identifier)</label>
+                            <input class="form-control" type="text" name="name" value="" class="text ui-widget-content ui-corner-all">
+                        </div>
+                        <div class="form-group">
+                            <label for="human_name">Name in UI</label>
+                            <input class="form-control" type="text" name="human_name" value="" class="text ui-widget-content ui-corner-all">
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-primary">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<div id="group_create_form" class="modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ form_url }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create label class group</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <fieldset>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="new_label_class_group">
+                        <div class="form-group">
+                            <label for="human_name">Name in UI</label>
+                            <input class="form-control" type="text" name="human_name" value="" class="text ui-widget-content ui-corner-all">
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-primary">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<div id="label_class_create_form" title="Create label class" class="modal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ form_url }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create label class group</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Create in group <span id="class_editor_create_label_group_name"></span></p>
+                    <fieldset>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="new_class_label">
+                        <input id="class_editor_new_cls_group_id" type="hidden" name="group_id" value="">
+                        <div class="form-group">
+                            <label for="name">Name (identifier)</label>
+                            <input class="form-control" type="text" name="name" value="" class="text ui-widget-content ui-corner-all">
+                        </div>
+                        <div class="form-group">
+                            <label for="human_name">Name in UI</label>
+                            <input class="form-control" type="text" name="human_name" value="" class="text ui-widget-content ui-corner-all">
+                        </div>
+{#                        {% for scheme in colour_schemes %}#}
+{#                          <label for="colour_{{ scheme.name }}">{{ scheme.human_name }} colour</label>#}
+{#                            <input class="form_colour_picker" type='text'/>#}
+{#                        {% endfor %}#}
+                      <!-- Allow form submission with keyboard without duplicating the dialog button -->
+                    </fieldset>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    <input type="submit" class="btn btn-primary">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+

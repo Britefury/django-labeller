@@ -4,33 +4,10 @@
 <!doctype html>
 <html lang="en">
     <head>
-        <title>UEA Computer Vision - Label Class Editor</title>
+        <title>UEA Computer Vision - Schema Editor</title>
 
         {% include "inline/schema_editor_css.html" %}
         {% include "inline/schema_editor_scripts.html" %}
-
-        <script>
-        // CSRF Token setup
-        var csrftoken = Cookies.get('csrftoken');
-{#        var csrftoken = '{{ csrf_token }}';#}
-        if (csrftoken != null) {
-            // Adapted from Django DOCS
-            function csrfSafeMethod(method) {
-                // these HTTP methods do not require CSRF protection
-                return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
-            }
-
-            $.ajaxSetup({
-                beforeSend: function(xhr, settings) {
-                    if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
-                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                    }
-                }
-            });
-        }
-
-        </script>
-
     </head>
 
     <body>

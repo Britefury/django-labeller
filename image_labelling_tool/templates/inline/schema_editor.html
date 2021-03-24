@@ -2,6 +2,25 @@
 
 <script>
     $(document).ready(function() {
+        // CSRF Token setup
+        var csrftoken = Cookies.get('csrftoken');
+        {#        var csrftoken = '{{ csrf_token }}';#}
+        if (csrftoken != null) {
+            // Adapted from Django DOCS
+            function csrfSafeMethod(method) {
+                // these HTTP methods do not require CSRF protection
+                return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+            }
+
+            $.ajaxSetup({
+                beforeSend: function(xhr, settings) {
+                    if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                    }
+                }
+            });
+        }
+
         new schema_editor.SchemaEditor(
             "{{update_url}}",
             {{ schema | safe }},

@@ -40,8 +40,8 @@ class LabellingColourScheme (models.Model):
     """
     schema = models.ForeignKey(LabellingSchema, models.PROTECT, related_name='colour_schemes')
 
-    name = models.CharField(max_length=64, unique=True, validators=[_IDENTIFIER_VAL],
-                            verbose_name='Identifier used within tool')
+    name = models.CharField(max_length=64, validators=[_IDENTIFIER_VAL],
+                            verbose_name='Colour scheme identifier name')
     human_name = models.CharField(max_length=64, default='', verbose_name='Name of colour scheme as shown in UI')
     order_index = models.IntegerField(default=0)
 
@@ -88,8 +88,8 @@ class LabelClass (models.Model):
     - order_index - integer for ordering
     """
     group = models.ForeignKey(LabelClassGroup, models.PROTECT, related_name='group_classes')
-    name = models.CharField(max_length=64, unique=True, validators=[_IDENTIFIER_VAL],
-                               verbose_name='Species identifier name')
+    name = models.CharField(max_length=64, validators=[_IDENTIFIER_VAL],
+                            verbose_name='Label class identifier name')
     human_name = models.CharField(max_length=64, default='')
     default_colour = models.CharField(max_length=8, default='#0080ff')
     order_index = models.IntegerField(default=0)

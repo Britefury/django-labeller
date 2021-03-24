@@ -18,6 +18,7 @@ def create_default_schema(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
+        ('image_labelling_tool', '0007_auto_20210322_1737'),
         ('example_labeller', '0003_dextrtask'),
     ]
 

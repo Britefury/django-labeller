@@ -136,6 +136,12 @@ class PointLabelTestCase(TestCase):
         self.assertEqual(b.source, 'manual')
         self.assertEqual(b.anno_data, {'purpose': 'test'})
 
+    def test_flatten_json(self):
+        js = dict(label_type='point', position={'x': 1.0, 'y': 2.0}, object_id='abc_123',
+                  label_class='cls_a', source='manual', anno_data={'purpose': 'test'})
+        labs_js = list(labelling_tool.AbstractLabel.flatten_json(js))
+        self.assertEqual(labs_js, [js])
+
 
 class PolygonLabelTestCase(TestCase):
     def are_polygons_cyclically_equal(self, a, b, both_directions=False):
@@ -193,6 +199,15 @@ class PolygonLabelTestCase(TestCase):
         self.assertEqual(len(b_7.regions), 2)
         self.assertTrue((b_7.regions[0] == (outer_rect + 7)).all())
         self.assertTrue((b_7.regions[1] == (inner_rect + 7)).all())
+
+        # Rotation matrix
+        theta = np.radians(20.0)
+        c = np.cos(theta)
+        s = np.sin(theta)
+        r = np.array([[c, -s],
+                      [s, c]])
+        a_r = a.warped(lambda p_xy: (r @ p_xy.T).T)
+        self.assertTrue(np.allclose(a_r.regions[0], (r @ inner_rect.T).T))
 
     def test_render_mask(self):
         outer_rect = np.array([[10.0, 10.0], [40.0, 10.0], [40.0, 40.0], [10.0, 40.0]])
@@ -594,3 +609,284 @@ class OrientedEllipseLabelTestCase(TestCase):
         self.assertEqual(a.classification, 'cls_a')
         self.assertEqual(a.source, 'manual')
         self.assertEqual(a.anno_data, {'purpose': 'test'})
+
+
+class GroupLabelTestCase(TestCase):
+    def test_constructor(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    object_id='abc_123', classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], object_id='abc_124', classification='cls_a',
+                                        source='manual', anno_data={'purpose': 'test'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       object_id='grp_1', classification='cls_c',
+                                       source='manual', anno_data={'purpose': 'all'})
+        self.assertEqual(len(ab), 2)
+        self.assertIs(ab[0], a)
+        self.assertIs(ab[1], b)
+        self.assertEqual(ab.classification, 'cls_c')
+        self.assertEqual(ab.source, 'manual')
+        self.assertEqual(ab.anno_data, {'purpose': 'all'})
+
+    def test_flatten(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    object_id='abc_123', classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], object_id='abc_124', classification='cls_a',
+                                        source='manual', anno_data={'purpose': 'test'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       object_id='grp_1', classification='cls_c',
+                                       source='manual', anno_data={'purpose': 'all'})
+        self.assertEqual(list(ab.flatten()), [a, b, ab])
+
+    def test_bounding_box(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 30.0]), size_xy=np.array([8.0, 12.0]),
+                                    object_id='abc_123', classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], object_id='abc_124', classification='cls_a',
+                                        source='manual', anno_data={'purpose': 'test'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       object_id='grp_1', classification='cls_c',
+                                       source='manual', anno_data={'purpose': 'all'})
+        self.assertTrue((a.bounding_box()[0] == np.array([11.0, 24.0])).all())
+        self.assertTrue((a.bounding_box()[1] == np.array([19.0, 36.0])).all())
+        self.assertTrue((b.bounding_box()[0] == np.array([20.0, 20.0])).all())
+        self.assertTrue((b.bounding_box()[1] == np.array([30.0, 30.0])).all())
+        self.assertTrue((ab.bounding_box()[0] == np.array([11.0, 20.0])).all())
+        self.assertTrue((ab.bounding_box()[1] == np.array([30.0, 36.0])).all())
+
+    def test_warped(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]))
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect])
+        ab = labelling_tool.GroupLabel(component_labels=[a, b])
+
+        ab_7 = ab.warped(lambda p_xy: p_xy + 7.0)
+        self.assertTrue((ab_7[0].centre_xy == np.array([22.0, 32.0])).all())
+        self.assertTrue((ab_7[0].size_xy == np.array([8.0, 12.0])).all())
+        self.assertTrue((ab_7[1].regions[0] == (inner_rect + 7)).all())
+
+        # Rotation matrix
+        theta = np.radians(20.0)
+        c = np.cos(theta)
+        s = np.sin(theta)
+        r = np.array([[c, -s],
+                      [s, c]])
+        ab_r = ab.warped(lambda p_xy: (r @ p_xy.T).T)
+        self.assertTrue(np.allclose(ab_r[0].centre_xy, r @ np.array([15.0, 25.0])))
+        self.assertTrue(np.allclose(ab_r[0].size_xy, np.array([8.0 * c + 12.0 * s, 12.0 * c + 8.0 * s])))
+        self.assertTrue(np.allclose(ab_r[1].regions, (r @ inner_rect.T).T))
+
+    def test_render_mask(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]))
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect])
+        ab = labelling_tool.GroupLabel(component_labels=[a, b])
+
+        # Outlined
+        tgt_ab_outline = Image.new('L', (50, 50), 0)
+        ImageDraw.Draw(tgt_ab_outline).rectangle([(11.0, 19.0), (19.0, 31.0)], outline=1, fill=0)
+        ImageDraw.Draw(tgt_ab_outline).polygon([tuple(v) for v in inner_rect], outline=1, fill=0)
+        self.assertTrue((ab.render_mask(50, 50, fill=False, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_ab_outline)).all())
+
+        # Outlined, offset
+        tgt_ab_outline_dxy = Image.new('L', (50, 50), 0)
+        ImageDraw.Draw(tgt_ab_outline_dxy).rectangle([(16.0, 14.0), (24.0, 26.0)], outline=1, fill=0)
+        ImageDraw.Draw(tgt_ab_outline_dxy).polygon([tuple(v) for v in (inner_rect + np.array([5, -5]))], outline=1, fill=0)
+        self.assertTrue((ab.render_mask(50, 50, fill=False, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_ab_outline_dxy)).all())
+
+        # Filled
+        tgt_ab_filled = Image.new('L', (50, 50), 0)
+        ImageDraw.Draw(tgt_ab_filled).rectangle([(11.0, 19.0), (19.0, 31.0)], outline=1, fill=1)
+        ImageDraw.Draw(tgt_ab_filled).polygon([tuple(v) for v in inner_rect], outline=1, fill=1)
+        self.assertTrue((ab.render_mask(50, 50, fill=True, dx=0.0, dy=0.0, ctx=None) ==
+                         np.array(tgt_ab_filled)).all())
+
+        # Filled, offset
+        tgt_ab_filled_dxy = Image.new('L', (50, 50), 0)
+        ImageDraw.Draw(tgt_ab_filled_dxy).rectangle([(16.0, 14.0), (24.0, 26.0)], outline=1, fill=1)
+        ImageDraw.Draw(tgt_ab_filled_dxy).polygon([tuple(v) for v in (inner_rect + np.array([5, -5]))],
+                                                  outline=1, fill=1)
+        self.assertTrue((ab.render_mask(50, 50, fill=True, dx=5.0, dy=-5.0, ctx=None) ==
+                         np.array(tgt_ab_filled_dxy)).all())
+
+    def test_to_json(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    object_id='abc_123', classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        inner_js = [dict(x=p[0], y=p[1]) for p in inner_rect]
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], object_id='abc_124', classification='cls_b',
+                                        source='manual2', anno_data={'purpose': 'test2'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       object_id='grp_1', classification='cls_c',
+                                       source='manual3', anno_data={'purpose': 'test3'})
+
+        js_a = dict(label_type='box', centre=dict(x=15.0, y=25.0), size=dict(x=8.0, y=12.0),
+                    object_id='abc_123', label_class='cls_a', source='manual', anno_data={'purpose': 'test'})
+        js_b = dict(label_type='polygon', regions=[inner_js], object_id='abc_124',
+                    label_class='cls_b', source='manual2', anno_data={'purpose': 'test2'})
+        self.assertEqual(ab.to_json()['component_models'][0], js_a)
+        self.assertEqual(ab.to_json()['component_models'][1], js_b)
+        self.assertEqual(ab.to_json(),
+                         dict(label_type='group', component_models=[js_a, js_b], object_id='grp_1',
+                              label_class='cls_c', source='manual3', anno_data={'purpose': 'test3'}))
+
+    def test_from_json(self):
+        obj_tab = labelling_tool.ObjectTable('abc')
+        js_a = dict(label_type='box', centre=dict(x=15.0, y=25.0), size=dict(x=8.0, y=12.0),
+                    object_id='abc_123', label_class='cls_a', source='manual', anno_data={'purpose': 'test'})
+
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        inner_js = [dict(x=p[0], y=p[1]) for p in inner_rect]
+        js_b = dict(label_type='polygon', regions=[inner_js], object_id='abc_124',
+                    label_class='cls_b', source='manual2', anno_data={'purpose': 'test2'})
+
+        js_ab = dict(label_type='group', component_models=[js_a, js_b], object_id='grp_1',
+                     label_class='cls_c', source='manual3', anno_data={'purpose': 'test3'})
+        ab = labelling_tool.AbstractLabel.from_json(js_ab, obj_tab)
+
+        self.assertTrue(isinstance(ab, labelling_tool.GroupLabel))
+        self.assertTrue((ab[0].centre_xy == np.array([15.0, 25.0])).all())
+        self.assertTrue((ab[0].size_xy == np.array([8.0, 12.0])).all())
+        self.assertEqual(ab[0].object_id, 'abc_123')
+        self.assertEqual(ab[0].classification, 'cls_a')
+        self.assertEqual(ab[0].source, 'manual')
+        self.assertEqual(ab[0].anno_data, {'purpose': 'test'})
+        self.assertEqual(len(ab[1].regions), 1)
+        self.assertTrue((ab[1].regions[0] == inner_rect).all())
+        self.assertEqual(ab[1].object_id, 'abc_124')
+        self.assertEqual(ab[1].classification, 'cls_b')
+        self.assertEqual(ab[1].source, 'manual2')
+        self.assertEqual(ab[1].anno_data, {'purpose': 'test2'})
+        self.assertEqual(len(ab), 2)
+        self.assertEqual(ab.object_id, 'grp_1')
+        self.assertEqual(ab.classification, 'cls_c')
+        self.assertEqual(ab.source, 'manual3')
+        self.assertEqual(ab.anno_data, {'purpose': 'test3'})
+
+    def test_flatten_json(self):
+        js_a = dict(label_type='box', centre=dict(x=15.0, y=25.0), size=dict(x=8.0, y=12.0),
+                    object_id='abc_123', label_class='cls_a', source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        inner_js = [dict(x=p[0], y=p[1]) for p in inner_rect]
+        js_b = dict(label_type='polygon', regions=[inner_js], object_id='abc_124',
+                    label_class='cls_b', source='manual2', anno_data={'purpose': 'test2'})
+        js_ab = dict(label_type='group', component_models=[js_a, js_b], object_id='grp_1',
+                     label_class='cls_c', source='manual3', anno_data={'purpose': 'test3'})
+        labs_js = list(labelling_tool.AbstractLabel.flatten_json(js_ab))
+        self.assertEqual(labs_js, [js_a, js_b, js_ab])
+
+
+class ImageLabelsTestCase(TestCase):
+    def test_constructor(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    object_id='abc_123', classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], object_id='abc_124', classification='cls_a',
+                                        source='manual', anno_data={'purpose': 'test'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       object_id='grp_1', classification='cls_c',
+                                       source='manual', anno_data={'purpose': 'all'})
+        labels = labelling_tool.ImageLabels([ab])
+        self.assertEqual(len(labels), 1)
+        self.assertIs(labels[0], ab)
+        self.assertIs(labels[0][0], a)
+        self.assertIs(labels[0][1], b)
+        self.assertIs(labels['abc_123'], a)
+        self.assertIs(labels['abc_124'], b)
+        self.assertIs(labels['grp_1'], ab)
+
+    def test_constructor_b(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    classification='cls_a',
+                                    source='manual', anno_data={'purpose': 'test'})
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], classification='cls_a',
+                                        source='manual', anno_data={'purpose': 'test'})
+        ab = labelling_tool.GroupLabel(component_labels=[a, b],
+                                       classification='cls_c',
+                                       source='manual', anno_data={'purpose': 'all'})
+        labels = labelling_tool.ImageLabels([ab], id_prefix='abc')
+        self.assertEqual(a.object_id, 'abc__1')
+        self.assertEqual(b.object_id, 'abc__2')
+        self.assertEqual(ab.object_id, 'abc__3')
+        self.assertEqual(len(labels), 1)
+        self.assertIs(labels[0], ab)
+        self.assertIs(labels[0][0], a)
+        self.assertIs(labels[0][1], b)
+        self.assertIs(labels['abc__1'], a)
+        self.assertIs(labels['abc__2'], b)
+        self.assertIs(labels['abc__3'], ab)
+
+    def test_flatten(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    classification='cls_a')
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], classification='cls_a')
+        ab = labelling_tool.GroupLabel(component_labels=[a, b], classification='cls_c')
+        labels = labelling_tool.ImageLabels([ab], id_prefix='abc')
+        self.assertEqual(list(labels.flatten()), [a, b, ab])
+
+    def test_label_class_histogram(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    classification='cls_a')
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], classification='cls_b')
+        outer_rect = np.array([[10.0, 10.0], [40.0, 10.0], [40.0, 40.0], [10.0, 40.0]])
+        c = labelling_tool.PolygonLabel(regions=[outer_rect, inner_rect], classification='cls_a')
+        ab = labelling_tool.GroupLabel(component_labels=[a, b], classification='cls_c')
+        self.assertEqual(labelling_tool.ImageLabels([ab]).label_class_histogram(),
+                         {'cls_c': 1})
+        self.assertEqual(labelling_tool.ImageLabels([a, b, c]).label_class_histogram(),
+                         {'cls_a': 2, 'cls_b': 1})
+
+    def test_replace_label_classes(self):
+        a = labelling_tool.BoxLabel(centre_xy=np.array([15.0, 25.0]), size_xy=np.array([8.0, 12.0]),
+                                    classification='cls_a')
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        b = labelling_tool.PolygonLabel(regions=[inner_rect], classification='cls_b')
+        outer_rect = np.array([[10.0, 10.0], [40.0, 10.0], [40.0, 40.0], [10.0, 40.0]])
+        c = labelling_tool.PolygonLabel(regions=[outer_rect, inner_rect], classification='cls_a')
+        ab = labelling_tool.GroupLabel(component_labels=[a, b], classification='cls_c')
+        labels = labelling_tool.ImageLabels([ab, c])
+        self.assertEqual(a.classification, 'cls_a')
+        self.assertEqual(b.classification, 'cls_b')
+        self.assertEqual(c.classification, 'cls_a')
+        self.assertEqual(ab.classification, 'cls_c')
+        labels.replace_label_classes({'cls_a': 'new_a', 'cls_c': 'new_c'})
+        self.assertEqual(a.classification, 'new_a')
+        self.assertEqual(b.classification, 'cls_b')
+        self.assertEqual(c.classification, 'new_a')
+        self.assertEqual(ab.classification, 'new_c')
+
+    def test_replace_label_classes_json(self):
+        inner_rect = np.array([[20.0, 20.0], [30.0, 20.0], [30.0, 30.0], [20.0, 30.0]])
+        outer_rect = np.array([[10.0, 10.0], [40.0, 10.0], [40.0, 40.0], [10.0, 40.0]])
+        inner_js = [dict(x=p[0], y=p[1]) for p in inner_rect]
+        outer_js = [dict(x=p[0], y=p[1]) for p in outer_rect]
+        js_a = dict(label_type='box', centre=dict(x=15.0, y=25.0), size=dict(x=8.0, y=12.0),
+                    object_id='abc_123', label_class='cls_a')
+        js_b = dict(label_type='polygon', regions=[inner_js], object_id='abc_124',
+                    label_class='cls_b')
+        js_c = dict(label_type='polygon', regions=[outer_js, inner_js], object_id='abc_125',
+                    label_class='cls_a')
+        js_ab = dict(label_type='group', component_models=[js_a, js_b], object_id='grp_1',
+                     label_class='cls_c')
+        js_labels = [js_ab, js_c]
+
+        self.assertEqual(js_labels[0]['component_models'][0]['label_class'], 'cls_a')
+        self.assertEqual(js_labels[0]['component_models'][1]['label_class'], 'cls_b')
+        self.assertEqual(js_labels[1]['label_class'], 'cls_a')
+        self.assertEqual(js_labels[0]['label_class'], 'cls_c')
+        labelling_tool.ImageLabels.replace_label_classes_json(js_labels, {'cls_a': 'new_a', 'cls_c': 'new_c'})
+        self.assertEqual(js_labels[0]['component_models'][0]['label_class'], 'new_a')
+        self.assertEqual(js_labels[0]['component_models'][1]['label_class'], 'cls_b')
+        self.assertEqual(js_labels[1]['label_class'], 'new_a')
+        self.assertEqual(js_labels[0]['label_class'], 'new_c')

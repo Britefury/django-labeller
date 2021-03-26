@@ -455,6 +455,30 @@ class AbstractLabel (object):
         """
         yield self
 
+    @staticmethod
+    def flatten_json(label_json: Any) -> Generator[Any, None, None]:
+        """Gets an iterator that yields a sequence of labels in JSON form within
+        a subtree, e.g. flattens groups.
+
+        Same idea as the `flatten` method, except this operates on labels stored as JSON rather than
+        as objects.
+
+        :return: an iterator that yields label instances in JSON form
+        """
+        label_type = label_json['label_type']
+        cls = _LABEL_CLASS_REGISTRY.get(label_type)
+        if cls is None:
+            raise TypeError('Unknown label type {0}'.format(label_type))
+        return cls._flatten_json_label(label_json)
+
+    @classmethod
+    def _flatten_json_label(cls, label_json: Any) -> Generator[Any, None, None]:
+        """Helper method for `AbstractLabel.flatten_json`.
+
+        :return: an iterator that yields label instances in JSON form
+        """
+        yield label_json
+
     def accumulate_label_class_histogram(self, histogram: MutableMapping[str, int]):
         """Accumulate a histogram of label classifications.
         Increments the count in `histogram` associated with the classification of this label.
@@ -1022,11 +1046,28 @@ class GroupLabel (AbstractLabel):
         super(GroupLabel, self).__init__(object_id, classification, source, anno_data)
         self.component_labels = component_labels
 
+    def __len__(self):
+        return len(self.component_labels)
+
+    def __getitem__(self, item):
+        return self.component_labels[item]
+
     def flatten(self) -> Generator[AbstractLabel, None, None]:
         for comp in self.component_labels:
             for f in comp.flatten():
                 yield f
         yield self
+
+    @classmethod
+    def _flatten_json_label(cls, label_json: Any) -> Generator[Any, None, None]:
+        """Helper method for `AbstractLabel.flatten_json`.
+
+        :return: an iterator that yields label instances in JSON form
+        """
+        for comp_json in label_json['component_models']:
+            for f_json in AbstractLabel.flatten_json(comp_json):
+                yield f_json
+        yield label_json
 
     def bounding_box(self, ctx: Optional[LabelContext] = None) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         lowers, uppers = list(zip(*[comp.bounding_box(ctx) for comp in self.component_labels]))
@@ -1093,7 +1134,7 @@ class ImageLabels:
         return len(self.labels)
 
     def __getitem__(self, item: Union[int, str, slice, Sequence[Union[str, int]]]) -> \
-            Union[AbstractLabel, 'ImageLabels']:
+                    Union[AbstractLabel, 'ImageLabels']:
         if isinstance(item, int):
             return self.labels[item]
         elif isinstance(item, str):
@@ -1140,6 +1181,33 @@ class ImageLabels:
         obj_table = ObjectTable(id_prefix=id_prefix)
 
         return ImageLabels(retained_labels, obj_table=obj_table)
+
+    def replace_label_classes(self, replacements: Mapping[Optional[str], Optional[str]]):
+        """Replace all uses of a source classification with a target classification
+
+        For each source-target pair in the mapping `replacements`, any labels whose classification is
+        source will have their classification set to target.
+
+        :param replacements: a dictionary mapping source to target class.
+        """
+        for label in self.flatten():
+            if label.classification in replacements:
+                label.classification = replacements[label.classification]
+
+    @staticmethod
+    def replace_label_classes_json(labels_json, replacements: Mapping[Optional[str], Optional[str]]):
+        """Replace all uses of a source classification with a target classification in a list of labels in JSON form
+
+        For each source-target pair in the mapping `replacements`, any labels whose classification is
+        source will have their classification set to target.
+
+        :param labels_json: labels in JSON form
+        :param replacements: a dictionary mapping source to target class.
+        """
+        for label_js in labels_json:
+            for f_json in AbstractLabel.flatten_json(label_js):
+                if f_json['label_class'] in replacements:
+                    f_json['label_class'] = replacements[f_json['label_class']]
 
     def warp(self, xform_fn: Callable[[np.ndarray], np.ndarray]) -> 'ImageLabels':
         """
@@ -1461,6 +1529,7 @@ class ImageLabels:
         else:
             raise ValueError('existing_json should be a list or a dict')
 
+    @deprecated('This methods will be removed in the future')
     def wrapped_json(self, image_filename: str, completed_tasks: List[str]) -> Any:
         return {'image_filename': image_filename,
                 'completed_tasks': completed_tasks,

@@ -97,9 +97,8 @@
             {% endif %}
 
             var tool = new labelling_tool.DjangoLabeller(
-                {{ label_class_groups | as_json | safe }},
+                {{ labelling_schema | as_json | safe }},
                 {{ tasks | as_json | safe }},
-                {{ colour_schemes | as_json | safe }},
                 {{ anno_controls | as_json | safe }},
                 {{ image_descriptors | as_json | safe }},
                 {{ initial_image_index | safe }},

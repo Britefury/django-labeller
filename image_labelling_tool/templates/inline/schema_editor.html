@@ -21,9 +21,30 @@
             });
         }
 
-        new schema_editor.SchemaEditor(
-            "{{update_url}}",
+        var update_callback = function (message_block) {
+            var post_data = {
+                messages: JSON.stringify(message_block.messages)
+            };
+
+            $.ajax({
+                type: 'POST',
+                url: "{{update_url}}",
+                data: post_data,
+                success: function (reply) {
+                    let responses = reply.responses;
+                    let response_block = {
+                        id: message_block.id,
+                        responses: responses
+                    };
+                    sch_ed.notify_responses(response_block);
+                },
+                dataType: 'json'
+            });
+        };
+
+        var sch_ed = new schema_editor.SchemaEditor(
             {{ schema | safe }},
+            update_callback,
         );
     });
 </script>

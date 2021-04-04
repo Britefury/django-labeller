@@ -67,7 +67,7 @@
             var get_labels = function(image_id) {
                 $.ajax({
                     type: 'GET',
-                    url: '/labelling/get_labels/' + image_id,
+                    url: '/labeller/get_labels/' + image_id,
                     success: function(label_header) {
                         tool.loadLabels(label_header, null);
                     },
@@ -86,7 +86,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: '/labelling/set_labels',
+                    url: '/labeller/set_labels',
                     data: post_data,
                     success: function(msg) {
                         tool.notifyLabelUpdateResponse(msg);
@@ -105,7 +105,7 @@
 
                     $.ajax({
                         type: 'POST',
-                        url: '/labelling/dextr',
+                        url: '/labeller/dextr',
                         data: post_data,
                         success: function(msg) {
                             if (msg.labels !== undefined) {
@@ -123,9 +123,8 @@
         // Create the labelling tool
         // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
             var tool = new labelling_tool.DjangoLabeller(
-                {{ label_class_groups | tojson | safe }},
+                {{ labelling_schema | tojson | safe }},
                 {{ tasks | tojson | safe }},
-                {{ colour_schemes | tojson | safe }},
                 {{ anno_controls | tojson | safe }},
                 {{ image_descriptors | tojson | safe }},
                 {{ initial_image_index | safe }},

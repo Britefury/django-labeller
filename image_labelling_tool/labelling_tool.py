@@ -43,6 +43,8 @@ from PIL import Image, ImageDraw
 from skimage.color import gray2rgb
 from skimage.measure import find_contours
 
+from image_labelling_tool.labelling_schema import LabelClass, LabelClassGroup, ColourTriple
+
 # Try to import cv2
 try:
     import cv2
@@ -130,73 +132,13 @@ DEFAULT_CONFIG = {
 }
 
 
-class AbstractLabelClass (object):
-    @abstractmethod
-    def to_json(self) -> Any:
-        pass
-
-
-ColourTriple = Union[Tuple[int, int, int], List[int]]
-
-class LabelClass (AbstractLabelClass):
-    def __init__(self, name: str, human_name: str, colour: Optional[ColourTriple] = None,
-                 colours: Optional[Mapping[str, ColourTriple]] = None):
-        """
-        Label class constructor
-        
-        :param name: identifier class name 
-        :param human_name: human readable name
-        :param colour: colour as a tuple or list e.g. [255, 0, 0] for red
-        :param colours: colours as a dict that maps colour scheme name to colour as a tuple or list
-        """
-        self.name = name
-        self.human_name = human_name
-        if colour is not None:
-            if colours is not None:
-                raise TypeError('only one of colour or colours should be provided, not both')
-            if isinstance(colour, (tuple, list)):
-                colour = list(colour)
-                if len(colour) != 3:
-                    raise TypeError('colour must be a tuple or list of length 3')
-                colours = {'default': colour}
-            elif isinstance(colour, dict):
-                colours = colour
-            else:
-                raise TypeError('colour should be a tuple, a list or a dict')
-
-        if colours is not None:
-            if isinstance(colours, dict):
-                colours = {k: list(v) for k, v in colours.items()}
-                for v in colours.values():
-                    if len(v) != 3:
-                        raise TypeError('values in colours must be tuples or lists of length 3')
-
-        self.colours = colours
-
-    def to_json(self) -> Any:
-        return {'name': self.name, 'human_name': self.human_name, 'colours': self.colours}
-
-
-class LabelClassGroup (AbstractLabelClass):
-    def __init__(self, human_name: str, classes: List[LabelClass]):
-        """
-        Label class group constructor
-
-        :param human_name: human readable name
-        :param classes: member classes
-        """
-        self.group_name = human_name
-        self.classes = classes
-
-    def to_json(self) -> Any:
-        return {'group_name': self.group_name, 'group_classes': [cls.to_json() for cls in self.classes]}
-
-
+@deprecated(reason='Please use LabelClass in the labelling_schema module')
 def label_class(name: str, human_name: str, rgb: Tuple[int, int, int]) -> Any:
     return {'name': name,
             'human_name': human_name,
-            'colour': rgb}
+            'colours': {'default': rgb}}
 
+@deprecated(reason='Please use LabelClassGroup in the labelling_schema module')
 def label_class_group(human_name: str, classes_json: List[Any]) -> Any:
     return {'group_name': human_name,
             'group_classes': classes_json}

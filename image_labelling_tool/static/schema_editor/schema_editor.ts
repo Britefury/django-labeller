@@ -38,27 +38,52 @@ module schema_editor {
         on_response: ResponseCallback;
     }
 
+    interface MessageBlock {
+        id: string;
+        messages: any[];
+    }
+
+    interface ResponseBlock {
+        id: string;
+        responses: any[];
+    }
+
+    type UpdateCallback = (MessageBlock) => void;
+
 
     export class SchemaEditor {
         // We put updates in a queue that we can send
         private update_timeout_id: number = null;
 
-        private update_url: string;
+        private update_callback: UpdateCallback;
+        private update_delay_ms: number;
+
+        private message_response_callbacks_by_id: any = {};
 
         private app: any = null;
 
         private get_schema: () => any = null;
 
-
         /**
          * Constructor
-         * @param update_url - the URL to which updates should be sent via POST request
          * @param schema_js - JSON representation of the schema to be edited
+         * @param update_callback - a callback function to invoke to notify the backend of updates due to user actions.
+         *  A function of the form `fn(messages)` where `messages` is a message block that takes the form
+         *  {id: <message_block_uuid>, messages_json: object[]}.
+         *  Reply to the tool via invoking the `notify_responses` method, proving a responses block that has
+         *  the layout {id: <message_block_uuid>, responses_json: object[]}
+         * @param update_delay_ms - the delay in milliseconds to wait after user actions before sending an update
+         *  via `update_callback`
          */
-        constructor(update_url: string, schema_js: any) {
+        constructor(schema_js: any, update_callback: UpdateCallback, update_delay_ms: number) {
             let self = this;
 
-            this.update_url = update_url;
+            if (update_delay_ms === undefined) {
+                update_delay_ms = 1500;
+            }
+
+            this.update_callback = update_callback;
+            this.update_delay_ms = update_delay_ms;
 
             const RootComponent = {
                 el: '#schema_editor',
@@ -84,7 +109,7 @@ module schema_editor {
             self.app.mixin({
                 methods: {
                     queue_send_schema_update: function() {
-                        self.enqueue_update_schema(2000);
+                        self.enqueue_update_schema(self.update_delay_ms);
                     },
                     send_create_colour_scheme: function(colour_scheme) {
                         self.send_create_colour_scheme(colour_scheme);
@@ -410,41 +435,86 @@ module schema_editor {
         }
 
 
+        /**
+         * Notify the tool of responses to messages sent out via the update_callback passed to the constructor
+         * @param response_block responses in the form of an object:
+         *   {id: <message_block_uuid>, responses: <array_of_json_objects>}
+         *   where id is the message block ID from the message block that is being responded to, and
+         *   responses contains a response for each message from the message block
+         */
+        public notify_responses(response_block: ResponseBlock) {
+            // Get the callbacks and then remove
+            let callbacks = this.message_response_callbacks_by_id[response_block.id];
+            delete this.message_response_callbacks_by_id[response_block.id];
+            let responses = response_block.responses;
+            for (var i = 0; i < responses.length; i++) {
+                let cb: ResponseCallback = null;
+                if (callbacks !== undefined) {
+                    if (i < callbacks.length) {
+                        cb = callbacks[i];
+                    }
+                }
+                if (cb !== undefined && cb !== null) {
+                    cb(responses[i]);
+                }
+            }
+        }
+
+
+        // private send_messages(messages_and_callbacks: MessageWithCallback[]) {
+        //     let self = this;
+        //
+        //     let messages: any[] = [];
+        //     for (let msg_cb of messages_and_callbacks) {
+        //         console.log('Sending ' + msg_cb.message.method);
+        //         messages.push(msg_cb.message);
+        //     }
+        //
+        //     let post_data = {
+        //         messages: JSON.stringify(messages)
+        //     };
+        //
+        //     $.ajax({
+        //         type: 'POST',
+        //         url: self.update_url,
+        //         data: post_data,
+        //         success: function (reply: any) {
+        //             let responses = reply.responses;
+        //             for (var i = 0; i < responses.length; i++) {
+        //                 let msg_cb = messages_and_callbacks[i];
+        //                 if (msg_cb.on_response !== undefined && msg_cb.on_response !== null) {
+        //                     msg_cb.on_response(responses[i]);
+        //                 }
+        //             }
+        //         },
+        //         dataType: 'json'
+        //     });
+        // }
 
         /**
-         * Send an update to the server at `this.update_url`
+         * Send an update to the backend in the form of a message block that consists of
+         * a message block ID and an array of messages
          * @param messages_and_callbacks - array of objects with layout:
          *      {message: <message_as_json>, on_response: <>callback function that takes a single parameter>}
          * @private
          */
         private send_messages(messages_and_callbacks: MessageWithCallback[]) {
-            let self = this;
-
             let messages: any[] = [];
+            let callbacks: ResponseCallback[] = [];
             for (let msg_cb of messages_and_callbacks) {
                 console.log('Sending ' + msg_cb.message.method);
                 messages.push(msg_cb.message);
+                callbacks.push(msg_cb.on_response);
             }
 
-            let post_data = {
-                messages: JSON.stringify(messages)
+            let message_block: MessageBlock = {
+                id: labelling_tool.ObjectIDTable.uuidv4(),
+                messages: messages
             };
 
-            $.ajax({
-                type: 'POST',
-                url: self.update_url,
-                data: post_data,
-                success: function (reply: any) {
-                    let responses = reply.responses;
-                    for (var i = 0; i < responses.length; i++) {
-                        let msg_cb = messages_and_callbacks[i];
-                        if (msg_cb.on_response !== undefined && msg_cb.on_response !== null) {
-                            msg_cb.on_response(responses[i]);
-                        }
-                    }
-                },
-                dataType: 'json'
-            });
+            this.message_response_callbacks_by_id[message_block.id] = callbacks;
+
+            this.update_callback(message_block);
         }
 
         /**

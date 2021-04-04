@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>UEA Computer Vision - Annotator</title>
+
+    {% include "inline/schema_editor_css.html" %}
+    {% include "inline/schema_editor_scripts.html" %}
+
+    <script>
+        $(document).ready(function () {
+            var update_callback = function (message_block) {
+                var post_data = {
+                    messages: JSON.stringify(message_block.messages)
+                };
+
+                $.ajax({
+                    type: 'POST',
+                    url: "/schema_editor/update",
+                    data: post_data,
+                    success: function (reply) {
+                        let responses = reply.responses;
+                        let response_block = {
+                            id: message_block.id,
+                            responses: responses
+                        };
+                        sch_ed.notify_responses(response_block);
+                    },
+                    dataType: 'json'
+                });
+            };
+
+            var sch_ed = new schema_editor.SchemaEditor(
+                {{ schema | tojson | safe }},
+                update_callback,
+            );
+        });
+    </script>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Home</a></li>
+            {% if use_websockets %}
+                <li class="breadcrumb-item active" aria-current="page">Labelling tool (using websockets)</li>
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">Labelling tool (not using websockets)</li>
+            {% endif %}
+        </ol>
+    </nav>
+
+
+    {{ schema_editor_vue_templates_html | safe }}
+</div>
+</body>
+</html>

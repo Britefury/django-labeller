@@ -53,6 +53,12 @@ module labelling_tool {
     }
 
 
+    export interface LabellingSchemaJSON {
+        colour_schemes: ColourSchemeJSON[],
+        label_class_groups: LabelClassJSON[],
+    }
+
+
     export class AbstractLabelClass {
         human_name: string;
 

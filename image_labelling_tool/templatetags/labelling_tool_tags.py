@@ -25,7 +25,7 @@ def _update_config(dest, src):
 
 
 @register.inclusion_tag('inline/image_labeller.html', name='labelling_tool')
-def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial_image_index,
+def labelling_tool(image_descriptors, labelling_schema, initial_image_index,
                    labelling_tool_url, tasks=None, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
                    config=None):
     if config is None:
@@ -52,9 +52,8 @@ def labelling_tool(label_class_groups, image_descriptors, color_schemes, initial
                                 'LabellingTask instances, not {}'.format(type(task)))
 
     return {
-        'colour_schemes': color_schemes,
+        'labelling_schema': labelling_schema,
         'tasks': tasks_json,
-        'label_class_groups': label_class_groups,
         'anno_controls': anno_controls,
         'image_descriptors': image_descriptors,
         'num_images': len(image_descriptors),

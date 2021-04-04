@@ -80,14 +80,15 @@ class LabellerServer:
             self.server_process.terminate()
             self.server_process = None
 
-    def server_url(self, tool_id=None, dextr_available=False):
+    def server_url(self, tool_name, tool_id=None, query_params=None):
         query_dict = {}
-        if dextr_available:
+        if query_params is not None:
+            query_dict.update(query_params)
             query_dict['dextr'] = ''
         if tool_id is not None:
             query_dict['tool_id'] = tool_id
         query = urllib.parse.urlencode(query_dict)
-        return 'http://127.0.0.1:{}/?{}'.format(self.port, query)
+        return 'http://127.0.0.1:{}/{}?{}'.format(self.port, tool_name, query)
 
     def image_registry(self):
         return _ImageRegistry(self.img_reg_command_q)
@@ -180,11 +181,12 @@ def _flask_server(img_reg, port=5000, debug=False):
     my_path = pathlib.Path(__file__)
     template_dir = my_path.parent.parent / 'image_labelling_tool' / 'templates'
     static_dir = my_path.parent.parent / 'image_labelling_tool' / 'static'
+    vue_tmpl_path = template_dir / 'inline' / 'schema_editor_vue_templates.html'
 
     app = Flask(__name__, static_folder=str(static_dir), template_folder=str(template_dir))
 
-    @app.route('/')
-    def index():
+    @app.route('/labeller')
+    def labeller():
         settings = None
         tool_id = request.args.get('tool_id')
         if tool_id is not None:
@@ -194,15 +196,13 @@ def _flask_server(img_reg, port=5000, debug=False):
         if settings is not None:
             config = settings.get('config', DEFAULT_CONFIG)
             tasks = settings.get('tasks', None)
-            colour_schemes = settings.get('colour_schemes', None)
-            label_class_groups = settings.get('label_class_groups', [])
+            schema = settings.get('schema', {})
             anno_controls = settings.get('anno_controls', [])
             enable_firebug = settings.get('enable_firebug', False)
         else:
             config = DEFAULT_CONFIG
             tasks = None
-            colour_schemes = None
-            label_class_groups = []
+            schema = {}
             anno_controls = []
             enable_firebug = False
 
@@ -211,10 +211,31 @@ def _flask_server(img_reg, port=5000, debug=False):
         return render_template('labeller_control_qt.jinja2',
                                labelling_tool_config=config,
                                tasks=tasks,
-                               colour_schemes=colour_schemes,
-                               label_class_groups=label_class_groups,
+                               labelling_schema=schema,
                                anno_controls=anno_controls,
                                dextr_available=dextr_available,
+                               enable_firebug=enable_firebug)
+
+    @app.route('/schema_editor')
+    def schema_editor():
+        settings = None
+        tool_id = request.args.get('tool_id')
+        if tool_id is not None:
+            img_reg.update()
+            settings = img_reg.get_settings(tool_id)
+
+        if settings is not None:
+            schema = settings.get('schema', [])
+            enable_firebug = settings.get('enable_firebug', False)
+        else:
+            schema = {'colour_schemes': [], 'label_class_groups': []}
+            enable_firebug = False
+
+        schema_editor_vue_templates_html = vue_tmpl_path.open().read()
+
+        return render_template('schema_editor_control_qt.jinja2',
+                               schema=schema,
+                               schema_editor_vue_templates_html=schema_editor_vue_templates_html,
                                enable_firebug=enable_firebug)
 
     @app.route('/image/<image_id>')

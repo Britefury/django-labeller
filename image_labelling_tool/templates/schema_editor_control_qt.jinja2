@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>UEA Computer Vision - Annotator</title>
+
+        {% include "inline/schema_editor_css.html" %}
+        <script language="javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        {% if enable_firebug %}
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/firebug-lite/1.4.0/firebug-lite.js" integrity="sha512-0p6aYPiAsdFaNHCYYsq5sqb1v3q5h3pD2qBZq2piwCU9vS6KTSeIaqKkwJWc1Yl7kc2jC6YpVF2amtSLdblCsA==" crossorigin="anonymous"></script>
+        {% endif %}
+        {% include "inline/schema_editor_scripts.html" %}
+    </head>
+
+    <body>
+        <div class="container">
+            {{ schema_editor_vue_templates_html | safe }}
+        </div>
+
+
+    <script>
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            var qt_tool = channel.objects.qt_tool;
+
+            qt_tool._notify_response.connect(function (response_block) {
+                sch_ed.notify_responses(response_block);
+            });
+
+            // update callback
+            var update_callback = function (message_block) {
+                qt_tool._update_callback(message_block);
+            };
+
+            // Create the labelling tool
+            // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
+            var sch_ed = new schema_editor.SchemaEditor(qt_tool._schema.value, update_callback);
+        });
+    </script>
+
+    </body>
+</html>

@@ -170,8 +170,7 @@ def tool(request):
         schema_js = schema.json_for_tool()
 
     context = {
-        'colour_schemes': schema_js['colour_schemes'],
-        'label_class_groups': schema_js['label_class_groups'],
+        'labelling_schema': schema_js,
         'image_descriptors': image_descriptors,
         'initial_image_index': str(0),
         'labelling_tool_config': settings.LABELLING_TOOL_CONFIG,

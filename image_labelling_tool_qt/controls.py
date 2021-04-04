@@ -22,11 +22,13 @@
 #
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
+from typing import Any
+from abc import abstractmethod
 import uuid
 import copy
 import numpy as np
 from PyQt5 import QtCore, QtWebChannel
-from image_labelling_tool import labelling_tool
+from image_labelling_tool import labelling_tool, labelling_schema, schema_editor_messages
 from image_labelling_tool_qt import web_server
 
 
@@ -79,7 +81,76 @@ def _qt_to_json(qtjs):
         raise RuntimeError
 
 
-class QAbstractLabeller (QtCore.QObject):
+class QAbstractDLTool (QtCore.QObject):
+    """Qt side tool that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
+
+    WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+    as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+    available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+    that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+    garbage collector from deleting `self`. As a consequence, it is important to ensure that
+    a reference to `self` is kept as long as it is needed for display.
+    Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+    to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+    passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
+    please keep a reference to it.
+    """
+    _TOOL_URL_NAME = None
+
+    def __init__(self, server):
+        """
+        :param server: the `web_server.LabellerServer` instance that manages the Flask server.
+        """
+        super(QAbstractDLTool, self).__init__()
+
+        self._server = server
+        self._server_pipe = self._server.image_registry()
+
+        self._tool_id = str(uuid.uuid4())
+
+    def attach_to_web_engine_view(self, web_engine_view):
+        """
+        Attach the labeller to a `QtWebEngineWidgets.QWebEngineView` widget
+
+        WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+        as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+        available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+        that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+        garbage collector from deleting `self`. As a consequence, it is important to ensure that
+        a reference to `self` is kept as long as it is needed for display.
+        Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+        to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+        passed as a parameter. If you need `self` to last longer, please keep a reference to it.
+
+        :param web_engine_view: A `QtWebEngineWidgets.QWebEngineView` instance that is the widget in which the
+            labeller is to be rendered
+        """
+        if self._TOOL_URL_NAME is None:
+            raise NotImplementedError('Abstract: the _TOOL_URL_NAME class attribute is not defined for {}'.format(
+                type(self)
+            ))
+        # Start the Flask server if its not already running
+        self._server.start_flask_server()
+        # Create a QWebChannel to communicate with the client-side Javascript code
+        channel = QtWebChannel.QWebChannel(web_engine_view.page())
+        web_engine_view.page().setWebChannel(channel)
+        # Register self as `qt_tool` as the `labeller_control_qt.jinja2` template will attempte to find it here
+        channel.registerObject("qt_tool", self)
+        # Get the server url
+        tool_url = self._server.server_url(self._TOOL_URL_NAME, tool_id=self._tool_id,
+                                           query_params=self.get_server_query_params())
+        # Have the web view widget navigate there
+        web_engine_view.setUrl(QtCore.QUrl(tool_url))
+        # Set the '_django_labeller' attribute so that self is not garbage collected while
+        # `web_engine_view` still exists
+        web_engine_view._django_labeller = self
+
+    def get_server_query_params(self):
+        """Return any additional GET parameters that should be added to the flask server URL"""
+        return {}
+
+
+class QAbstractLabeller (QAbstractDLTool):
     """Qt side labeller that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
 
     Concrete implementations should implement the following methods and properties:
@@ -101,40 +172,35 @@ class QAbstractLabeller (QtCore.QObject):
     passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
     please keep a reference to it.
     """
-    def __init__(self, server, label_classes, tasks=None, colour_schemes=None,
+    _TOOL_URL_NAME = 'labeller'
+
+    def __init__(self, server, schema, tasks=None,
                  anno_controls=None, config=None, enable_firebug=False):
         """
         :param server: the `web_server.LabellerServer` instance that manages the Flask server.
-        :param label_classes: grouped label classes that will be passed to the tool
+        :param schema: labelling schema that will be passed to the tool
         :param tasks: [optional] a list of tasks for the user to check when they are done
-        :param colour_schemes: [optional] the list of colour schemes for display
         :param anno_controls: [optional] additional annotation controls for metadata
         :param config: [optional] labelling tool configuration
         :param enable_firebug: [default=False] if True, load Firebug-lite development tools
         """
-        super(QAbstractLabeller, self).__init__()
+        super(QAbstractLabeller, self).__init__(server)
+
+        self._dextr_fn = None
 
         if tasks is None:
             tasks = []
 
-        if colour_schemes is None:
-            colour_schemes = []
-
-
-        self._server = server
-        self._server_pipe = self._server.image_registry()
-
-        self._tool_id = str(uuid.uuid4())
-
-        # Convert the label classes to JSON
-        self._label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
-                                    for cls in label_classes]
+        # Convert the schema to JSON
+        if isinstance(schema, labelling_schema.LabellingSchema):
+            self._schema_json = schema.to_json()
+        elif isinstance(schema, labelling_schema.SchemaStore):
+            self._schema_json = schema.get_schema_json()
+        else:
+            self._schema_json = schema
 
         # Create a default 'finished' task if none provided
         self._tasks = tasks
-
-        # colour schemes
-        self._colour_schemes = colour_schemes
 
         # Annotation metadata controls
         if anno_controls is not None:
@@ -155,15 +221,20 @@ class QAbstractLabeller (QtCore.QObject):
         settings = dict(
             config=config,
             tasks=tasks,
-            colour_schemes=colour_schemes,
-            label_class_groups=self._label_classes_json,
+            schema=self._schema_json,
             anno_controls=self._anno_controls_json,
             enable_firebug=enable_firebug,
         )
         self._server_pipe.add_settings(self._tool_id, settings)
 
+    def get_server_query_params(self):
+        if self._dextr_fn is not None:
+            return {'dextr': ''}
+        else:
+            return {}
 
     @property
+    @abstractmethod
     def image_descriptors_json(self):
         """
         A list of JSON image descriptors that will be passed to the client side tool that describe the images that
@@ -177,8 +248,9 @@ class QAbstractLabeller (QtCore.QObject):
 
         :return: a list of JSON image descriptors
         """
-        raise NotImplementedError('Not implemented for {}'.format(type(self)))
+        pass
 
+    @abstractmethod
     def get_image_labels_for_tool(self, image_id):
         """
         Retrieve the image labels and metadata for use by the tool.
@@ -188,8 +260,9 @@ class QAbstractLabeller (QtCore.QObject):
             labels_json: labels in JSON format
             completed_tasks: the list of names of tasks that have been completed by the user as a list of strings
         """
-        raise NotImplementedError('Not implemented for {}'.format(type(self)))
+        pass
 
+    @abstractmethod
     def on_update_image_labels_from_tool(self, image_id, labels_and_metadata):
         """
         Invoked when the tool supplies labels modified by the user
@@ -199,8 +272,9 @@ class QAbstractLabeller (QtCore.QObject):
             labels_json: updated labels in JSON format
             completed_tasks: the list of names of tasks that have been completed by the user as a list of strings
         """
-        raise NotImplementedError('Not implemented for {}'.format(type(self)))
+        pass
 
+    @abstractmethod
     def dextr_predict_mask(self, image_id, dextr_points):
         """
         Use DEXTR to predict a mask for an object that is identified by the points in `dextr_points`
@@ -208,45 +282,13 @@ class QAbstractLabeller (QtCore.QObject):
         :param dextr_points: points to identify the image as a `(N, [y, x])` NumPy array
         :return: a mask as a `(H, W)` NumPy array whose size matches that of the image
         """
-        raise NotImplementedError('Not implemented for {}'.format(type(self)))
+        pass
 
     @property
+    @abstractmethod
     def dextr_available(self):
         """Return True if DEXTR automatically assisted labelling is available"""
-        raise NotImplementedError('Not implemented for {}'.format(type(self)))
-
-
-    def attach_to_web_engine_view(self, web_engine_view):
-        """
-        Attach the labeller to a `QtWebEngineWidgets.QWebEngineView` widget
-
-        WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
-        as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
-        available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
-        that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
-        garbage collector from deleting `self`. As a consequence, it is important to ensure that
-        a reference to `self` is kept as long as it is needed for display.
-        Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
-        to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
-        passed as a parameter. If you need `self` to last longer, please keep a reference to it.
-
-        :param web_engine_view: A `QtWebEngineWidgets.QWebEngineView` instance that is the widget in which the
-            labeller is to be rendered
-        """
-        # Start the Flask server if its not already running
-        self._server.start_flask_server()
-        # Create a QWebChannel to communicate with the client-side Javascript code
-        channel = QtWebChannel.QWebChannel(web_engine_view.page())
-        web_engine_view.page().setWebChannel(channel)
-        # Register self as `qt_tool` as the `labeller_control_qt.jinja2` template will attempte to find it here
-        channel.registerObject("qt_tool", self)
-        # Get the server url
-        tool_url = self._server.server_url(tool_id=self._tool_id, dextr_available=self._dextr_fn is not None)
-        # Have the web view widget navigate there
-        web_engine_view.setUrl(QtCore.QUrl(tool_url))
-        # Set the '_django_labeller' attribute so that self is not garbage collected while
-        # `web_engine_view` still exists
-        web_engine_view._django_labeller = self
+        pass
 
 
     _tool_load_labels = QtCore.pyqtSignal("QJsonObject")
@@ -307,16 +349,12 @@ class QAbstractLabeller (QtCore.QObject):
             raise RuntimeError
 
     @QtCore.pyqtProperty("QJsonObject")
-    def _tool_label_class_groups(self):
-        return dict(value=self._label_classes_json)
+    def _tool_schema(self):
+        return dict(value=self._schema_json)
 
     @QtCore.pyqtProperty("QJsonObject")
     def _tool_anno_tasks(self):
         return dict(value=self._tasks)
-
-    @QtCore.pyqtProperty("QJsonObject")
-    def _tool_colour_schemes(self):
-        return dict(value=self._colour_schemes)
 
     @QtCore.pyqtProperty("QJsonObject")
     def _tool_anno_controls(self):
@@ -356,7 +394,7 @@ class QLabellerForLabelledImages (QAbstractLabeller):
     passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
     please keep a reference to it.
     """
-    def __init__(self, server, label_classes, labelled_images, tasks=None, colour_schemes=None,
+    def __init__(self, server, labelled_images, schema, tasks=None, colour_schemes=None,
                  anno_controls=None, config=None, dextr_fn=None, enable_firebug=False):
         """
         :param server: the `web_server.LabellerServer` instance that manages the Flask server.
@@ -370,8 +408,8 @@ class QLabellerForLabelledImages (QAbstractLabeller):
         :param enable_firebug: [default=False] if True, load Firebug-lite development tools
         """
         super(QLabellerForLabelledImages, self).__init__(
-            server=server, label_classes=label_classes, tasks=tasks, colour_schemes=colour_schemes,
-            anno_controls=anno_controls, config=config, enable_firebug=enable_firebug)
+            server=server, schema=schema, tasks=tasks, anno_controls=anno_controls,
+            config=config, enable_firebug=enable_firebug)
 
         self._dextr_fn = dextr_fn
 
@@ -422,4 +460,119 @@ class QLabellerForLabelledImages (QAbstractLabeller):
     @property
     def dextr_available(self):
         return self._dextr_fn is not None
+
+
+class QAbstractSchemaEditor (QAbstractDLTool, schema_editor_messages.SchemaEditorMessageHandler):
+    """Qt side schema editor that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
+
+    Concrete implementations should implement the following methods:
+
+    get_schema_json(): retrieve the schema in JSON form in its current state
+    update_schema_json(schema_js): update schema in JSON form
+
+    WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+    as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+    available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+    that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+    garbage collector from deleting `self`. As a consequence, it is important to ensure that
+    a reference to `self` is kept as long as it is needed for display.
+    Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+    to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+    passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
+    please keep a reference to it.
+    """
+    _TOOL_URL_NAME = 'schema_editor'
+
+    def __init__(self, server, enable_firebug=False):
+        """
+        :param server: the `web_server.LabellerServer` instance that manages the Flask server.
+        :param schema_json: schema in JSON form
+        :param enable_firebug: [default=False] if True, load Firebug-lite development tools
+        """
+        super(QAbstractSchemaEditor, self).__init__(server)
+        
+        settings = dict(
+            schema=self.get_schema_json(),
+            enable_firebug=enable_firebug,
+        )
+        self._server_pipe.add_settings(self._tool_id, settings)
+
+    @abstractmethod
+    def get_schema_json(self):
+        pass
+
+    @abstractmethod
+    def update_schema_json(self, schema_js):
+        pass
+
+    # Schema editor message handler methods
+    def update_schema(self, request, schema, schema_js: Any):
+        self.update_schema_json(schema_js)
+
+    def create_colour_scheme(self, request, schema, colour_scheme_js: Any):
+        return None
+
+    def delete_colour_scheme(self, request, schema, colour_scheme_js: Any):
+        pass
+
+    def create_group(self, request, schema, group_js: Any):
+        return None
+
+    def delete_group(self, request, schema, group_js: Any):
+        pass
+
+    def create_label_class(self, request, schema, containing_group_js: Any, label_class_js: Any):
+        return None
+
+    def delete_label_class(self, request, schema, containing_group_js: Any, label_class_js: Any):
+        pass
+
+    _notify_response = QtCore.pyqtSignal("QJsonObject")
+
+    @QtCore.pyqtSlot("QJsonValue")
+    def _update_callback(self, message_block):
+        message_block = _qt_to_json(message_block)
+        responses = self.handle_messages(None, None, message_block['messages'])
+        # Copy the message block ID field over so that the client knows which message block
+        # we are responding to
+        responses['id'] = message_block['id']
+        self._notify_response.emit(responses)
+
+    @QtCore.pyqtProperty("QJsonObject")
+    def _schema(self):
+        return dict(value=self.get_schema_json())
+
+
+class QSchemaEditorForSchemaStore (QAbstractSchemaEditor):
+    """Qt side labeller that is to be attached to a `QtWebEngineWidgets.QWebEngineView` widget.
+
+    Operates on a provided `labelling_schema.SchemaStore` instance
+
+    WARNING: You must ensure that a reference to this object (`self`) is kept around/alive as long
+    as it is needed for display in a web engine view. As of Qt 5.9.7 and PyQt 5.9.2 (the versions
+    available on Anaconda that this was tested on in Mar/2021), the call to `QWebChannel.registerObject`
+    that is made in the `attach_to_web_engine_view` method does *not* seem to prevent Python's
+    garbage collector from deleting `self`. As a consequence, it is important to ensure that
+    a reference to `self` is kept as long as it is needed for display.
+    Currently the `attach_to_web_engine_view` assist this by assigning a reference to `self`
+    to the `_django_labeller` attribute of the `QtWebEngineWidgets.QWebEngineView` object
+    passed as a parameter to `attach_to_web_engine_view`. If you need `self` to last longer,
+    please keep a reference to it.
+    """
+    def __init__(self, server, schema_store: labelling_schema.SchemaStore, enable_firebug=False):
+        """
+        :param server: the `web_server.LabellerServer` instance that manages the Flask server.
+        :param schema_store: a `labelling_schema.SchemaStore` instance
+        :param enable_firebug: [default=False] if True, load Firebug-lite development tools
+        """
+        self._schema_store = schema_store
+
+        super(QSchemaEditorForSchemaStore, self).__init__(
+            server=server, enable_firebug=enable_firebug)
+
+    def get_schema_json(self):
+        return self._schema_store.get_schema_json()
+
+    def update_schema_json(self, schema_js):
+        self._schema_store.update_schema_json(schema_js)
 

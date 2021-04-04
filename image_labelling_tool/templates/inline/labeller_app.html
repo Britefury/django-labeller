@@ -86,7 +86,7 @@
                     {% else %}
                         <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_select">
                             <option value="__all" selected="true">-- ALL --</option>
-                            {% for group in label_class_groups %}
+                            {% for group in labelling_schema.label_class_groups %}
                                 <optgroup label="{{ group.group_name }}">
                                 {% for lcls in group.group_classes %}
                                     <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
@@ -144,10 +144,10 @@
 
             <!-- Colour scheme !-->
             <div class="tool_bar_content">
-                {% if colour_schemes %}
+                {% if labelling_schema.colour_schemes %}
                     Colour scheme:
                     <select class="form-control btn-sm bg-secondary border-secondary text-light" id="colour_scheme_menu">
-                        {% for cs in colour_schemes %}
+                        {% for cs in labelling_schema.colour_schemes %}
                             <option value="{{ cs.name }}">{{ cs.human_name }}</option>
                         {% endfor %}
                     </select>
@@ -199,7 +199,7 @@
                             <button class="btn btn-sm btn-secondary w-100" id="label_class_selector_menu_btn"><span class="menu_choice">UNCLASSIFIED</span> <span class="oi oi-chevron-bottom"></span></button>
                         {% else %}
                             <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_select">
-                                {% for group in label_class_groups %}
+                                {% for group in labelling_schema.label_class_groups %}
                                     <optgroup label="{{ group.group_name }}">
                                     {% for lcls in group.group_classes %}
                                         <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
@@ -366,7 +366,7 @@
 
 {% if not labelling_tool_config.useClassSelectorPopup == False %}
     <div class="tool_bar_popup hidden" id="label_class_selector_menu_contents">
-        {% for group in label_class_groups %}
+        {% for group in labelling_schema.label_class_groups %}
             <h6 class="class_selector_group">{{ group.group_name }}</h6>
             {% for lcls in group.group_classes %}
               <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">
@@ -386,7 +386,7 @@
         <button class="btn btn-sm btn-success m-1 popup_menu_choice_button active" type="button" data-choice="__all">
             <em>-- ALL --</em>
         </button>
-        {% for group in label_class_groups %}
+        {% for group in labelling_schema.label_class_groups %}
             <h6 class="class_selector_group">{{ group.group_name }}</h6>
             {% for lcls in group.group_classes %}
               <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">

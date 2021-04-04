@@ -50,14 +50,11 @@
                 };
             }
 
-            document.getElementById('classes', JSON.stringify(qt_tool._tool_label_class_groups.value));
-
             // Create the labelling tool
             // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
             var tool = new labelling_tool.DjangoLabeller(
-                qt_tool._tool_label_class_groups.value,
+                qt_tool._tool_schema.value,
                 qt_tool._tool_anno_tasks.value,
-                qt_tool._tool_colour_schemes.value,
                 qt_tool._tool_anno_controls.value,
                 qt_tool._tool_image_descriptors.value,
                 0,
@@ -68,11 +65,8 @@
                 null,
                 qt_tool._tool_anno_config.value
             );
-
         });
     </script>
-
-    <p id="classes"></p>
 
     </body>
 </html>

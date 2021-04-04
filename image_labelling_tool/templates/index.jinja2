@@ -1,0 +1,35 @@
+<html>
+<head>
+    <title>UEA Computer Vision - Labelling Tool</title>
+
+    <link rel="stylesheet" href="/static/bootstrap-4.3.1.min.css">
+    <link rel="stylesheet" href="/static/open-iconic/css/open-iconic-bootstrap.css">
+
+    <script src="/static/jquery-3.6.0.min.js"></script>
+    <script src="/static/popper-1.14.7.min.js"></script>
+    <script src="/static/bootstrap-4.3.1.min.js"></script>
+
+    <script src="/static/js.cookie.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page">Home</li>
+        </ol>
+    </nav>
+
+    <h1>Simple Flask Labeller App</h1>
+
+    <p>Annotating {{ num_images }} images.</p>
+
+    <div class="row">
+        <div class="col-3 d-flex justify-content-center"><a class="btn btn-success" href="/labeller">Labelling tool</a></div>
+        <div class="col-3 d-flex justify-content-center"><a class="btn btn-success" href="/schema_editor">Schema editor</a></div>
+    </div>
+</div>
+
+</body>
+</html>

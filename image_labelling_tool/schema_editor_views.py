@@ -1,13 +1,14 @@
+from typing import Any, TypeVar, Union, List, Dict, Optional
+from abc import abstractmethod
 import json
 import re
-from abc import abstractmethod
 from django.db import transaction
-from django.http import JsonResponse, Http404
+from django.http import HttpRequest, JsonResponse
 from django.db.models import Avg, Max, Min, Sum
 from django.views.decorators.cache import never_cache
 from django.views import View
 from django.utils.decorators import method_decorator
-from . import models
+from . import models, schema_editor_messages
 
 
 _INT_REGEX = re.compile(r'[\d]+')
@@ -22,24 +23,59 @@ def _update_model_from_js(model, model_attr_name, value, save=False):
         return save or False
 
 
-class SchemaEditorView (View):
+SchemaType = TypeVar('SchemaType')
+
+
+class AbstractSchemaEditorView (View, schema_editor_messages.SchemaEditorMessageHandler):
     """
     Scheme editor class based view
 
-    Subclass and override the `get_schema` method (mandatory).
+    Subclass and override the `get_schema` method that should retrieve the schema that we are editing.
+    This will be passed to the methods that perform the udpates (`update_scheme, `create_colour_scheme`, etc.)
 
-    `get_schema` should return a `models.LabellingSchema` instance.
+    Subclass and override the update methods inherited from `SchemaEditorAPI`:
+    - `update_schema`
+    - `create_colour_scheme`
+    - `delete_colour_scheme`
+    - `create_group`
+    - `delete_group`
+    - `create_label_class`
+    - `delete_label_class`
+    """
+    @abstractmethod
+    def get_schema(self, request: HttpRequest, *args, **kwargs) -> Union[models.LabellingSchema, SchemaType]:
+        pass
+
+    @method_decorator(never_cache)
+    def post(self, request, *args, **kwargs):
+        # Get the messages from the POST params
+        messages = json.loads(request.POST.get('messages'))
+        # Get the schema we will work with
+        schema = self.get_schema(request, *args, **kwargs)
+        # Handle the messages
+        response = self.handle_messages(request, schema, messages)
+        # Reply
+        return JsonResponse(response)
+
+
+class SchemaEditorView (AbstractSchemaEditorView):
+    """
+    Scheme editor class based view that stores schemas in the Django database using the classes
+    defined in `models`.
+
+    Subclass and override the `get_schema` method. `get_schema` should return a `models.LabellingSchema` instance.
 
     Example in which the URL pattern places a schema ID in the `schema_id` keyword argument:
-    >>> class MyLabelView (LabellingToolView):
-    ...     def get_schema(self, request, *args, **kwargs):
+    >>> class MySchemaEditorView (SchemaEditorView):
+    ...     def get_schema(self, request: HttpRequest, *args, **kwargs) -> models.LabellingSchema:
     ...         return models.LabellingSchema.objects.get(id=kwargs['schema_id'])
     """
     @abstractmethod
-    def get_schema(self, request, *args, **kwargs):
+    def get_schema(self, request: HttpRequest, *args, **kwargs) -> models.LabellingSchema:
         pass
 
-    def update_schema(self, request, schema, params):
+    def update_schema(self, request: HttpRequest, schema: Union[models.LabellingSchema, SchemaType],
+                      schema_js: Any) -> Optional[Dict[str, Dict[str, Any]]]:
         """Update all models in a given schema
 
         :param request: request
@@ -50,7 +86,6 @@ class SchemaEditorView (View):
         colour_scheme_id_mapping = {}
         group_id_mapping = {}
         label_class_id_mapping = {}
-        schema_js = params['schema']
         with transaction.atomic():
             colour_schemes_js = schema_js.get('colour_schemes', [])
             label_class_groups_js = schema_js.get('label_class_groups', [])
@@ -137,13 +172,13 @@ class SchemaEditorView (View):
                         if lcls_model is not None:
                             self._update_label_class_scheme_colours(schema, lcls_model, lcls_js['colours'])
 
-        return {'status': 'success',
-                'colour_scheme_id_mapping': colour_scheme_id_mapping,
+        return {'colour_scheme_id_mapping': colour_scheme_id_mapping,
                 'group_id_mapping': group_id_mapping,
                 'label_class_id_mapping': label_class_id_mapping
                 }
 
-    def _update_label_class_scheme_colours(self, schema, lcls_model, colours_dict_js):
+    def _update_label_class_scheme_colours(self, schema: models.LabellingSchema, lcls_model: models.LabelClass,
+                                           colours_dict_js: Dict[str, List[int]]):
         for col_scheme_name, col_js in colours_dict_js.items():
             if col_scheme_name != 'default':
                 col_models = models.LabelClassColour.objects.filter(
@@ -164,11 +199,11 @@ class SchemaEditorView (View):
                             label_class=lcls_model, scheme=scheme_models.first(), colour=col_html)
                         col_model.save()
 
-    def create_colour_scheme(self, request, schema, params):
-        colour_scheme_js = params['colour_scheme']
+    def create_colour_scheme(self, request: HttpRequest, schema: models.LabellingSchema,
+                             colour_scheme_js: Any) -> Optional[int]:
         if schema.colour_schemes.filter(name=colour_scheme_js['name']).exists():
             # Duplicate name
-            return {'status': 'name_in_use'}
+            raise schema_editor_messages.NameInUseError(colour_scheme_js['name'])
         last_order_index = schema.colour_schemes.aggregate(Max('order_index'))['order_index__max']
         if last_order_index is None:
             last_order_index = 0
@@ -176,23 +211,20 @@ class SchemaEditorView (View):
             schema=schema, name=colour_scheme_js['name'], human_name=colour_scheme_js['human_name'],
             order_index=last_order_index + 1)
         colour_scheme.save()
-        return {'status': 'success', 'new_colour_scheme_id': colour_scheme.id}
+        return colour_scheme.id
 
-    def delete_colour_scheme(self, request, schema, params):
-        colour_scheme_js = params['colour_scheme']
+    def delete_colour_scheme(self, request: HttpRequest, schema: models.LabellingSchema, colour_scheme_js: Any):
         try:
             col_scheme = schema.colour_schemes.get(id=colour_scheme_js['id'])
         except models.LabellingColourScheme.DoesNotExist:
-            return {'status': 'could_not_find'}
+            raise schema_editor_messages.NotFoundError
         else:
             # Delete all class-colours that reference this colour scheme
             models.LabelClassColour.objects.filter(scheme=col_scheme).delete()
             # Now delete the colour scheme
             col_scheme.delete()
-            return {'status': 'success', }
 
-    def create_group(self, request, schema, params):
-        group_js = params['group']
+    def create_group(self, request: HttpRequest, schema: models.LabellingSchema, group_js: Any) -> Optional[int]:
         last_order_index = schema.label_class_groups.aggregate(Max('order_index'))['order_index__max']
         if last_order_index is None:
             last_order_index = 0
@@ -200,83 +232,50 @@ class SchemaEditorView (View):
             schema=schema, group_name=group_js['group_name'],
             order_index=last_order_index + 1)
         group.save()
-        return {'status': 'success', 'new_group_id': group.id}
+        return group.id
 
-    def delete_group(self, request, schema, params):
-        group_js = params['group']
+    def delete_group(self, request: HttpRequest, schema: models.LabellingSchema,
+                     group_js: Any) -> Any:
         try:
             group = schema.label_class_groups.get(id=group_js['id'])
         except models.LabelClassGroup.DoesNotExist:
-            return {'status': 'could_not_find'}
+            raise schema_editor_messages.NotFoundError
         else:
             if len(group.group_classes.all()) == 0:
                 group.delete()
-                return {'status': 'success'}
             else:
-                return {'status': 'group_not_empty'}
+                raise schema_editor_messages.GroupNotEmptyError
 
-    def create_label_class(self, request, schema, params):
+    def create_label_class(self, request: HttpRequest, schema: models.LabellingSchema,
+                           containing_group_js: Any, label_class_js: Any) -> Optional[int]:
         with transaction.atomic():
-            lcls_js = params['label_class']
-            if models.LabelClass.objects.filter(group__schema=schema, name=lcls_js['name']).exists():
+            if models.LabelClass.objects.filter(group__schema=schema, name=label_class_js['name']).exists():
                 # Duplicate name
-                return {'status': 'name_in_use'}
-            containing_group_js = params['containing_group']
+                raise schema_editor_messages.NameInUseError
             try:
                 containing_group = schema.label_class_groups.get(id=containing_group_js['id'])
             except models.LabelClassGroup.DoesNotExist:
-                return {'status': 'could_not_find_containing_group'}
+                raise schema_editor_messages.CouldNotFindContainingGroupError
             else:
                 last_order_index = containing_group.group_classes.aggregate(Max('order_index'))['order_index__max']
                 if last_order_index is None:
                     last_order_index = 0
-                default_col_html = models.LabelClass.list_to_html_colour(lcls_js['colours']['default'])
+                default_col_html = models.LabelClass.list_to_html_colour(label_class_js['colours']['default'])
                 label_class = models.LabelClass(
-                    group=containing_group, name=lcls_js['name'], human_name=lcls_js['human_name'],
+                    group=containing_group, name=label_class_js['name'], human_name=label_class_js['human_name'],
                     default_colour=default_col_html, order_index=last_order_index + 1)
                 label_class.save()
-                self._update_label_class_scheme_colours(schema, label_class, lcls_js['colours'])
-                return {'status': 'success', 'new_label_class_id': label_class.id}
+                self._update_label_class_scheme_colours(schema, label_class, label_class_js['colours'])
+                return label_class.id
 
-    def delete_label_class(self, request, schema, params):
-        lcls_js = params['label_class']
+    def delete_label_class(self, request: HttpRequest, schema: models.LabellingSchema,
+                           containing_group_js: Any, label_class_js: Any):
         try:
-            label_class = models.LabelClass.objects.get(group__schema=schema, id=lcls_js['id'])
+            label_class = models.LabelClass.objects.get(group__schema=schema, id=label_class_js['id'])
         except models.LabelClass.DoesNotExist:
-            return {'status': 'could_not_find'}
+            raise schema_editor_messages.NotFoundError
         else:
             # Delete all class-colours that reference this colour scheme
             models.LabelClassColour.objects.filter(label_class=label_class).delete()
             # Now delete the label class
             label_class.delete()
-            return {'status': 'success', }
-
-    @method_decorator(never_cache)
-    def post(self, request, *args, **kwargs):
-        messages = json.loads(request.POST.get('messages'))
-
-        schema = self.get_schema(request, *args, **kwargs)
-
-        responses = []
-        for message in messages:
-            method = message['method']
-            params = message['params']
-            if method == 'update_schema':
-                response = self.update_schema(request, schema, params)
-            elif method == 'create_colour_scheme':
-                response = self.create_colour_scheme(request, schema, params)
-            elif method == 'delete_colour_scheme':
-                response = self.delete_colour_scheme(request, schema, params)
-            elif method == 'create_group':
-                response = self.create_group(request, schema, params)
-            elif method == 'delete_group':
-                response = self.delete_group(request, schema, params)
-            elif method == 'create_label_class':
-                response = self.create_label_class(request, schema, params)
-            elif method == 'delete_label_class':
-                response = self.delete_label_class(request, schema, params)
-            else:
-                response = {'status': 'unknown_method'}
-            responses.append(response)
-
-        return JsonResponse({'responses': responses})

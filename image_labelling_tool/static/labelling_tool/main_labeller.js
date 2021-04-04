@@ -29,7 +29,7 @@ Dr. M. Mackiewicz.
 /// <reference path="../polyk.d.ts" />
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./object_id_table.ts" />
-/// <reference path="./label_class.ts" />
+/// <reference path="./schema.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
@@ -65,7 +65,7 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoLabeller = /** @class */ (function () {
-        function DjangoLabeller(label_classes, tasks, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
+        function DjangoLabeller(schema, tasks, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
@@ -73,8 +73,7 @@ var labelling_tool;
             this._label_class_filter_popup = null;
             this._image_index_input = null;
             /*
-            label_classes: label class definitions in JSON format
-            colour_schemes: colour scheme definitions in JSON format
+            schema: the schema provides the label class definitions and colour scheme definitions in JSON format
             images: images to annotate
             initial_image_index: the index of the first image to select
             requestLabelsCallback: a function of the form `function(image_id)` that the annotator uses to
@@ -119,11 +118,12 @@ var labelling_tool;
                 tasks = [];
             }
             self.tasks = tasks;
+            console.log(schema);
             // Colour schemes
-            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
-                colour_schemes = [{ name: 'default', human_name: 'Default' }];
+            if (schema.colour_schemes === undefined || schema.colour_schemes === null || schema.colour_schemes.length == 0) {
+                schema.colour_schemes = [{ name: 'default', human_name: 'Default' }];
             }
-            this._current_colour_scheme = colour_schemes[0].name;
+            this._current_colour_scheme = schema.colour_schemes[0].name;
             // Configuration
             config = config || {};
             config.tools = config.tools || {};
@@ -197,11 +197,12 @@ var labelling_tool;
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = labelling_tool.label_classes_from_json(label_classes);
+            this.label_classes = labelling_tool.label_classes_from_json(schema.label_class_groups);
             this.class_name_to_class = {};
             for (var i_1 = 0; i_1 < this.label_classes.length; i_1++) {
                 this.label_classes[i_1].fill_name_to_class_table(this.class_name_to_class);
             }
+            console.log(this.label_classes);
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
@@ -359,7 +360,7 @@ var labelling_tool;
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
-            if (colour_schemes.length > 1) {
+            if (schema.colour_schemes.length > 1) {
                 this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme(event.target.value);
@@ -1145,12 +1146,13 @@ var labelling_tool;
         DjangoLabeller.prototype.colour_for_label_class = function (label_class_name) {
             var label_class = this.class_name_to_class[label_class_name];
             if (label_class !== undefined) {
-                return label_class.colours[this._current_colour_scheme];
+                var colour = label_class.colours[this._current_colour_scheme];
+                if (colour !== undefined) {
+                    return colour;
+                }
             }
-            else {
-                // Default
-                return labelling_tool.Colour4.BLACK;
-            }
+            // Default
+            return labelling_tool.Colour4.BLACK;
         };
         ;
         DjangoLabeller.prototype._update_label_class_menu = function (label_class) {

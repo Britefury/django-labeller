@@ -120,4 +120,4 @@ var labelling_tool;
     }
     labelling_tool.label_classes_from_json = label_classes_from_json;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=label_class.js.map
+//# sourceMappingURL=schema.js.map

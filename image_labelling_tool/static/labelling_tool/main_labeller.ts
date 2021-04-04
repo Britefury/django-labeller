@@ -30,7 +30,7 @@ Dr. M. Mackiewicz.
 /// <reference path="../polyk.d.ts" />
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./object_id_table.ts" />
-/// <reference path="./label_class.ts" />
+/// <reference path="./schema.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
@@ -179,15 +179,14 @@ module labelling_tool {
 
 
 
-        constructor(label_classes: LabelClassJSON[], tasks: TasksJSON[], colour_schemes: ColourSchemeJSON[],
+        constructor(schema: LabellingSchemaJSON, tasks: TasksJSON[],
                     anno_controls_json: AnnoControlJSON[],
                     images: ImageModel[], initial_image_index: number,
                     requestLabelsCallback: any, sendLabelHeaderFn: any,
                     getUnlockedImageIDCallback: any, dextrCallback: any, dextrPollingInterval: number,
                     config: any) {
             /*
-            label_classes: label class definitions in JSON format
-            colour_schemes: colour scheme definitions in JSON format
+            schema: the schema provides the label class definitions and colour scheme definitions in JSON format
             images: images to annotate
             initial_image_index: the index of the first image to select
             requestLabelsCallback: a function of the form `function(image_id)` that the annotator uses to
@@ -235,12 +234,14 @@ module labelling_tool {
             }
             self.tasks = tasks;
 
+            console.log(schema);
+
             // Colour schemes
-            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
-                colour_schemes = [{name: 'default', human_name: 'Default'}];
+            if (schema.colour_schemes === undefined || schema.colour_schemes === null || schema.colour_schemes.length == 0) {
+                schema.colour_schemes = [{name: 'default', human_name: 'Default'}];
             }
 
-            this._current_colour_scheme = colour_schemes[0].name;
+            this._current_colour_scheme = schema.colour_schemes[0].name;
 
             // Configuration
             config = config || {};
@@ -326,11 +327,12 @@ module labelling_tool {
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = label_classes_from_json(label_classes);
+            this.label_classes = label_classes_from_json(schema.label_class_groups);
             this.class_name_to_class = {};
             for (let i = 0; i < this.label_classes.length; i++) {
                 this.label_classes[i].fill_name_to_class_table(this.class_name_to_class);
             }
+            console.log(this.label_classes);
             // Hide labels
             this.label_visibility = LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
@@ -516,7 +518,7 @@ module labelling_tool {
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
 
-            if (colour_schemes.length > 1) {
+            if (schema.colour_schemes.length > 1) {
                 this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme((event.target as any).value);
@@ -1438,12 +1440,13 @@ module labelling_tool {
         colour_for_label_class(label_class_name: string): Colour4 {
             let label_class: LabelClass = this.class_name_to_class[label_class_name];
             if (label_class !== undefined) {
-                return label_class.colours[this._current_colour_scheme];
+                let colour = label_class.colours[this._current_colour_scheme];
+                if (colour !== undefined) {
+                    return colour;
+                }
             }
-            else {
-                // Default
-                return Colour4.BLACK;
-            }
+            // Default
+            return Colour4.BLACK;
         };
 
         _update_label_class_menu(label_class: string) {

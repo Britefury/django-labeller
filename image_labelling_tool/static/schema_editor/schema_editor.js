@@ -31,16 +31,27 @@ var schema_editor;
     var SchemaEditor = /** @class */ (function () {
         /**
          * Constructor
-         * @param update_url - the URL to which updates should be sent via POST request
          * @param schema_js - JSON representation of the schema to be edited
+         * @param update_callback - a callback function to invoke to notify the backend of updates due to user actions.
+         *  A function of the form `fn(messages)` where `messages` is a message block that takes the form
+         *  {id: <message_block_uuid>, messages_json: object[]}.
+         *  Reply to the tool via invoking the `notify_responses` method, proving a responses block that has
+         *  the layout {id: <message_block_uuid>, responses_json: object[]}
+         * @param update_delay_ms - the delay in milliseconds to wait after user actions before sending an update
+         *  via `update_callback`
          */
-        function SchemaEditor(update_url, schema_js) {
+        function SchemaEditor(schema_js, update_callback, update_delay_ms) {
             // We put updates in a queue that we can send
             this.update_timeout_id = null;
+            this.message_response_callbacks_by_id = {};
             this.app = null;
             this.get_schema = null;
             var self = this;
-            this.update_url = update_url;
+            if (update_delay_ms === undefined) {
+                update_delay_ms = 1500;
+            }
+            this.update_callback = update_callback;
+            this.update_delay_ms = update_delay_ms;
             var RootComponent = {
                 el: '#schema_editor',
                 data: function () {
@@ -62,7 +73,7 @@ var schema_editor;
             self.app.mixin({
                 methods: {
                     queue_send_schema_update: function () {
-                        self.enqueue_update_schema(2000);
+                        self.enqueue_update_schema(self.update_delay_ms);
                     },
                     send_create_colour_scheme: function (colour_scheme) {
                         self.send_create_colour_scheme(colour_scheme);
@@ -389,37 +400,80 @@ var schema_editor;
             var vm = self.app.mount('#schema_editor');
         }
         /**
-         * Send an update to the server at `this.update_url`
+         * Notify the tool of responses to messages sent out via the update_callback passed to the constructor
+         * @param response_block responses in the form of an object:
+         *   {id: <message_block_uuid>, responses: <array_of_json_objects>}
+         *   where id is the message block ID from the message block that is being responded to, and
+         *   responses contains a response for each message from the message block
+         */
+        SchemaEditor.prototype.notify_responses = function (response_block) {
+            // Get the callbacks and then remove
+            var callbacks = this.message_response_callbacks_by_id[response_block.id];
+            delete this.message_response_callbacks_by_id[response_block.id];
+            var responses = response_block.responses;
+            for (var i = 0; i < responses.length; i++) {
+                var cb = null;
+                if (callbacks !== undefined) {
+                    if (i < callbacks.length) {
+                        cb = callbacks[i];
+                    }
+                }
+                if (cb !== undefined && cb !== null) {
+                    cb(responses[i]);
+                }
+            }
+        };
+        // private send_messages(messages_and_callbacks: MessageWithCallback[]) {
+        //     let self = this;
+        //
+        //     let messages: any[] = [];
+        //     for (let msg_cb of messages_and_callbacks) {
+        //         console.log('Sending ' + msg_cb.message.method);
+        //         messages.push(msg_cb.message);
+        //     }
+        //
+        //     let post_data = {
+        //         messages: JSON.stringify(messages)
+        //     };
+        //
+        //     $.ajax({
+        //         type: 'POST',
+        //         url: self.update_url,
+        //         data: post_data,
+        //         success: function (reply: any) {
+        //             let responses = reply.responses;
+        //             for (var i = 0; i < responses.length; i++) {
+        //                 let msg_cb = messages_and_callbacks[i];
+        //                 if (msg_cb.on_response !== undefined && msg_cb.on_response !== null) {
+        //                     msg_cb.on_response(responses[i]);
+        //                 }
+        //             }
+        //         },
+        //         dataType: 'json'
+        //     });
+        // }
+        /**
+         * Send an update to the backend in the form of a message block that consists of
+         * a message block ID and an array of messages
          * @param messages_and_callbacks - array of objects with layout:
          *      {message: <message_as_json>, on_response: <>callback function that takes a single parameter>}
          * @private
          */
         SchemaEditor.prototype.send_messages = function (messages_and_callbacks) {
-            var self = this;
             var messages = [];
+            var callbacks = [];
             for (var _i = 0, messages_and_callbacks_1 = messages_and_callbacks; _i < messages_and_callbacks_1.length; _i++) {
                 var msg_cb = messages_and_callbacks_1[_i];
                 console.log('Sending ' + msg_cb.message.method);
                 messages.push(msg_cb.message);
+                callbacks.push(msg_cb.on_response);
             }
-            var post_data = {
-                messages: JSON.stringify(messages)
+            var message_block = {
+                id: labelling_tool.ObjectIDTable.uuidv4(),
+                messages: messages
             };
-            $.ajax({
-                type: 'POST',
-                url: self.update_url,
-                data: post_data,
-                success: function (reply) {
-                    var responses = reply.responses;
-                    for (var i = 0; i < responses.length; i++) {
-                        var msg_cb = messages_and_callbacks[i];
-                        if (msg_cb.on_response !== undefined && msg_cb.on_response !== null) {
-                            msg_cb.on_response(responses[i]);
-                        }
-                    }
-                },
-                dataType: 'json'
-            });
+            this.message_response_callbacks_by_id[message_block.id] = callbacks;
+            this.update_callback(message_block);
         };
         /**
          * Queue a schema update to execute after a provided delay

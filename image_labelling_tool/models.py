@@ -5,7 +5,6 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from . import managers
 from django.core.validators import RegexValidator
-from . import managers
 
 _IDENTIFIER_PAT = re.compile(r'[a-zA-Z_][a-zA-Z0-9_]*')
 _IDENTIFIER_VAL = RegexValidator(_IDENTIFIER_PAT, message='Enter a valid identifier (letters or underscore, followed'

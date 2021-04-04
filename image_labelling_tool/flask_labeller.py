@@ -22,23 +22,288 @@
 #
 # Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 # Dr. M. Mackiewicz.
+from typing import Any, Optional, Sequence, Mapping, Callable, Union
+import pathlib
+import json
+import uuid
+from PIL import Image
+import numpy as np
+from image_labelling_tool import labelling_tool, labelling_schema, labelled_image, schema_editor_messages
+
 import click
 
+from flask import Flask, request, make_response, send_file, render_template
 
-def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=None, anno_controls=None,
-                   config=None, dextr_fn=None, use_reloader=True, debug=True, port=None):
-    import json
-    import uuid
-    import numpy as np
+try:
+    from flask_socketio import SocketIO, emit as socketio_emit
+except ImportError:
+    SocketIO = None
+    socketio_emit = None
 
-    from flask import Flask, render_template, request, make_response, send_file
-    try:
-        from flask_socketio import SocketIO, emit as socketio_emit
-    except ImportError:
-        SocketIO = None
-        socketio_emit = None
 
-    from image_labelling_tool import labelling_tool
+DextrImageType = Union[np.ndarray, Image.Image]
+DextrFunctionType = Callable[[DextrImageType, np.ndarray], np.ndarray]
+
+def _register_labeller_routes(app: Flask, socketio: Any, socketio_emit: Any,
+                              images_table: Mapping[str, labelled_image.LabelledImage],
+                              dextr_fn: Optional[DextrFunctionType]):
+    def apply_dextr_js(image: labelled_image.LabelledImage, dextr_points_js: Any):
+        image_for_dextr = image.image_source.image_as_array_or_pil()
+        dextr_points = np.array([[p['y'], p['x']] for p in dextr_points_js])
+        if dextr_fn is not None:
+            mask = dextr_fn(image_for_dextr, dextr_points)
+            regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)
+            regions_js = labelling_tool.PolygonLabel.regions_to_json(regions)
+            return regions_js
+        else:
+            return []
+
+
+    if socketio is not None:
+        @socketio.on('get_labels')
+        def handle_get_labels(arg_js: Mapping[str, Any]):
+            image_id = arg_js['image_id']
+
+            image = images_table[image_id]
+
+            wrapped_labels = image.labels_store.get_wrapped_labels()
+
+            label_header = dict(image_id=image_id,
+                                labels=wrapped_labels.labels_json,
+                                completed_tasks=wrapped_labels.completed_tasks,
+                                timeElapsed=0.0,
+                                state='editable',
+                                session_id=str(uuid.uuid4()),
+                                )
+
+            socketio_emit('get_labels_reply', label_header)
+
+
+        @socketio.on('set_labels')
+        def handle_set_labels(arg_js: Mapping[str, Any]):
+            label_header = arg_js['label_header']
+
+            image_id = label_header['image_id']
+
+            image = images_table[image_id]
+
+            wrapped_labels = image.labels_store.get_wrapped_labels()
+            wrapped_labels.labels_json = label_header['labels']
+            wrapped_labels.completed_tasks = label_header['completed_tasks']
+            image.labels_store.update_wrapped_labels(wrapped_labels)
+
+            socketio_emit('set_labels_reply', '')
+
+
+        @socketio.on('dextr')
+        def handle_dextr(dextr_js: Mapping[str, Any]):
+            if 'request' in dextr_js:
+                dextr_request_js = dextr_js['request']
+                image_id = dextr_request_js['image_id']
+                dextr_id = dextr_request_js['dextr_id']
+                dextr_points = dextr_request_js['dextr_points']
+
+                image = images_table[image_id]
+
+                regions_js = apply_dextr_js(image, dextr_points)
+
+                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
+                dextr_reply = dict(labels=[dextr_labels])
+
+                socketio_emit('dextr_reply', dextr_reply)
+            elif 'poll' in dextr_js:
+                dextr_reply = dict(labels=[])
+                socketio_emit('dextr_reply', dextr_reply)
+            else:
+                dextr_reply = {'error': 'unknown_command'}
+                socketio_emit('dextr_reply', dextr_reply)
+
+
+    else:
+        @app.route('/labeller/get_labels/<image_id>')
+        def get_labels(image_id: str):
+            image = images_table[image_id]
+            wrapped_labels = image.labels_store.get_wrapped_labels()
+
+            label_header = {
+                'image_id': image_id,
+                'labels': wrapped_labels.labels_json,
+                'completed_tasks': wrapped_labels.completed_tasks,
+                'timeElapsed': 0.0,
+                'state': 'editable',
+                'session_id': str(uuid.uuid4()),
+            }
+
+            r = make_response(json.dumps(label_header))
+            r.mimetype = 'application/json'
+            return r
+
+
+        @app.route('/labeller/set_labels', methods=['POST'])
+        def set_labels():
+            label_header = json.loads(request.form['labels'])
+            image_id = label_header['image_id']
+
+            image = images_table[image_id]
+
+            wrapped_labels = image.labels_store.get_wrapped_labels()
+            wrapped_labels.labels_json = label_header['labels']
+            wrapped_labels.completed_tasks = label_header['completed_tasks']
+            image.labels_store.update_wrapped_labels(wrapped_labels)
+
+            return make_response('')
+
+
+        @app.route('/labeller/dextr', methods=['POST'])
+        def dextr():
+            dextr_js = json.loads(request.form['dextr'])
+            if 'request' in dextr_js:
+                dextr_request_js = dextr_js['request']
+                image_id = dextr_request_js['image_id']
+                dextr_id = dextr_request_js['dextr_id']
+                dextr_points = dextr_request_js['dextr_points']
+
+                image = images_table[image_id]
+                regions_js = apply_dextr_js(image, dextr_points)
+
+                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
+                dextr_reply = dict(labels=[dextr_labels])
+
+                return make_response(json.dumps(dextr_reply))
+            elif 'poll' in dextr_js:
+                dextr_reply = dict(labels=[])
+                return make_response(json.dumps(dextr_reply))
+            else:
+                return make_response(json.dumps({'error': 'unknown_command'}))
+
+
+    @app.route('/image/<image_id>')
+    def get_image(image_id: str):
+        image_source = images_table[image_id].image_source
+        local_path = image_source.local_path
+        if local_path is not None:
+            return send_file(str(local_path))
+        else:
+            bin_image, mimetype = image_source.image_binary_and_mime_type()
+            r = make_response(bin_image)
+            r.mimetype = mimetype
+            return r
+
+
+class FlaskSchemaEditorMessageHandler(schema_editor_messages.SchemaEditorMessageHandler):
+    # Use the message dispatch from `schema_editor_api.SchemaEditorAPI`
+    # We only use the `update_schema` message that we use to overwrite the schema contents
+    # Our schema type is a `SchemaStore` that stores the schema to a file
+    def update_schema(self, request, schema: labelling_schema.SchemaStore, schema_js: Any):
+        schema.update_schema_json(schema_js)
+        return None
+
+    def create_colour_scheme(self, request, schema: labelling_schema.SchemaStore, colour_scheme_js: Any):
+        return None
+
+    def delete_colour_scheme(self, request, schema: labelling_schema.SchemaStore, colour_scheme_js: Any):
+        pass
+
+    def create_group(self, request, schema: labelling_schema.SchemaStore, group_js: Any):
+        return None
+
+    def delete_group(self, request, schema: labelling_schema.SchemaStore, group_js: Any):
+        pass
+
+    def create_label_class(self, request, schema: labelling_schema.SchemaStore,
+                           containing_group_js: Any, label_class_js: Any):
+        return None
+
+    def delete_label_class(self, request, schema: labelling_schema.SchemaStore,
+                           containing_group_js: Any, label_class_js: Any):
+        pass
+
+
+def _register_schema_editor_routes(app: Flask, socketio: Any, socketio_emit: Any,
+                                   schema_store: labelling_schema.SchemaStore):
+    editor = FlaskSchemaEditorMessageHandler()
+
+    @app.route('/schema_editor/update', methods=['POST'])
+    def schema_editor_update():
+        messages_js = json.loads(request.form['messages'])
+
+        # Pass the Flask request object to stay in keeping with `SchemaEditorAPI`.
+        response = editor.handle_messages(request, schema_store, messages_js)
+
+        return make_response(json.dumps(response))
+
+
+def flask_labeller(labelled_images: Sequence[labelled_image.LabelledImage],
+                   schema: Union[labelling_schema.LabellingSchema, labelling_schema.SchemaStore, Any],
+                   tasks: Optional[Sequence[Any]] = None,
+                   anno_controls: Optional[Sequence[Any]] = None,
+                   config: Optional[Mapping[str, Any]] = None,
+                   dextr_fn: Optional[DextrFunctionType] = None, use_reloader: bool = True, debug: bool = True,
+                   port: Optional[int] = None):
+    # Generate image IDs list
+    image_ids = [str(i)   for i in range(len(labelled_images))]
+    # Generate images table mapping image ID to image so we can get an image by ID
+    images_table = {image_id: img   for image_id, img in zip(image_ids, labelled_images)}
+    # Generate image descriptors list to hand over to the labelling tool
+    # Each descriptor provides the image ID, the URL and the size
+    image_descriptors = []
+    for image_id, img in zip(image_ids, labelled_images):
+        height, width = img.image_source.image_size
+        image_descriptors.append(labelling_tool.image_descriptor(
+            image_id=image_id, url='/image/{}'.format(image_id),
+            width=width, height=height
+        ))
+
+    app = Flask(__name__, static_folder='static')
+    if SocketIO is not None:
+        print('Using web sockets')
+        socketio = SocketIO(app)
+    else:
+        socketio = None
+
+    if config is None:
+        config = labelling_tool.DEFAULT_CONFIG
+
+    @app.route('/')
+    def index():
+        if isinstance(schema, labelling_schema.LabellingSchema):
+            schema_json = schema.to_json()
+        elif isinstance(schema, labelling_schema.SchemaStore):
+            schema_json = schema.get_schema_json()
+        else:
+            schema_json = schema
+
+        if anno_controls is not None:
+            anno_controls_json = [c.to_json() for c in anno_controls]
+        else:
+            anno_controls_json = []
+
+        return render_template('labeller_page.jinja2',
+                               labelling_schema=schema_json,
+                               tasks=tasks,
+                               image_descriptors=image_descriptors,
+                               initial_image_index=0,
+                               anno_controls=anno_controls_json,
+                               labelling_tool_config=config,
+                               dextr_available=dextr_fn is not None,
+                               use_websockets=socketio is not None)
+
+    _register_labeller_routes(app, socketio, socketio_emit, images_table, dextr_fn)
+
+    if socketio is not None:
+        socketio.run(app, debug=debug, port=port, use_reloader=use_reloader)
+    else:
+        app.run(debug=debug, port=port, use_reloader=use_reloader)
+
+
+def flask_labeller_and_schema_editor(labelled_images: Sequence[labelled_image.LabelledImage],
+                                     schema_store: labelling_schema.SchemaStore,
+                                     tasks: Optional[Sequence[Any]] = None,
+                                     anno_controls: Optional[Sequence[Any]] = None,
+                                     config: Optional[Mapping[str, Any]] = None,
+                                     dextr_fn: Optional[DextrFunctionType] = None, use_reloader: bool = True,
+                                     debug: bool = True, port: Optional[int] = None):
+    vue_tmpl_path = pathlib.Path(__file__).parent / 'templates' / 'inline' / 'schema_editor_vue_templates.html'
 
     # Generate image IDs list
     image_ids = [str(i)   for i in range(len(labelled_images))]
@@ -63,36 +328,27 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
         socketio = None
 
 
-    def apply_dextr_js(image, dextr_points_js):
-        image_for_dextr = image.image_source.image_as_array_or_pil()
-        dextr_points = np.array([[p['y'], p['x']] for p in dextr_points_js])
-        if dextr_fn is not None:
-            mask = dextr_fn(image_for_dextr, dextr_points)
-            regions = labelling_tool.PolygonLabel.mask_image_to_regions_cv(mask, sort_decreasing_area=True)
-            regions_js = labelling_tool.PolygonLabel.regions_to_json(regions)
-            return regions_js
-        else:
-            return []
-
-
-
-
     if config is None:
         config = labelling_tool.DEFAULT_CONFIG
 
 
     @app.route('/')
     def index():
-        label_classes_json = [(cls.to_json() if isinstance(cls, labelling_tool.LabelClassGroup) else cls)
-                               for cls in label_classes]
+        return render_template('index.jinja2',
+                               num_images=len(image_descriptors),
+                               )
+
+
+    @app.route('/labeller')
+    def labeller():
+        schema_json = schema_store.get_schema_json()
         if anno_controls is not None:
             anno_controls_json = [c.to_json() for c in anno_controls]
         else:
             anno_controls_json = []
         return render_template('labeller_page.jinja2',
+                               labelling_schema=schema_json,
                                tasks=tasks,
-                               colour_schemes=colour_schemes,
-                               label_class_groups=label_classes_json,
                                image_descriptors=image_descriptors,
                                initial_image_index=0,
                                anno_controls=anno_controls_json,
@@ -100,137 +356,16 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
                                dextr_available=dextr_fn is not None,
                                use_websockets=socketio is not None)
 
+    @app.route('/schema_editor')
+    def schema_editor():
+        schema_editor_vue_templates_html = vue_tmpl_path.open().read()
 
-    if socketio is not None:
-        @socketio.on('get_labels')
-        def handle_get_labels(arg_js):
-            image_id = arg_js['image_id']
+        return render_template('schema_editor_page.jinja2',
+                               schema=schema_store.get_schema_json(),
+                               schema_editor_vue_templates_html=schema_editor_vue_templates_html)
 
-            image = images_table[image_id]
-
-            wrapped_labels = image.labels_store.get_wrapped_labels()
-
-            label_header = dict(image_id=image_id,
-                                labels=wrapped_labels.labels_json,
-                                completed_tasks=wrapped_labels.completed_tasks,
-                                timeElapsed=0.0,
-                                state='editable',
-                                session_id=str(uuid.uuid4()),
-            )
-
-            socketio_emit('get_labels_reply', label_header)
-
-
-        @socketio.on('set_labels')
-        def handle_set_labels(arg_js):
-            label_header = arg_js['label_header']
-
-            image_id = label_header['image_id']
-
-            image = images_table[image_id]
-
-            wrapped_labels = image.labels_store.get_wrapped_labels()
-            wrapped_labels.labels_json = label_header['labels']
-            wrapped_labels.completed_tasks = label_header['completed_tasks']
-            image.labels_store.update_wrapped_labels(wrapped_labels)
-
-            socketio_emit('set_labels_reply', '')
-
-
-        @socketio.on('dextr')
-        def handle_dextr(dextr_js):
-            if 'request' in dextr_js:
-                dextr_request_js = dextr_js['request']
-                image_id = dextr_request_js['image_id']
-                dextr_id = dextr_request_js['dextr_id']
-                dextr_points = dextr_request_js['dextr_points']
-
-                image = images_table[image_id]
-
-                regions_js = apply_dextr_js(image, dextr_points)
-
-                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
-                dextr_reply = dict(labels=[dextr_labels])
-
-                socketio_emit('dextr_reply', dextr_reply)
-            elif 'poll' in dextr_js:
-                dextr_reply = dict(labels=[])
-                socketio_emit('dextr_reply', dextr_reply)
-            else:
-                dextr_reply = {'error': 'unknown_command'}
-                socketio_emit('dextr_reply', dextr_reply)
-
-
-    else:
-        @app.route('/labelling/get_labels/<image_id>')
-        def get_labels(image_id):
-            image = images_table[image_id]
-            wrapped_labels = image.labels_store.get_wrapped_labels()
-
-            label_header = {
-                'image_id': image_id,
-                'labels': wrapped_labels.labels_json,
-                'completed_tasks': wrapped_labels.completed_tasks,
-                'timeElapsed': 0.0,
-                'state': 'editable',
-                'session_id': str(uuid.uuid4()),
-            }
-
-            r = make_response(json.dumps(label_header))
-            r.mimetype = 'application/json'
-            return r
-
-
-        @app.route('/labelling/set_labels', methods=['POST'])
-        def set_labels():
-            label_header = json.loads(request.form['labels'])
-            image_id = label_header['image_id']
-
-            image = images_table[image_id]
-
-            wrapped_labels = image.labels_store.get_wrapped_labels()
-            wrapped_labels.labels_json = label_header['labels']
-            wrapped_labels.completed_tasks = label_header['completed_tasks']
-            image.labels_store.update_wrapped_labels(wrapped_labels)
-
-            return make_response('')
-
-
-        @app.route('/labelling/dextr', methods=['POST'])
-        def dextr():
-            dextr_js = json.loads(request.form['dextr'])
-            if 'request' in dextr_js:
-                dextr_request_js = dextr_js['request']
-                image_id = dextr_request_js['image_id']
-                dextr_id = dextr_request_js['dextr_id']
-                dextr_points = dextr_request_js['dextr_points']
-
-                image = images_table[image_id]
-                regions_js = apply_dextr_js(image, dextr_points)
-
-                dextr_labels = dict(image_id=image_id, dextr_id=dextr_id, regions=regions_js)
-                dextr_reply = dict(labels=[dextr_labels])
-
-                return make_response(json.dumps(dextr_reply))
-            elif 'poll' in dextr_js:
-                dextr_reply = dict(labels=[])
-                return make_response(json.dumps(dextr_reply))
-            else:
-                return make_response(json.dumps({'error': 'unknown_command'}))
-
-
-    @app.route('/image/<image_id>')
-    def get_image(image_id):
-        image_source = images_table[image_id].image_source
-        local_path = image_source.local_path
-        if local_path is not None:
-            return send_file(str(local_path))
-        else:
-            bin_image, mimetype = image_source.image_binary_and_mime_type()
-            r = make_response(bin_image)
-            r.mimetype = mimetype
-            return r
-
+    _register_labeller_routes(app, socketio, socketio_emit, images_table, dextr_fn)
+    _register_schema_editor_routes(app, socketio, socketio_emit, schema_store)
 
 
     if socketio is not None:
@@ -250,11 +385,6 @@ def flask_labeller(label_classes, labelled_images, tasks=None, colour_schemes=No
 @click.option('--dextr_weights', type=click.Path())
 def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_ids,
             enable_dextr, dextr_weights):
-    import pathlib
-    import json
-    import uuid
-    from image_labelling_tool import labelled_image, labelling_tool
-
     if enable_dextr or dextr_weights is not None:
         from dextr.model import DextrModel
         import torch
@@ -273,51 +403,9 @@ def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_id
     else:
         dextr_fn = None
 
-
-    # Colour schemes
-    # The user may select different colour schemes for different tasks.
-    # If you have a lot of classes, it will be difficult to select colours that are easily distinguished
-    # from one another. For one task e.g. segmentation, design a colour scheme that highlights the different
-    # classes for that task, while another task e.g. fine-grained classification would use another scheme.
-    # Each colour scheme is a dictionary containing the following:
-    #   name: symbolic name (Python identifier)
-    #   human_name: human readable name for UI
-    # These colour schemes are going to split the classes by 'default' (all), natural, and artificial.
-    # Not really useful, but demonstrates the feature.
-    colour_schemes = [
-        dict(name='default', human_name='All'),
-        dict(name='natural', human_name='Natural'),
-        dict(name='artificial', human_name='Artifical')
-    ]
-
-    # Specify our label classes, organised in groups.
-    # `LabelClass` parameters are:
-    #   symbolic name (Python identifier)
-    #   human readable name for UI
-    #   and colours by colour scheme, as a dict mapping colour scheme name to RGB value as a list
-    # The label classes are arranged in groups and will be displayed as such in the UI.
-    # `LabelClassGroup` parameters are:
-    #   human readable name for UI
-    #   label class (`LabelClass` instance) list
-    label_classes = [
-        labelling_tool.LabelClassGroup('Natural', [
-            labelling_tool.LabelClass('tree', 'Trees', dict(default=[0, 255, 192], natural=[0, 255, 192],
-                                                            artificial=[128, 128, 128])),
-            labelling_tool.LabelClass('lake', 'Lake', dict(default=[0, 128, 255], natural=[0, 128, 255],
-                                                           artificial=[128, 128, 128])),
-            labelling_tool.LabelClass('flower', 'Flower', dict(default=[255, 96, 192], natural=[255, 192, 96],
-                                                               artificial=[128, 128, 128])),
-            labelling_tool.LabelClass('leaf', 'Leaf', dict(default=[65, 255, 0], natural=[65, 255, 0],
-                                                           artificial=[128, 128, 128])),
-            labelling_tool.LabelClass('stem', 'Stem', dict(default=[128, 64, 0], natural=[128, 64, 0],
-                                                           artificial=[128, 128, 128])),
-        ]),
-        labelling_tool.LabelClassGroup('Artificial', [
-            labelling_tool.LabelClass('building', 'Buildings', dict(default=[255, 128, 0], natural=[128, 128, 128],
-                                                                   artificial=[255, 128, 0])),
-            labelling_tool.LabelClass('wall', 'Wall', dict(default=[0, 128, 255], natural=[128, 128, 128],
-                                                           artificial=[0, 128, 255])),
-        ])]
+    # Load schema
+    schema_path = pathlib.Path(images_dir) / 'schema.json'
+    schema_store = labelling_schema.FileSchemaStore(schema_path, readonly=readonly)
 
     # Annotation controls
     # Labels may also have optional meta-data associated with them
@@ -406,8 +494,6 @@ def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_id
                     n_updated += 1
         print('Updated object IDs in {} files'.format(n_updated))
 
-
-
     # For documentation of the configuration, please see the comment above `labelling_tool.DEFAULT_CONFIG`
     config = labelling_tool.DEFAULT_CONFIG
 
@@ -417,7 +503,7 @@ def run_app(images_dir, images_pat, labels_dir, readonly, update_label_object_id
         dict(name='classification', human_name='Classification'),
     ]
 
-    flask_labeller(label_classes, labelled_images, tasks=tasks, colour_schemes=colour_schemes,
+    flask_labeller_and_schema_editor(labelled_images, schema_store, tasks=tasks,
                    anno_controls=anno_controls, config=config, dextr_fn=dextr_fn)
 
 

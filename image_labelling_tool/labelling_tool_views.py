@@ -1,7 +1,8 @@
+from typing import Any, Optional, Container, Sequence, List, Dict, Union
 from abc import abstractmethod
 import json, datetime, uuid
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -21,25 +22,51 @@ class LabellingToolView (View):
     `get_labels` should return a `models.Labels` instance or a dict of the form:
         {
             'completed_tasks': <list of names of completed tasks>
-            'labels': labels as JSON data
+            'labels': labels as JSON data (objects, not serialized string)
             'state': 'locked'|'editable' to either disable/enable editing (e.g. if another user is editing them)
         }
+    Note that if `get_labels` returns a dict, you must implement the `update_labels` method to define
+    how labels are updated in response to edits by the user.
 
-    The `get_labels_for_update` method is the same, but is called by `update_labels`
-    to retrieve a `Labels` instance to be updated. This could be used in a scenario in which
-    you want to have `get_labels` return automatically generated labels when viewing,
-    but apply updates to a different labels object.
+    In some cases you wish to have `get_labels` return the `models.Labels` instance that is to be displayed
+    to the user and apply updates to a different `models.Labels` instance. For example, if automatically
+    generated labels are available and no manually created labels are available, you may
+    wish to display the automatic labels and update a different manual labels instance. In this case,
+    override the `get_labels_for_update` method and return the labels instance to which updates should
+    be applied.
 
-    Example:
+    Simple example storing labels in `models.Labels` instances:
     >>> class MyLabelView (LabellingToolView):
-    ...     def get_labels(self, request, image_id_str, *args, **kwargs):
+    ...     def get_labels(self, request: HttpRequest, image_id_str: str,
+    ...                    *args, **kwargs) -> Union[models.Labels, Dict]:
     ...         image = models.Image.get(id=int(image_id_string))
     ...         # Assume `image.labels` is a field that refers to the `Labels` instance
     ...         return image.labels
 
-    Or:
+    Separate labels for display and update:
     >>> class MyLabelView (LabellingToolView):
-    ...     def get_labels(self, request, image_id_str, *args, **kwargs):
+    ...     def get_labels(self, request: HttpRequest, image_id_str: str,
+    ...                    *args, **kwargs) -> Union[models.Labels, Dict]:
+    ...         image = models.Image.get(id=int(image_id_string))
+    ...         if image.manual_labels.is_empty:
+    ...             # Empty manual labels; display automatically generated ones
+    ...             return image.auto_labels
+    ...         else:
+    ...             return image.manual_labels
+    ...
+    ...     def get_labels_for_update(self, request: HttpRequest, image_id_str: str,
+    ...                               *args, **kwargs) -> models.Labels:
+    ...         image = models.Image.get(id=int(image_id_string))
+    ...         # Updates always affect `manual_labels`
+    ...         # If empty manual labels resulted in automatically generated labels being displayed,
+    ...         # editing them will result in modified automatically generated labels being written
+    ...         # to `image.manual_labels`
+    ...         return image.manual_labels
+
+    Implementing `update_labels` to customize how labels are updated:
+    >>> class MyLabelView (LabellingToolView):
+    ...     def get_labels(self, request: HttpRequest, image_id_str: str,
+    ...                    *args, **kwargs) -> Union[models.Labels, Dict]:
     ...         image = models.Image.get(id=int(image_id_string))
     ...         # Lets assume that the label data has been incorporated into the `Image` class:
     ...         labels_metadata = {
@@ -49,11 +76,12 @@ class LabellingToolView (View):
     ...         }
     ...         return labels_metadata
     ...
-    ...     def update_labels(self, request, image_id_str, labels, completed_tasks, time_elapsed, *args, **kwargs):
+    ...     def update_labels(self, request: HttpRequest, image_id_str: str, labels_json: Any,
+    ...                       completed_tasks: Container[str], time_elapsed: float, *args, **kwargs):
     ...         image = models.Image.get(id=int(image_id_string))
     ...         image.completed_tasks.set(completed_tasks)
     ...         image.edit_time_elapsed = time_elapsed
-    ...         image.labels_json = labels
+    ...         image.labels_json = labels_json
     ...         image.save()
 
     If you want to support DEXTR assisted labeling, you must also implement the `dextr_request` and
@@ -63,19 +91,21 @@ class LabellingToolView (View):
     The `dextr_poll` method will look through the `DextrTask` for tasks that come from the provided image ID
     and dextr task IDs and that have completed and send back results.
     >>> class MyDEXTRLabelView (LabellingToolView):
-    ...     def get_labels(self, request, image_id_str, *args, **kwargs):
+    ...     def get_labels(self, request: HttpRequest, image_id_str: str,
+    ...                    *args, **kwargs) -> Union[models.Labels, Dict]:
     ...         image = models.Image.get(id=int(image_id_string))
     ...         # Assume `image.labels` is a field that refers to the `Labels` instance
     ...         return image.labels
     ...
-    ...     def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
+    ...     def dextr_request(self, request: HttpRequest, image_id_str: str, dextr_id: int,
+    ...                       dextr_points: List[Dict[str, float]]) -> Optional[List[List[Dict[str, float]]]]:
     ...         image = get_object_or_404(models.ImageWithLabels, id=int(image_id_str))
     ...         cel_result = tasks.dextr.delay(image.image.path, dextr_points)
     ...         dtask = models.DextrTask(image=image, image_id_str=image_id_str, dextr_id=dextr_id, celery_task_id=cel_result.id)
     ...         dtask.save()
     ...         return None
     ...
-    ...     def dextr_poll(self, request, image_id_str, dextr_ids):
+    ...     def dextr_poll(self, request: HttpRequest, image_id_str: str, dextr_ids: List[int]):
     ...         to_remove = []
     ...         dextr_labels = []
     ...         for dtask in models.DextrTask.objects.filter(image__id=image_id_str, dextr_id__in=dextr_ids):
@@ -103,9 +133,8 @@ class LabellingToolView (View):
     ...         return dextr_labels
     """
     @abstractmethod
-    def get_labels(self, request, image_id_str, *args, **kwargs):
-        """
-        Retrieve the `Labels` instance identified by `image_id_str` for display
+    def get_labels(self, request: HttpRequest, image_id_str: str, *args, **kwargs) -> Union[models.Labels, Dict]:
+        """Retrieve the `Labels` instance identified by `image_id_str` for display
 
         :param request: HTTP request
         :param image_id_str: image ID that identifies the image that we are labelling
@@ -115,9 +144,8 @@ class LabellingToolView (View):
         """
         pass
 
-    def get_labels_for_update(self, request, image_id_str, *args, **kwargs):
-        """
-        Retrieve the `Labels` instance identified by `image_id_str` for updating
+    def get_labels_for_update(self, request: HttpRequest, image_id_str: str, *args, **kwargs) -> models.Labels:
+        """Retrieve the `Labels` instance identified by `image_id_str` for updating
 
         :param request: HTTP request
         :param image_id_str: image ID that identifies the image that we are labelling
@@ -127,9 +155,9 @@ class LabellingToolView (View):
         """
         return self.get_labels(request, image_id_str, *args, **kwargs)
 
-    def update_labels(self, request, image_id_str, labels_json, completed_tasks, time_elapsed, *args, **kwargs):
-        """
-        Update the `Labels` instance identified by `image_id_str`
+    def update_labels(self, request: HttpRequest, image_id_str: str, labels_json: Any, completed_tasks: Container[str],
+                      time_elapsed: float, *args, **kwargs) -> models.Labels:
+        """Update the `Labels` instance identified by `image_id_str`
 
         :param request: HTTP request
         :param image_id_str: image ID that identifies the image that we are labelling
@@ -144,19 +172,27 @@ class LabellingToolView (View):
         labels.update_labels(labels_json, completed_tasks, time_elapsed, request.user, save=True, check_lock=False)
         return labels
 
-    def dextr_request(self, request, image_id_str, dextr_id, dextr_points):
-        """
+    def dextr_request(self, request: HttpRequest, image_id_str: str, dextr_id: int,
+                      dextr_points: List[Dict[str, float]]) -> Optional[List[List[Dict[str, float]]]]:
+        """Process incoming DEXTR request. If the inference step can be handled immediately
+        then return the resulting outlines. In most situations however this would be done in a background
+        process, in which case this method should return `None`, with the outlines being retrieved when
+        they are available using the `dextr_poll` method.
+
         :param request: HTTP request
         :param image_id_str: image ID that identifies the image that we are labelling
         :param dextr_id: an ID number the identifies the DEXTR request
-        :param dextr_points: the 4 points as a list of 2D vectors ({'x': <x>, 'y': <y>}) in the order
-            top edge, left edge, bottom edge, right edge
-        :return: contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
+        :param dextr_points: the points as a list of 2D vectors ({'x': <x>, 'y': <y>})
+        :return: if we can process the request immediately, return the outline in JSON form.
+            This takes the form of a list of regions, where each region is a list of 2D vectors,
+            where each 2D vector takes the form {'x': <x>, 'y': <y>}. If the DEXTR request
+            must be satisfied by a background process, return None.
         """
         raise NotImplementedError('dextr_request not implemented for {}'.format(type(self)))
 
-    def dextr_poll(self, request, image_id_str, dextr_ids):
-        """
+    def dextr_poll(self, request: HttpRequest, image_id_str: str, dextr_ids: List[int]) -> List[Dict]:
+        """Poll outstanding DEXTR requests and retrieve those that are complete.
+
         :param request: HTTP request
         :param image_id_str: image ID that identifies the image that we are labelling
         :param dextr_ids: The DEXTR request IDs that the client is interested in
@@ -164,13 +200,14 @@ class LabellingToolView (View):
             {
                 'image_id': image ID string that identifies the image that the label applies to
                 'dextr_id': the ID number that identifies the dextr job/request
-                'regions': contours/regions a list of lists of 2D vectors, each of which is {'x': <x>, 'y': <y>}
+                'regions': contours/regions in JSON form. A list of regions, where each region is a list of
+                    2D vectors, where each 2D vector takes the form {'x': <x>, 'y': <y>}
             }
         """
         raise NotImplementedError('dextr_poll not implemented for {}'.format(type(self)))
 
     @method_decorator(never_cache)
-    def get(self, request, *args, **kwargs):
+    def get(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         if 'labels_for_image_id' in request.GET:
             image_id_str = request.GET['labels_for_image_id']
 
@@ -217,7 +254,7 @@ class LabellingToolView (View):
             return JsonResponse({'error': 'unknown_operation'})
 
     @method_decorator(never_cache)
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
         if 'labels' in request.POST:
             # Write labels
             labels = json.loads(request.POST['labels'])
@@ -278,8 +315,10 @@ class LabellingToolViewWithLocking (LabellingToolView):
     Labelling tool class based view with label locking
 
     Subclass and override the `get_labels` method (mandatory), the
-    `get_next_unlocked_image_id_after` method (mandatory) and optionally
+    `get_unlocked_image_id` method (mandatory) and optionally
     the `update_labels` method to customise how label data is accessed and updated.
+    The `get_unlocked_image_id` method receives a sequence of image IDs as a parameter.
+    It should search these in order for one that is not locked. If one cannot be found, it should return None.
 
     `get_labels` should return a `models.Labels` instance; it should NOT return anything else
     in the way that the `get_labels` method of a subclass of `LabellingToolView` can.
@@ -289,12 +328,12 @@ class LabellingToolViewWithLocking (LabellingToolView):
 
     Example:
     >>> class MyLabelView (LabellingToolViewWithLocking):
-    ...     def get_labels(self, request, image_id_str, *args, **kwargs):
+    ...     def get_labels(self, request: HttpRequest, image_id_str: str, *args, **kwargs):
     ...         image = models.Image.get(id=int(image_id_string))
     ...         # Assume `image.labels` is a field that refers to the `Labels` instance
     ...         return image.labels
     ...
-    ...     def get_unlocked_image_id(self, request, image_ids, *args, **kwargs):
+    ...     def get_unlocked_image_id(self, request: HttpRequest, image_ids: Sequence[str], *args, **kwargs):
     ...         unlocked_labels = image_labelling_tool.models.Labels.objects.unlocked()
     ...         unlocked_q = Q(id__in=image_ids, labels__in=unlocked_labels)
     ...         # Optional: filter images for those accessible to the user to guard against maliciously crafted
@@ -304,7 +343,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
     ...         first_unlocked = unlocked_imgs.first()
     ...         return first_unlocked.id if first_unlocked is not None else None
     """
-    def get_unlocked_image_id(self, request, image_ids, *args, **kwargs):
+    def get_unlocked_image_id(self, request: HttpRequest, image_ids: List[str], *args, **kwargs) -> Optional[str]:
         """
         Get the ID of the first image from the list of provided image IDs that is unlocked.
         Images are locked when a user is editing them. This finds an image that is not being edited
@@ -318,7 +357,8 @@ class LabellingToolViewWithLocking (LabellingToolView):
         """
         raise NotImplementedError('Abstract for type {}'.format(type(self)))
 
-    def update_labels(self, request, image_id_str, labels_json, completed_tasks, time_elapsed, *args, **kwargs):
+    def update_labels(self, request: HttpRequest, image_id_str: str, labels_json: Any, completed_tasks: Container[str],
+                      time_elapsed: float, *args, **kwargs) -> models.Labels:
         """
         Update the `Labels` instance identified by `image_id_str`
 
@@ -340,7 +380,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
         return labels
 
     @method_decorator(never_cache)
-    def get(self, request, *args, **kwargs):
+    def get(self, request: HttpRequest, *args, **kwargs):
         if 'labels_for_image_id' in request.GET:
             image_id_str = request.GET['labels_for_image_id']
 
@@ -382,7 +422,7 @@ class LabellingToolViewWithLocking (LabellingToolView):
             return JsonResponse({'error': 'unknown_operation'})
 
     @method_decorator(never_cache)
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args, **kwargs):
         if 'get_unlocked_image_id' in request.POST:
             request_str = request.POST['get_unlocked_image_id']
             request = json.loads(request_str)

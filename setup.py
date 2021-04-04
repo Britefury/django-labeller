@@ -3,7 +3,7 @@ import fnmatch
 from setuptools import find_packages
 from setuptools import setup
 
-version = '0.2.4'
+version = '0.3.0'
 
 here = os.path.abspath(os.path.dirname(__file__))
 try:
@@ -46,19 +46,28 @@ qt_require = [
 include_package_data = True
 data_files = [
     ('image_labelling_tool/templates', [
+        'image_labelling_tool/templates/index.jinja2',
         'image_labelling_tool/templates/labeller_page.jinja2',
-        'image_labelling_tool/templates/labeller_control_qt.jinja2'
+        'image_labelling_tool/templates/labeller_control_qt.jinja2',
+        'image_labelling_tool/templates/schema_editor_page.jinja2',
+        'image_labelling_tool/templates/schema_editor_control_qt.jinja2'
     ]),
     ('image_labelling_tool/templates/inline', [
         'image_labelling_tool/templates/inline/labeller_app.html',
         'image_labelling_tool/templates/inline/image_labeller.html',
         'image_labelling_tool/templates/inline/image_labeller_css.html',
         'image_labelling_tool/templates/inline/image_labeller_scripts.html',
+        'image_labelling_tool/templates/inline/schema_editor.html',
+        'image_labelling_tool/templates/inline/schema_editor_css.html',
+        'image_labelling_tool/templates/inline/schema_editor_scripts.html',
+        'image_labelling_tool/templates/inline/schema_editor_vue_templates.html',
     ]),
     find_data_files('image_labelling_tool/static', '*.*'),
     find_data_files('image_labelling_tool/static/open-iconic/css', '*.*'),
     find_data_files('image_labelling_tool/static/open-iconic/fonts', '*.*'),
+    find_data_files('image_labelling_tool/static/vue', '*.js'),
     find_data_files('image_labelling_tool/static/labelling_tool', '*.*'),
+    find_data_files('image_labelling_tool/static/schema_editor', '*.*'),
 ]
 
 setup(

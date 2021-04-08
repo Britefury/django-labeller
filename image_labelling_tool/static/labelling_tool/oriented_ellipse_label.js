@@ -50,19 +50,35 @@ var labelling_tool;
             orientation_radians: orientation_radians };
     }
     function OrientedEllipseLabel_box(label) {
-        var c = Math.cos(label.orientation_radians);
-        var s = Math.sin(label.orientation_radians);
-        var u = { x: c * label.radius1, y: s * label.radius1 };
-        var v = { x: -s * label.radius2, y: c * label.radius2 };
-        var e = { x: Math.sqrt(u.x * u.x + v.x * v.x),
-            y: Math.sqrt(u.y * u.y + v.y * v.y) };
-        var lower = { x: label.centre.x - e.x, y: label.centre.y - e.y };
-        var upper = { x: label.centre.x + e.x, y: label.centre.y + e.y };
+        // The solution to this problem was obtained from here:
+        // https://stackoverflow.com/questions/87734/how-do-you-calculate-the-axis-aligned-bounding-box-of-an-ellipse
+        // https://gist.github.com/smidm/b398312a13f60c24449a2c7533877dc0
+        var tan_orient = Math.tan(label.orientation_radians);
+        var s0 = Math.atan(-label.radius2 * tan_orient / label.radius1);
+        var s1 = s0 + Math.PI;
+        var t0;
+        if (tan_orient != 0.0) {
+            t0 = Math.atan((label.radius2 / tan_orient) / label.radius1);
+        }
+        else {
+            t0 = Math.PI * 0.5;
+        }
+        var t1 = t0 + Math.PI;
+        var max_x = label.centre.x + label.radius1 * Math.cos(s0) * Math.cos(label.orientation_radians) -
+            label.radius2 * Math.sin(s0) * Math.sin(label.orientation_radians);
+        var min_x = label.centre.x + label.radius1 * Math.cos(s1) * Math.cos(label.orientation_radians) -
+            label.radius2 * Math.sin(s1) * Math.sin(label.orientation_radians);
+        var max_y = label.centre.y + label.radius2 * Math.sin(t0) * Math.cos(label.orientation_radians) +
+            label.radius1 * Math.cos(t0) * Math.sin(label.orientation_radians);
+        var min_y = label.centre.y + label.radius2 * Math.sin(t1) * Math.cos(label.orientation_radians) +
+            label.radius1 * Math.cos(t1) * Math.sin(label.orientation_radians);
+        var lower = { x: min_x, y: min_y };
+        var upper = { x: max_x, y: max_y };
         return new labelling_tool.AABox(lower, upper);
     }
-    // Converted from:
-    // https://stackoverflow.com/questions/22959698/distance-from-given-point-to-given-ellipse
     function ellipseClosestPoint(rad1, rad2, p) {
+        // Converted from:
+        // https://stackoverflow.com/questions/22959698/distance-from-given-point-to-given-ellipse
         var px = Math.abs(p.x);
         var py = Math.abs(p.y);
         var tx = Math.sqrt(0.5);

@@ -1156,7 +1156,7 @@ class ImageLabels:
         Warp the labels given a warping function
 
         :param xform_fn: a transformation function of the form `f(vertices) -> warped_vertices`, where `vertices` and
-        `warped_vertices` are both Numpy arrays of shape `(N,2)` where `N` is the number of vertices and the
+        `warped_vertices` are both Numpy arrays of shape `(N, [x, y])` where `N` is the number of vertices and the
         co-ordinates are `x,y` pairs. The transformations defined in `skimage.transform`, e.g. `AffineTransform` can
         be used here.
         :return: an `ImageLabels` instance that contains the warped labels

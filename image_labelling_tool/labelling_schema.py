@@ -142,18 +142,18 @@ class LabellingSchema:
     def to_json(self) -> Any:
         return {'name': self.name, 'description': self.description,
                 'colour_schemes': [col_scheme.to_json() for col_scheme in self.colour_schemes],
-                'group_classes': [cls.to_json() for cls in self.classes]}
+                'label_class_groups': [cls.to_json() for cls in self.label_class_groups]}
 
     @classmethod
     def from_json(cls, js: Any):
         return LabellingSchema(
-            js['name'], js['description'],
+            js.get('name', ''), js.get('description', ''),
             [ColourScheme.from_json(col_scheme_js) for col_scheme_js in js['colour_schemes']],
-            [LabelClassGroup.from_json(group_js) for group_js in js['group_classes']])
+            [LabelClassGroup.from_json(group_js) for group_js in js['label_class_groups']])
 
     @classmethod
     def empty_schema_json(cls):
-        return {'name': '', 'description': '', 'colour_schemes': [], 'group_classes': []}
+        return {'name': '', 'description': '', 'colour_schemes': [], 'label_class_groups': []}
 
     @classmethod
     def empty(cls):

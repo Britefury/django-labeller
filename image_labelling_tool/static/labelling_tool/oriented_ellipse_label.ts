@@ -36,6 +36,8 @@ module labelling_tool {
     Box label model
      */
     interface OrientedEllipseLabelModel extends AbstractLabelModel {
+        // Note that orientation rotates clockwise from positive X-axis (right) to the positive Y-axis (down)
+        // If the orientation is 0, then radius1 and radius2 correspond to the radii in the X and Y axes respectively
         centre: Vector2;
         radius1: number;
         radius2: number;
@@ -52,6 +54,8 @@ module labelling_tool {
         // The solution to this problem was obtained from here:
         // https://stackoverflow.com/questions/87734/how-do-you-calculate-the-axis-aligned-bounding-box-of-an-ellipse
         // https://gist.github.com/smidm/b398312a13f60c24449a2c7533877dc0
+        // Note that this approach is correct:
+        // irrespective of the direction of orientation; it works for both CW and CCW
         var tan_orient = Math.tan(label.orientation_radians);
         var s0 = Math.atan(-label.radius2 * tan_orient / label.radius1);
         var s1 = s0 + Math.PI;
@@ -396,6 +400,7 @@ module labelling_tool {
                     centre = mul_Vector2(add_Vector2(this._points[0], this._points[1]), 0.5);
                     rad1 = Math.sqrt(compute_sqr_length(u)) * 0.5;
                     rad2 = rad1 * 0.1;
+                    // Clockwise from +ve X-axis
                     orientation = Math.atan2(u.y, u.x);
 
                     if (this._points.length >= 3) {

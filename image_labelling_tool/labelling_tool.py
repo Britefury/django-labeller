@@ -796,9 +796,10 @@ class OrientedEllipseLabel (AbstractLabel):
         Constructor
 
         :param centre_xy: centre of box as a (2,) NumPy array providing the x and y co-ordinates
-        :param radius1: radius in orientation axis (X-axis rotated counter-clockwise by `orientation_rad`)
+        :param radius1: radius in orientation axis (X-axis rotated clockwise by `orientation_rad`)
         :param radius2: radius in axis perpendicular to orientation axis
-        :param orientation_rad: orientation/rotation measured in radians counter-clockwise from positive x-axis
+        :param orientation_rad: orientation/rotation measured in radians clockwise from positive x-axis,
+            so orientation rotates the positive x-axis (right) to the positive y-axis (down)
         :param object_id: a unique integer object ID or None
         :param classification: a str giving the label's ground truth classification
         :param source: [optional] a str stating how the label was created
@@ -815,6 +816,8 @@ class OrientedEllipseLabel (AbstractLabel):
         # The solution to this problem was obtained from here:
         # https://stackoverflow.com/questions/87734/how-do-you-calculate-the-axis-aligned-bounding-box-of-an-ellipse
         # https://gist.github.com/smidm/b398312a13f60c24449a2c7533877dc0
+        # Note that orientation rotates clockwise from positive X-axis (right) to the positive Y-axis (down)
+        # If the orientation is 0, then radius1 and radius2 correspond to the radii in the X and Y axes respectively
         tan_orient = math.tan(self.orientation_rad)
         s0 = math.atan(-self.radius2 * tan_orient / self.radius1)
         s1 = s0 + math.pi
@@ -878,7 +881,7 @@ class OrientedEllipseLabel (AbstractLabel):
         :param v_point_xy: 3rd point as a `[x, y]` NumPy array
         :return: (centre_xy, radius1, radius2, orientation) where `centre_xy` is a `[x, y]` NumPy array,
             `radius1` and `radius2` are the radii in the U-axis and perpendicular V-axis and `orientation`
-            is the orientation of the U-axis measured in radians, counter-clockwise from the positive X-axis
+            is the orientation of the U-axis measured in radians, clockwise from the positive X-axis
         """
         u = u_points_xy[1] - u_points_xy[0]
         centre_xy = (u_points_xy[0] + u_points_xy[1]) * 0.5

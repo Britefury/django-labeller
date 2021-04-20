@@ -24,8 +24,10 @@
 # Dr. M. Mackiewicz.
 from typing import Any, Optional, Sequence, Mapping, Callable, Union
 import pathlib
+import binascii
 import json
 import uuid
+import os
 from PIL import Image
 import numpy as np
 from image_labelling_tool import labelling_tool, labelling_schema, labelled_image, schema_editor_messages
@@ -43,6 +45,13 @@ except ImportError:
 
 DextrImageType = Union[np.ndarray, Image.Image]
 DextrFunctionType = Callable[[DextrImageType, np.ndarray], np.ndarray]
+
+
+def image_url_salt():
+    """Helper function that generates salt to append to an image URL to prevent browser caches from loading
+    old images"""
+    return binascii.b2a_hex(os.urandom(4)).decode('us-ascii')
+
 
 def _register_labeller_routes(app: Flask, socketio: Any, socketio_emit: Any,
                               images_table: Mapping[str, labelled_image.LabelledImage],
@@ -249,8 +258,10 @@ def flask_labeller(labelled_images: Sequence[labelled_image.LabelledImage],
     image_descriptors = []
     for image_id, img in zip(image_ids, labelled_images):
         height, width = img.image_source.image_size
+        # The 'salt' added to the URL prevents the browser cache from displaying images cached from
+        # a previous session
         image_descriptors.append(labelling_tool.image_descriptor(
-            image_id=image_id, url='/image/{}'.format(image_id),
+            image_id=image_id, url='/image/{}?salt={}'.format(image_id, image_url_salt()),
             width=width, height=height
         ))
 
@@ -314,8 +325,10 @@ def flask_labeller_and_schema_editor(labelled_images: Sequence[labelled_image.La
     image_descriptors = []
     for image_id, img in zip(image_ids, labelled_images):
         height, width = img.image_source.image_size
+        # The 'salt' added to the URL prevents the browser cache from displaying images cached from
+        # a previous session
         image_descriptors.append(labelling_tool.image_descriptor(
-            image_id=image_id, url='/image/{}'.format(image_id),
+            image_id=image_id, url='/image/{}?salt={}'.format(image_id, image_url_salt()),
             width=width, height=height
         ))
 

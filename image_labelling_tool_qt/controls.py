@@ -29,6 +29,7 @@ import copy
 import numpy as np
 from PyQt5 import QtCore, QtWebChannel
 from image_labelling_tool import labelling_tool, labelling_schema, schema_editor_messages
+from image_labelling_tool.flask_labeller import image_url_salt
 from image_labelling_tool_qt import web_server
 
 
@@ -430,8 +431,10 @@ class QLabellerForLabelledImages (QAbstractLabeller):
                 data, mime_type = img.image_source.image_binary_and_mime_type()
                 self._server_pipe.add_image(image_id, web_server._ImageBinary(
                     data=data, mime_type=mime_type, width=width, height=height))
+            # The 'salt' added to the URL prevents the browser cache from displaying images cached from
+            # a previous session
             self.__image_descriptors.append(labelling_tool.image_descriptor(
-                image_id=image_id, url='/image/{}'.format(image_id),
+                image_id=image_id, url='/image/{}?salt={}'.format(image_id, image_url_salt()),
                 width=width, height=height
             ))
         self.__images_table = images_table

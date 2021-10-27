@@ -1,7 +1,7 @@
 <div class="image_labeller">
     <nav class="labeller_menu_bar">
         <div class="labeller_menu_bar_right">
-            <h4>Django labeller</h4>
+            <h4>Django labeller (edited by: JC)</h4>
         </div>
             <!-- We use `not x == False` so that the if succeeds by default if `x` does not exist !-->
             {% if not labelling_tool_config.tools.imageSelector == False %}
@@ -20,14 +20,18 @@
 
             <div class="labeller_menu_sep"></div>
 
-            <button class="btn btn-sm btn-danger" data-toggle="modal" data-target="#help_modal"><span class="oi
+            <button class="btn btn-sm btn-info" data-toggle="modal" data-target="#help_modal"><span class="oi
             oi-question-mark"></span> Instructions</button>
 
             <div class="labeller_menu_sep"></div>
 
-            {% if not labelling_tool_config.settings.fullscreenButton == False %}
-                <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
-            {% endif %}
+            <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+
+            <!-- JC edit 3/3/21 -->
+            <div class="labeller_menu_sep"></div>
+
+            <button id="delete-image-btn" class="btn btn-sm btn-danger"> Delete </button>
+
     </nav>
 
     <!-- Toolbar !-->
@@ -35,7 +39,7 @@
         <!-- Tasks section !-->
         <div class="anno_lockable">
             {% if tasks %}
-                <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Completed tasks</div>
+                <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_tasks">Tasks</div>
 
                 <div class="collapse show tool_bar_group" id="tool_group_tasks">
                     <div class="tool_bar_content">
@@ -50,14 +54,14 @@
             {% endif %}
         </div>
 
-        <!-- Label visibility section !-->
-{#        <div class="tool_bar_header" data-toggle="tooltip" data-placement="right"#}
-{#                   title="Control overall appearance, filter by class">Label visibility</div>#}
+        <!-- Label visibility section -->
         <div class="tool_bar_header" data-toggle="collapse" data-target="#tool_group_label_appearance"
-                   title="Control overall appearance, filter by class">Label appearance</div>
+                   title="Control overall appearance, filter by class">View labels</div>
         <div class="collapse show tool_bar_group" id="tool_group_label_appearance">
-
-            <!-- Labels hidden, faint or full !-->
+            <div class="tool_bar_content">
+                Label visibility:
+            </div>
+            <!-- Control label appearance, hidden, faint or full -->
             <div class="btn-group btn-group-toggle tool_bar_content" data-toggle="buttons">
                 <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top"
                        title="Make labels completely invisible">
@@ -78,7 +82,7 @@
             </div>
 
             {% if not labelling_tool_config.tools.labelClassFilter == False %}
-                <!-- Filter labels by class !-->
+                <!-- Filter labels by class -->
                 <div class="tool_bar_content">
                     Filter by label class:
                     {% if not labelling_tool_config.useClassSelectorPopup == False %}
@@ -86,7 +90,7 @@
                     {% else %}
                         <select class="form-control btn-sm bg-secondary border-secondary text-light" id="label_class_filter_select">
                             <option value="__all" selected="true">-- ALL --</option>
-                            {% for group in labelling_schema.label_class_groups %}
+                            {% for group in label_class_groups %}
                                 <optgroup label="{{ group.group_name }}">
                                 {% for lcls in group.group_classes %}
                                     <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
@@ -100,54 +104,12 @@
             {% endif %}
 
 
-            <!-- Filter labels by anno control state !-->
-            {% for ann_ctrl in anno_controls %}
-                {% if ann_ctrl.visibility_label_text %}
-                    {% if ann_ctrl.control == 'checkbox' %}
-                        <div class="tool_bar_content">
-                            {{ ann_ctrl.visibility_label_text | safe }}:
-                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
-                                <option value="__all" selected="true">-- ALL --</option>
-                                <option value="false">False</option>
-                                <option value="true">True</option>
-                                <option value="__no_value">NO VALUE</option>
-                            </select>
-                        </div>
-                    {% elif ann_ctrl.control == 'radio' %}
-                        <div class="tool_bar_content">
-                            {{ ann_ctrl.visibility_label_text | safe }}:
-                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
-                                <option value="__all" selected="true">-- ALL --</option>
-                                {% for choice in ann_ctrl.choices %}
-                                    <option value="{{ choice.value | safe }}">{{ choice.label_text | safe }}</option>
-                                {% endfor %}
-                                <option value="__no_value">NO VALUE</option>
-                            </select>
-                        </div>
-                    {% elif ann_ctrl.control == 'popup_menu' %}
-                        <div class="tool_bar_content">
-                            {{ ann_ctrl.visibility_label_text | safe }}:
-                            <select class="form-control btn-sm bg-secondary border-secondary text-light" id="vis_filter_anno_ctrl_{{ ann_ctrl.identifier | safe }}">
-                                <option value="__all" selected="true">-- ALL --</option>
-                                {% for group in ann_ctrl.groups %}
-                                    {% for choice in group.choices %}
-                                        <option value="{{ choice.value | safe }}">{{ choice.label_text | safe }}</option>
-                                    {% endfor %}
-                                {% endfor %}
-                                <option value="__no_value">NO VALUE</option>
-                            </select>
-                        </div>
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
-
-
             <!-- Colour scheme !-->
             <div class="tool_bar_content">
-                {% if labelling_schema.colour_schemes %}
+                {% if colour_schemes %}
                     Colour scheme:
                     <select class="form-control btn-sm bg-secondary border-secondary text-light" id="colour_scheme_menu">
-                        {% for cs in labelling_schema.colour_schemes %}
+                        {% for cs in colour_schemes %}
                             <option value="{{ cs.name }}">{{ cs.human_name }}</option>
                         {% endfor %}
                     </select>
@@ -199,7 +161,7 @@
                             <button class="btn btn-sm btn-secondary w-100" id="label_class_selector_menu_btn"><span class="menu_choice">UNCLASSIFIED</span> <span class="oi oi-chevron-bottom"></span></button>
                         {% else %}
                             <select class="form-control btn-sm bg-secondary border-secondary text-light mb-1" id="label_class_selector_select">
-                                {% for group in labelling_schema.label_class_groups %}
+                                {% for group in label_class_groups %}
                                     <optgroup label="{{ group.group_name }}">
                                     {% for lcls in group.group_classes %}
                                         <option value="{{ lcls.name }}">{{ lcls.human_name }}</option>
@@ -212,47 +174,42 @@
                     </div>
                 {% endif %}
 
-                <!-- Additional annotation controls !-->
+                <!-- JC edit -->
+                <div class="tool_bar_content">
+                    <label>Source of label: <span id="label_source"> </span></label>
+                </div>
+
+                <!-- Additional annotation controls -->
+                <!-- this section loops through ANNO_CONTROLS in settings.py -->
+                <!-- references context={anno_controls} under tool() in views.py -->
                 {% for ann_ctrl in anno_controls %}
                     {% if ann_ctrl.control == 'checkbox' %}
                         <div class="tool_bar_content">
                             <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}" disabled>
-                                <label class="form-check-label text-muted" for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}</label>
+                                <input type="checkbox" class="form-check-input" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
+                                <label class="form-check-label" for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}</label>
                             </div>
                         </div>
 
                     {% elif ann_ctrl.control == 'radio' %}
                         <div class="tool_bar_content">
-                            <label class="{% if ann_ctrl.label_on_own_line %}form-text{% endif %} text-muted" for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
+                            <label {% if ann_ctrl.label_on_own_line %}class="form-text"{% endif %} for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
                         {% if ann_ctrl.label_on_own_line %}</div>{% endif %}
                             <div class="btn-group btn-group-toggle{% if ann_ctrl.label_on_own_line %} tool_bar_content{% endif %}" data-toggle="buttons" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}">
                                 {% for radio_choice in ann_ctrl.choices %}
                                     <label class="btn btn-sm btn-info" data-toggle="tooltip" data-placement="top" title="{{ radio_choice.tooltip | safe }}">
                                         <input type="radio" name="anno_ctrl_{{ ann_ctrl.identifier | safe }}" value="{{ radio_choice.value | safe }}" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}_{{ radio_choice.value | safe }}"
-                                               autocomplete="off" disabled>
+                                               autocomplete="off">
                                         {{ radio_choice.label_text | safe }}
                                     </label>
                                 {% endfor %}
                             </div>
                         {% if not ann_ctrl.label_on_own_line %}</div>{% endif %}
-
                     {% elif ann_ctrl.control == 'popup_menu' %}
                         <div class="tool_bar_content">
-                            <label for="anno_ctrl_{{ ann_ctrl.identifier | safe }}" class="text-muted">{{ ann_ctrl.label_text | safe }}:</label>
-                            <button class="btn btn-sm btn-secondary w-100" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" disabled><span class="menu_choice"></span> <span class="oi oi-chevron-bottom"></span></button>
+                            <label for="anno_ctrl_{{ ann_ctrl.identifier | safe }}">{{ ann_ctrl.label_text | safe }}:</label>
+                            <button class="btn btn-sm btn-secondary w-100" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}"><span class="menu_choice"></span> <span class="oi oi-chevron-bottom"></span></button>
                         </div>
-
-                    {% elif ann_ctrl.control == 'text' %}
-                        <div class="tool_bar_content">
-                            <label for="anno_ctrl_{{ ann_ctrl.identifier | safe }}" class="text-muted">{{ ann_ctrl.label_text | safe }}:</label>
-                            {% if ann_ctrl.multiline %}
-                                <textarea class="form-control" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" disabled></textarea>
-                            {% else %}
-                                <input type="text" class="form-control" id="anno_ctrl_{{ ann_ctrl.identifier | safe }}" disabled>
-                            {% endif %}
-                        </div>
-
                     {% endif %}
                 {% endfor %}
 
@@ -293,7 +250,7 @@
                             data-placement="top" title="Group labels together; select labels first then
                             click here to group them">Group</button>
                     {% endif %}
-                    {% if labelling_tool_config.tools.legacy.compositeLabel == True %}
+                    {% if labelling_tool_config.tools.compositeLabel == True %}
                         <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="draw_composite_button" data-toggle="tooltip"
                             data-placement="top" title="Associate labels; select labels first then
                             click here to associate them">Assoc.</button>
@@ -366,7 +323,7 @@
 
 {% if not labelling_tool_config.useClassSelectorPopup == False %}
     <div class="tool_bar_popup hidden" id="label_class_selector_menu_contents">
-        {% for group in labelling_schema.label_class_groups %}
+        {% for group in label_class_groups %}
             <h6 class="class_selector_group">{{ group.group_name }}</h6>
             {% for lcls in group.group_classes %}
               <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">
@@ -386,7 +343,7 @@
         <button class="btn btn-sm btn-success m-1 popup_menu_choice_button active" type="button" data-choice="__all">
             <em>-- ALL --</em>
         </button>
-        {% for group in labelling_schema.label_class_groups %}
+        {% for group in label_class_groups %}
             <h6 class="class_selector_group">{{ group.group_name }}</h6>
             {% for lcls in group.group_classes %}
               <button class="btn btn-sm btn-warning m-1 popup_menu_choice_button" type="button" data-choice="{{ lcls.name }}">
@@ -421,19 +378,41 @@
 
 
 
-<!-- Confirm delete -->
-<div class="modal" id="confirm-delete" tabindex="-1" role="dialog" aria-labelledby="help_modal_title"
+<!-- JC edit 3/3/21 delete image pop up -->
+<div class="modal" id="delete-image" tabindex="-1" role="dialog" aria-labelledby="help_modal_title"
      aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="help_modal_title">Confirm delete</h5>
+        <h5 class="modal-title" id="help_modal_title">Confirm delete image</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
           Are you sure?
+      </div>
+      <div class="modal-footer">
+        <button id='myButton' class="btn btn-danger" type="button" data-dismiss="modal">Delete</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete label -->
+<div class="modal" id="confirm-delete" tabindex="-1" role="dialog" aria-labelledby="help_modal_title"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="help_modal_title">Confirm delete label</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+          Are you sure enough?
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-danger" data-dismiss="modal"

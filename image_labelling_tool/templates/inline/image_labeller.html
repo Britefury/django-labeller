@@ -10,7 +10,8 @@
             // the client side tool.
             // Here we define the callbacks that connect the `LabellingTool` instance with the
             // server side API.
-            var get_labels = function(image_id) {
+            var get_labels
+             = function(image_id) {
                 $.ajax({
                     type: 'GET',
                     url: '{{ labelling_tool_url }}' + '?labels_for_image_id=' + image_id,
@@ -22,6 +23,29 @@
                     dataType: 'json'
                 });
             };
+
+            // JC, GC edit 3/6/21
+            var deleteImage = function(image_id, successCallback) {
+                $.ajax({
+                    type: 'POST',
+                    url: '{{ delete_image_url }}',
+                    data: {  
+                        image_id: image_id
+                    },
+                    success: function(response) {
+                        console.log(response);
+                        // debugger;
+                    },
+                    complete: function(response) {
+                        console.log(response);
+                        if (response.status === 200 && successCallback) {
+                            successCallback();
+                        }
+                    },  
+                    dataType: 'json'
+                });
+            };
+            // end JC edit
 
             {% if enable_locking %}
                 var get_unlocked_image_id = function(image_ids) {
@@ -97,12 +121,14 @@
             {% endif %}
 
             var tool = new labelling_tool.DjangoLabeller(
-                {{ labelling_schema | as_json | safe }},
+                {{ label_class_groups | as_json | safe }},
                 {{ tasks | as_json | safe }},
+                {{ colour_schemes | as_json | safe }},
                 {{ anno_controls | as_json | safe }},
                 {{ image_descriptors | as_json | safe }},
                 {{ initial_image_index | safe }},
                 get_labels,
+                deleteImage,
                 update_labels,
                 get_unlocked_image_id,
                 dextr_request,

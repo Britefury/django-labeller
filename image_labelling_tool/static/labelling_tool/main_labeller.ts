@@ -30,7 +30,7 @@ Dr. M. Mackiewicz.
 /// <reference path="../polyk.d.ts" />
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./object_id_table.ts" />
-/// <reference path="./schema.ts" />
+/// <reference path="./label_class.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
@@ -122,7 +122,6 @@ module labelling_tool {
         private class_name_to_class: {[class_name: string]: LabelClass};
         label_visibility: LabelVisibility;
         label_visibility_class_filter: string;
-        label_visibility_anno_filter: any;
         private _button_down: boolean;
         private _mouse_within: boolean;
         private _last_mouse_pos: Vector2;
@@ -131,6 +130,7 @@ module labelling_tool {
         private _images: ImageModel[];
         private _num_images: number;
         private _requestLabelsCallback: any;
+        private _deleteImageCallback: any;
         private _sendLabelHeaderFn: any;
         private _getUnlockedImageIDCallback: any;
         private _dextrCallback: any;
@@ -155,7 +155,6 @@ module labelling_tool {
         private _label_class_filter_select: JQuery = null;
         private _label_class_filter_popup: popup_menu.PopupMenu = null;
         private _label_class_filter_notification: JQuery;
-        private _anno_vis_filters: AnnotationVisFilter[];
         private _anno_controls: AnnotationControl[];
         private _confirm_delete: JQuery;
         private _svg: d3.Selection<any>;
@@ -164,7 +163,7 @@ module labelling_tool {
         private _loading_notification_text: JQuery;
         world: any;
         private _image: d3.Selection<any>;
-        private _image_index_input: JQuery = null;
+        private _image_index_input: JQuery;
         private _task_checkboxes: {[name: string]: JQuery};
 
         private _zoom_node: d3.Selection<any>;
@@ -179,14 +178,22 @@ module labelling_tool {
 
 
 
-        constructor(schema: LabellingSchemaJSON, tasks: TasksJSON[],
+        constructor(label_classes: LabelClassJSON[], 
+                    tasks: TasksJSON[], 
+                    colour_schemes: ColourSchemeJSON[],
                     anno_controls_json: AnnoControlJSON[],
-                    images: ImageModel[], initial_image_index: number,
-                    requestLabelsCallback: any, sendLabelHeaderFn: any,
-                    getUnlockedImageIDCallback: any, dextrCallback: any, dextrPollingInterval: number,
+                    images: ImageModel[], 
+                    initial_image_index: number,
+                    requestLabelsCallback: any, 
+                    deleteImageCallback: any,
+                    sendLabelHeaderFn: any,
+                    getUnlockedImageIDCallback: any, 
+                    dextrCallback: any, 
+                    dextrPollingInterval: number,
                     config: any) {
             /*
-            schema: the schema provides the label class definitions and colour scheme definitions in JSON format
+            label_classes: label class definitions in JSON format
+            colour_schemes: colour scheme definitions in JSON format
             images: images to annotate
             initial_image_index: the index of the first image to select
             requestLabelsCallback: a function of the form `function(image_id)` that the annotator uses to
@@ -229,19 +236,14 @@ module labelling_tool {
             }
 
             // Tasks
-            if (tasks === null || tasks === undefined) {
-                tasks = [];
-            }
             self.tasks = tasks;
 
-            console.log(schema);
-
             // Colour schemes
-            if (schema.colour_schemes === undefined || schema.colour_schemes === null || schema.colour_schemes.length == 0) {
-                schema.colour_schemes = [{name: 'default', human_name: 'Default'}];
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{name: 'default', human_name: 'Default'}];
             }
 
-            this._current_colour_scheme = schema.colour_schemes[0].name;
+            this._current_colour_scheme = colour_schemes[0].name;
 
             // Configuration
             config = config || {};
@@ -256,17 +258,14 @@ module labelling_tool {
             ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
             ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
+            ensure_config_option_exists(config.tools, 'compositeLabel', false);
             ensure_config_option_exists(config.tools, 'groupLabel', false);
             ensure_config_option_exists(config.tools, 'deleteLabel', true);
-
-            config.tools.legacy = config.tools.deleteConfig || {};
-            ensure_config_option_exists(config.tools.legacy, 'compositeLabel', false);
 
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
-            ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'oriented_ellipse', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
@@ -278,7 +277,6 @@ module labelling_tool {
             ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
             ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
-            ensure_config_option_exists(config.settings, 'fullscreenButton', true);
 
             this._config = config;
 
@@ -305,6 +303,12 @@ module labelling_tool {
             this.root_view_listener = {
                 // Selection changed; update annotation controls
                 on_selection_changed: (root_view: RootLabelView): void => {
+                    // JC, GC added 'label_source' to display how label was created: manual, auto:Dextr or predicted etc
+                    const selection = root_view.get_selection();
+                    const label_source_element = document.getElementById('label_source');
+                    if (label_source_element) {
+                        label_source_element.textContent = selection.map((s: AbstractLabelEntity<AbstractLabelModel>) => s.model.source).join(', ');
+                    }
                     this._update_annotation_controls_from_views(root_view.get_selection());
                 },
                 // Root list changed; queue push
@@ -327,16 +331,14 @@ module labelling_tool {
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = label_classes_from_json(schema.label_class_groups);
+            this.label_classes = label_classes_from_json(label_classes);
             this.class_name_to_class = {};
             for (let i = 0; i < this.label_classes.length; i++) {
                 this.label_classes[i].fill_name_to_class_table(this.class_name_to_class);
             }
-            console.log(this.label_classes);
             // Hide labels
             this.label_visibility = LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
-            this.label_visibility_anno_filter = {};
             // Button state
             this._button_down = false;
 
@@ -363,6 +365,8 @@ module labelling_tool {
 
             // Data request callback; labelling tool will call this when it needs a new image to show
             this._requestLabelsCallback = requestLabelsCallback;
+            // GC edit. deleteImage request call
+            this._deleteImageCallback = deleteImageCallback;
             // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
             // to user action
             this._sendLabelHeaderFn = sendLabelHeaderFn;
@@ -452,6 +456,29 @@ module labelling_tool {
                     _increment_image_index(1);
                     event.preventDefault();
                 });
+        
+                // GC edit 3/5/21
+                var deleteImageButton: any = $('#delete-image-btn');
+                deleteImageButton.click(function(event: any) {
+                    var deleteImageConfirmDialog = $('#delete-image');
+                    deleteImageConfirmDialog.modal({show: true});
+
+                    var myButton: any = $('#myButton');
+                    myButton.click(function (event: any) {
+                        const imageId = self._get_current_image_id();
+                        self._deleteImageCallback(imageId, () => {
+                            // TODO insert logic to check imageID is not 0
+                            // 
+                            if (parseInt(imageId) > 1) {
+                                _increment_image_index(-1);
+                            } else {
+                                _increment_image_index(1);
+                            };
+                        });
+                        event.preventDefault();
+                        //deleteImageConfirmDialog.modal({show: false});
+                    });
+                });
 
                 if (this._getUnlockedImageIDCallback !== null && this._getUnlockedImageIDCallback !== undefined) {
                     var next_unlocked_image_button: any = $('#btn_next_unlocked_image');
@@ -462,35 +489,30 @@ module labelling_tool {
                     });
                 }
             }
-            else {
-                this._image_index_input = null;
-            }
 
             this._lockNotification = $('#lock_warning');
 
 
-            if (config.settings.fullScreenButton) {
-                // Full screen button
-                var fullscreen_button = $('#btn_fullscreen');
+            // Full screen button
+            var fullscreen_button = $('#btn_fullscreen');
 
-                fullscreen_button.click(function (event: any) {
-                    if (document.fullscreenElement) {
-                        // In full screen mode
-                        document.exitFullscreen();
-                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
-                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
+            fullscreen_button.click(function (event: any) {
+                if (document.fullscreenElement) {
+                    // In full screen mode
+                    document.exitFullscreen();
+                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
+                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
+                }
+                else {
+                    var elem = $(event.target).closest("div.image_labeller")[0];
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
+                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
                     }
-                    else {
-                        var elem = $(event.target).closest("div.image_labeller")[0];
-                        if (elem.requestFullscreen) {
-                            elem.requestFullscreen();
-                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
-                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
-                        }
-                    }
-                    event.preventDefault();
-                });
-            }
+                }
+                event.preventDefault();
+            });
 
 
 
@@ -518,7 +540,7 @@ module labelling_tool {
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
 
-            if (schema.colour_schemes.length > 1) {
+            if (colour_schemes.length > 1) {
                 this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme((event.target as any).value);
@@ -530,17 +552,17 @@ module labelling_tool {
             this.label_vis_full_radio = $('#label_vis_radio_full');
             this.label_vis_hidden_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.HIDDEN);
+                    self.set_label_visibility(LabelVisibility.HIDDEN, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_faint_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FAINT);
+                    self.set_label_visibility(LabelVisibility.FAINT, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_full_radio.change(function(event: any, ui: any) {
                 if (event.target.checked) {
-                    self.set_label_visibility(LabelVisibility.FULL);
+                    self.set_label_visibility(LabelVisibility.FULL, self.label_visibility_class_filter);
                 }
             });
 
@@ -554,7 +576,7 @@ module labelling_tool {
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_vis_filter_class(label_filter_class);
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
 
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text(
@@ -577,7 +599,7 @@ module labelling_tool {
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text(
                                 'Some labels hidden');
-                            self.set_label_vis_filter_class(label_filter_class);
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
                         }, 0);
                     }
                 }
@@ -592,7 +614,7 @@ module labelling_tool {
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_vis_filter_class(label_filter_class);
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
 
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text(
@@ -615,31 +637,9 @@ module labelling_tool {
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text(
                                 'Some labels hidden');
-                            self.set_label_vis_filter_class(label_filter_class);
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
                         }, 0);
                     }
-                }
-            }
-
-            // Custom annotation visibility filters
-            self._anno_vis_filters = [];
-            for (let anno_ctrl of anno_controls_json) {
-                let vis_ctl = anno_ctrl as AnnoControlVisJSON;
-                if (vis_ctl.visibility_label_text !== undefined && vis_ctl.visibility_label_text !== null) {
-                    // This can affect visibility
-                    let on_change = function(identifier: string, value: any) {
-                        if (value === '__all') {
-                            delete self.label_visibility_anno_filter[identifier];
-                        }
-                        else if (value === '__no_value') {
-                            self.label_visibility_anno_filter[identifier] = null;
-                        }
-                        else {
-                            self.label_visibility_anno_filter[identifier] = value;
-                        }
-                        self.set_label_vis_filter_anno_data(self.label_visibility_anno_filter);
-                    };
-                    self._anno_vis_filters.push(new AnnotationVisFilter(vis_ctl, on_change));
                 }
             }
 
@@ -719,9 +719,6 @@ module labelling_tool {
                         self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
-            }
-            else {
-                this._label_class_selector_select = null;
             }
 
             let anno_ctrl_on_change = function(identifier, value) {
@@ -822,7 +819,7 @@ module labelling_tool {
                 });
             }
 
-            if (config.tools.legacy.compositeLabel) {
+            if (config.tools.compositeLabel) {
                 var composite_button: any = $('#draw_composite_button');
                 composite_button.button().click(function (event: any) {
                     self.root_view.create_composite_label_from_selection();
@@ -1066,17 +1063,17 @@ module labelling_tool {
             var handled = false;
             if (event.keyCode === 186) {
                 if (this.label_visibility === LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(LabelVisibility.FULL);
+                    this.set_label_visibility(LabelVisibility.FULL, this.label_visibility_class_filter);
                     this.label_vis_full_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_full_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === LabelVisibility.FAINT) {
-                    this.set_label_visibility(LabelVisibility.HIDDEN);
+                    this.set_label_visibility(LabelVisibility.HIDDEN, this.label_visibility_class_filter);
                     this.label_vis_hidden_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_hidden_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === LabelVisibility.FULL) {
-                    this.set_label_visibility(LabelVisibility.FAINT);
+                    this.set_label_visibility(LabelVisibility.FAINT, this.label_visibility_class_filter);
                     this.label_vis_faint_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_faint_radio.closest('label.btn').addClass('active');
                 }
@@ -1112,9 +1109,7 @@ module labelling_tool {
         _update_image_index_input_by_id(image_id: string) {
             var image_index = this._image_id_to_index(image_id);
 
-            if (this._image_index_input !== null) {
-                this._image_index_input.val((image_index+1).toString());
-            }
+            this._image_index_input.val((image_index+1).toString());
         };
 
         _get_current_image_id(): string {
@@ -1140,7 +1135,7 @@ module labelling_tool {
             var self = this;
 
             // Update the image SVG element if the image URL is available
-            if (image.img_url !== null && image.img_url !== '') {
+            if (image.img_url !== null) {
                 var img = self.loadImageUrl(image.img_url);
                 this._image.attr("width", image.width + 'px');
                 this._image.attr("height", image.height + 'px');
@@ -1166,9 +1161,7 @@ module labelling_tool {
                 let task_check: JQuery = self._task_checkboxes[task_name];
                 task_check.prop('checked', false);
             }
-            if (this._image_index_input !== null) {
-                this._image_index_input.val("");
-            }
+            this._image_index_input.val("");
             this.set_current_tool(null);
 
             this._requestLabelsCallback(image.image_id);
@@ -1178,54 +1171,22 @@ module labelling_tool {
             this._show_loading_notification();
         }
 
-        loadLabels(label_header: LabelHeaderModel) {
+        loadLabels(label_header: LabelHeaderModel, image: ImageModel) {
             var self = this;
-
-            // Update the image SVG element
-            this.root_view.set_model(label_header);
-            this._resetStopwatch();
-
-            this._update_image_index_input_by_id(this.root_view.model.image_id);
-
-            if (this.root_view.model.state === 'locked') {
-                this.lockLabels();
-            }
-            else {
-                this.unlockLabels();
-            }
-
-            for (let task of self.tasks) {
-                let is_complete: boolean = false;
-                for (let task_name of this.root_view.model.completed_tasks) {
-                    if (task_name === task.name) {
-                        is_complete = true;
-                        break;
-                    }
+            if (!this._image_initialised) {
+                if (image !== null && image !== undefined) {
+                    var img = self.loadImageUrl(image.img_url);
+                    this._image.attr("width", image.width + 'px');
+                    this._image.attr("height", image.height + 'px');
+                    this._image.attr('xlink:href', img.src);
+                    this._image_width = image.width;
+                    this._image_height = image.height;
+                    this._image_initialised = true;
                 }
-                self._task_checkboxes[task.name].prop('checked', is_complete);
-            }
-            this.set_current_tool(new SelectEntityTool(this.root_view));
-
-            this._labels_loaded = true;
-            this._hide_loading_notification_if_ready();
-        };
-
-        loadImageAndLabels(image: ImageModel, label_header: LabelHeaderModel) {
-            var self = this;
-
-            this._image_loaded = false;
-            // Update the image SVG element if the image URL is available
-            if (image.img_url !== null && image.img_url !== '') {
-                var img = self.loadImageUrl(image.img_url);
-                this._image.attr("width", image.width + 'px');
-                this._image.attr("height", image.height + 'px');
-                this._image.attr('xlink:href', img.src);
-                this._image_width = image.width;
-                this._image_height = image.height;
-                this._image_initialised = true;
-            }
-            else {
-                this._image_initialised = false;
+                else {
+                    console.log("Labelling tool: Image URL was unavailable to loadImage and has not been " +
+                                "provided by loadLabels");
+                }
             }
 
             // Update the image SVG element
@@ -1253,7 +1214,6 @@ module labelling_tool {
             }
             this.set_current_tool(new SelectEntityTool(this.root_view));
 
-            this._image_loaded = true;
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
         };
@@ -1314,9 +1274,7 @@ module labelling_tool {
         }
 
         _show_loading_notification() {
-            if (!this._svg_q.hasClass('anno_hidden')) {
-                this._svg_q.addClass('anno_hidden');
-            }
+            this._svg_q.addClass('anno_hidden');
             this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         }
@@ -1324,9 +1282,7 @@ module labelling_tool {
         _hide_loading_notification_if_ready() {
             if (this._image_loaded && this._labels_loaded) {
                 this._svg_q.removeClass('anno_hidden');
-                if (!this._loading_notification_q.hasClass('anno_hidden')) {
-                    this._loading_notification_q.addClass('anno_hidden');
-                }
+                this._loading_notification_q.addClass('anno_hidden');
             }
         }
 
@@ -1440,13 +1396,12 @@ module labelling_tool {
         colour_for_label_class(label_class_name: string): Colour4 {
             let label_class: LabelClass = this.class_name_to_class[label_class_name];
             if (label_class !== undefined) {
-                let colour = label_class.colours[this._current_colour_scheme];
-                if (colour !== undefined) {
-                    return colour;
-                }
+                return label_class.colours[this._current_colour_scheme];
             }
-            // Default
-            return Colour4.BLACK;
+            else {
+                // Default
+                return Colour4.BLACK;
+            }
         };
 
         _update_label_class_menu(label_class: string) {
@@ -1457,7 +1412,7 @@ module labelling_tool {
             if (this._label_class_selector_popup !== null) {
                 this._label_class_selector_popup.setChoice(label_class);
             }
-            else if (this._label_class_selector_select !== null) {
+            else {
                 this._label_class_selector_select.val(label_class);
             }
         };
@@ -1466,13 +1421,13 @@ module labelling_tool {
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data, true);
+                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data);
                 }
             }
             else {
                 this._update_label_class_menu(null);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(null, false);
+                    this._anno_controls[i].update_from_anno_data(null);
                 }
             }
         };
@@ -1493,46 +1448,20 @@ module labelling_tool {
         /*
         Set label visibility
          */
-        set_label_visibility(visibility: LabelVisibility) {
+        set_label_visibility(visibility: LabelVisibility, filter_class: string) {
             this.label_visibility = visibility;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter,
-                this.label_visibility_anno_filter);
-        }
-
-        set_label_vis_filter_class(filter_class: string) {
             this.label_visibility_class_filter = filter_class;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter,
-                this.label_visibility_anno_filter);
+            this.root_view.set_label_visibility(visibility, filter_class);
         }
 
-        set_label_vis_filter_anno_data(filter_anno_data: any) {
-            this.label_visibility_anno_filter = filter_anno_data;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter,
-                this.label_visibility_anno_filter);
-        }
-
-        get_label_visibility(label_class: string, anno_data: any): LabelVisibility {
+        get_label_visibility(label_class: string): LabelVisibility {
+            var vis: LabelVisibility = this.label_visibility;
             if (this.label_visibility_class_filter !== '__all') {
                 if (label_class !== this.label_visibility_class_filter) {
-                    return LabelVisibility.HIDDEN;
+                    vis = LabelVisibility.HIDDEN;
                 }
             }
-            for (const key in this.label_visibility_anno_filter) {
-                let filter_val: any = this.label_visibility_anno_filter[key];
-                if (filter_val === null) {
-                    // The value is null, this indicates that the anno data should *not* be set
-                    if (anno_data.hasOwnProperty(key)) {
-                        return LabelVisibility.HIDDEN;
-                    }
-                }
-                else{
-                    if (!anno_data.hasOwnProperty(key) ||
-                        (anno_data.hasOwnProperty(key) && anno_data[key].toString() !== filter_val)) {
-                        return LabelVisibility.HIDDEN;
-                    }
-                }
-            }
-            return this.label_visibility;
+            return vis;
         }
 
 

@@ -236,4 +236,3 @@ var labelling_tool;
     }(AbstractTool));
     labelling_tool.ProxyTool = ProxyTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_tool.js.map

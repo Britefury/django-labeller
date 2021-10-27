@@ -1,0 +1,36 @@
+{% load labelling_tool_tags %}
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>UEA Computer Vision - Annotator</title>
+
+        {% include "inline/image_labeller_scripts.html" %}
+        {% include "inline/image_labeller_css.html" %}
+    </head>
+
+    <body>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'example_labeller:home' %}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Labelling tool</li>
+        </ol>
+    </nav>
+
+
+    {% url 'example_labeller:labelling_tool_api' as ltapi_url %}
+    {% url 'example_labeller:delete_image' as delete_image_url %}
+    <!-- note: labelling_tool is a template tag defined in: -->
+    <!-- image_labelling_tool/templatetags/labelling_tool_tags -->
+    <!-- labelling_tool(label_class_groups, image_descriptors, 
+                        color_schemes, initial_image_index,
+                        labelling_tool_url, tasks=None, 
+                        anno_controls=None, enable_locking=False, 
+                        dextr_available=False, dextr_polling_interval=None,
+                        config=None) -->
+    {% labelling_tool label_class_groups image_descriptors colour_schemes initial_image_index ltapi_url delete_image_url tasks=tasks anno_controls=anno_controls enable_locking=enable_locking dextr_available=dextr_available dextr_polling_interval=dextr_polling_interval config=labelling_tool_config %}
+
+
+    </body>
+</html>

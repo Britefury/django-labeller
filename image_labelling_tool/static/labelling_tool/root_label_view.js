@@ -135,7 +135,7 @@ var labelling_tool;
         /*
         Set label visibility
          */
-        RootLabelView.prototype.set_label_visibility = function (visibility, filter_class, filter_anno_data) {
+        RootLabelView.prototype.set_label_visibility = function (visibility, filter_class) {
             for (var i = 0; i < this._all_entities.length; i++) {
                 this._all_entities[i].notify_hide_labels_change();
             }
@@ -485,4 +485,3 @@ var labelling_tool;
     }());
     labelling_tool.RootLabelView = RootLabelView;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=root_label_view.js.map

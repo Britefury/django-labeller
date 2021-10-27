@@ -113,11 +113,10 @@ var labelling_tool;
                 this.model.anno_data = {};
             }
             this.model.anno_data[anno_identifier] = value;
-            this._update_style();
             this.commit();
         };
         AbstractLabelEntity.prototype.get_visibility = function () {
-            return this.root_view.view.get_label_visibility(this.get_label_class(), this.model.anno_data);
+            return this.root_view.view.get_label_visibility(this.get_label_class());
         };
         AbstractLabelEntity.prototype._update_style = function () {
         };
@@ -238,4 +237,3 @@ var labelling_tool;
     }
     labelling_tool.model_map = model_map;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_label.js.map

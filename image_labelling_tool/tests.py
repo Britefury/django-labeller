@@ -1,10 +1,13 @@
-import datetime
 from django.test import TestCase
+
+import datetime
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from . import models
 
-# Create your tests here.
+# tests for image_labelling_tool
+
 class LabelsMetadataTestCase(TestCase):
     def setUp(self):
         get_user_model().objects.create(username='test_user')

@@ -303,4 +303,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.BrushSelectEntityTool = BrushSelectEntityTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=select_tools.js.map

@@ -29,7 +29,7 @@ Dr. M. Mackiewicz.
 /// <reference path="../polyk.d.ts" />
 /// <reference path="./math_primitives.ts" />
 /// <reference path="./object_id_table.ts" />
-/// <reference path="./schema.ts" />
+/// <reference path="./label_class.ts" />
 /// <reference path="./abstract_label.ts" />
 /// <reference path="./abstract_tool.ts" />
 /// <reference path="./select_tools.ts" />
@@ -65,15 +65,15 @@ var labelling_tool;
    Labelling tool view; links to the server side data structures
     */
     var DjangoLabeller = /** @class */ (function () {
-        function DjangoLabeller(schema, tasks, anno_controls_json, images, initial_image_index, requestLabelsCallback, sendLabelHeaderFn, getUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
+        function DjangoLabeller(label_classes, tasks, colour_schemes, anno_controls_json, images, initial_image_index, requestLabelsCallback, deleteImageCallback, sendLabelHeaderFn, getUnlockedImageIDCallback, dextrCallback, dextrPollingInterval, config) {
             var _this = this;
             this._label_class_selector_select = null;
             this._label_class_selector_popup = null;
             this._label_class_filter_select = null;
             this._label_class_filter_popup = null;
-            this._image_index_input = null;
             /*
-            schema: the schema provides the label class definitions and colour scheme definitions in JSON format
+            label_classes: label class definitions in JSON format
+            colour_schemes: colour scheme definitions in JSON format
             images: images to annotate
             initial_image_index: the index of the first image to select
             requestLabelsCallback: a function of the form `function(image_id)` that the annotator uses to
@@ -114,16 +114,12 @@ var labelling_tool;
                 DjangoLabeller._global_key_handler_connected = false;
             }
             // Tasks
-            if (tasks === null || tasks === undefined) {
-                tasks = [];
-            }
             self.tasks = tasks;
-            console.log(schema);
             // Colour schemes
-            if (schema.colour_schemes === undefined || schema.colour_schemes === null || schema.colour_schemes.length == 0) {
-                schema.colour_schemes = [{ name: 'default', human_name: 'Default' }];
+            if (colour_schemes === undefined || colour_schemes === null || colour_schemes.length == 0) {
+                colour_schemes = [{ name: 'default', human_name: 'Default' }];
             }
-            this._current_colour_scheme = schema.colour_schemes[0].name;
+            this._current_colour_scheme = colour_schemes[0].name;
             // Configuration
             config = config || {};
             config.tools = config.tools || {};
@@ -136,15 +132,13 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.tools, 'drawBoxLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawOrientedEllipseLabel', true);
             labelling_tool.ensure_config_option_exists(config.tools, 'drawPolyLabel', true);
+            labelling_tool.ensure_config_option_exists(config.tools, 'compositeLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'groupLabel', false);
             labelling_tool.ensure_config_option_exists(config.tools, 'deleteLabel', true);
-            config.tools.legacy = config.tools.deleteConfig || {};
-            labelling_tool.ensure_config_option_exists(config.tools.legacy, 'compositeLabel', false);
             config.tools.deleteConfig = config.tools.deleteConfig || {};
             config.tools.deleteConfig.typePermissions = config.tools.deleteConfig.typePermissions || {};
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'point', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'box', true);
-            labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'oriented_ellipse', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'polygon', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'composite', true);
             labelling_tool.ensure_config_option_exists(config.tools.deleteConfig.typePermissions, 'group', true);
@@ -154,7 +148,6 @@ var labelling_tool;
             labelling_tool.ensure_config_option_exists(config.settings, 'inactivityTimeoutMS', 10000);
             labelling_tool.ensure_config_option_exists(config.settings, 'brushWheelRate', 0.025);
             labelling_tool.ensure_config_option_exists(config.settings, 'brushKeyRate', 2.0);
-            labelling_tool.ensure_config_option_exists(config.settings, 'fullscreenButton', true);
             this._config = config;
             /*
             Entity event listener
@@ -177,6 +170,12 @@ var labelling_tool;
             this.root_view_listener = {
                 // Selection changed; update annotation controls
                 on_selection_changed: function (root_view) {
+                    // JC, GC added 'label_source' to display how label was created: manual, auto:Dextr or predicted etc
+                    var selection = root_view.get_selection();
+                    var label_source_element = document.getElementById('label_source');
+                    if (label_source_element) {
+                        label_source_element.textContent = selection.map(function (s) { return s.model.source; }).join(', ');
+                    }
                     _this._update_annotation_controls_from_views(root_view.get_selection());
                 },
                 // Root list changed; queue push
@@ -192,21 +191,19 @@ var labelling_tool;
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
-                session_id: labelling_tool.ObjectIDTable.uuidv4(),
+                session_id: labelling_tool.ObjectIDTable.uuidv4()
             };
             // Active tool
             this._current_tool = null;
             // Classes
-            this.label_classes = labelling_tool.label_classes_from_json(schema.label_class_groups);
+            this.label_classes = labelling_tool.label_classes_from_json(label_classes);
             this.class_name_to_class = {};
             for (var i_1 = 0; i_1 < this.label_classes.length; i_1++) {
                 this.label_classes[i_1].fill_name_to_class_table(this.class_name_to_class);
             }
-            console.log(this.label_classes);
             // Hide labels
             this.label_visibility = labelling_tool.LabelVisibility.FULL;
             this.label_visibility_class_filter = '__all';
-            this.label_visibility_anno_filter = {};
             // Button state
             this._button_down = false;
             // List of Image descriptors
@@ -227,6 +224,8 @@ var labelling_tool;
             this._stopwatchHandle = null;
             // Data request callback; labelling tool will call this when it needs a new image to show
             this._requestLabelsCallback = requestLabelsCallback;
+            // GC edit. deleteImage request call
+            this._deleteImageCallback = deleteImageCallback;
             // Send data callback; labelling tool will call this when it wants to commit data to the backend in response
             // to user action
             this._sendLabelHeaderFn = sendLabelHeaderFn;
@@ -303,6 +302,21 @@ var labelling_tool;
                     _increment_image_index(1);
                     event.preventDefault();
                 });
+                // GC edit 3/5/21
+                var deleteImageButton = $('#delete-image-btn');
+                deleteImageButton.click(function (event) {
+                    var deleteImageConfirmDialog = $('#delete-image');
+                    deleteImageConfirmDialog.modal({ show: true });
+                    var myButton = $('#myButton');
+                    myButton.click(function (event) {
+                        var imageId = self._get_current_image_id();
+                        self._deleteImageCallback(imageId, function () {
+                            _increment_image_index(-1);
+                        });
+                        event.preventDefault();
+                        //deleteImageConfirmDialog.modal({show: false});
+                    });
+                });
                 if (this._getUnlockedImageIDCallback !== null && this._getUnlockedImageIDCallback !== undefined) {
                     var next_unlocked_image_button = $('#btn_next_unlocked_image');
                     next_unlocked_image_button.click(function (event) {
@@ -312,31 +326,26 @@ var labelling_tool;
                     });
                 }
             }
-            else {
-                this._image_index_input = null;
-            }
             this._lockNotification = $('#lock_warning');
-            if (config.settings.fullScreenButton) {
-                // Full screen button
-                var fullscreen_button = $('#btn_fullscreen');
-                fullscreen_button.click(function (event) {
-                    if (document.fullscreenElement) {
-                        // In full screen mode
-                        document.exitFullscreen();
-                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
-                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
+            // Full screen button
+            var fullscreen_button = $('#btn_fullscreen');
+            fullscreen_button.click(function (event) {
+                if (document.fullscreenElement) {
+                    // In full screen mode
+                    document.exitFullscreen();
+                    fullscreen_button.children('span.oi').removeClass('oi-fullscreen-exit');
+                    fullscreen_button.children('span.oi').addClass('oi-fullscreen-enter');
+                }
+                else {
+                    var elem = $(event.target).closest("div.image_labeller")[0];
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                        fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
+                        fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
                     }
-                    else {
-                        var elem = $(event.target).closest("div.image_labeller")[0];
-                        if (elem.requestFullscreen) {
-                            elem.requestFullscreen();
-                            fullscreen_button.children('span.oi').removeClass('oi-fullscreen-enter');
-                            fullscreen_button.children('span.oi').addClass('oi-fullscreen-exit');
-                        }
-                    }
-                    event.preventDefault();
-                });
-            }
+                }
+                event.preventDefault();
+            });
             /*
              *
              * TOOL PANEL
@@ -360,7 +369,7 @@ var labelling_tool;
             //
             // LABEL CLASS SELECTOR AND HIDE LABELS
             //
-            if (schema.colour_schemes.length > 1) {
+            if (colour_schemes.length > 1) {
                 this._colour_scheme_selector_menu = $('#colour_scheme_menu');
                 this._colour_scheme_selector_menu.change(function (event, ui) {
                     self.set_current_colour_scheme(event.target.value);
@@ -371,17 +380,17 @@ var labelling_tool;
             this.label_vis_full_radio = $('#label_vis_radio_full');
             this.label_vis_hidden_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_faint_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FAINT, self.label_visibility_class_filter);
                 }
             });
             this.label_vis_full_radio.change(function (event, ui) {
                 if (event.target.checked) {
-                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL);
+                    self.set_label_visibility(labelling_tool.LabelVisibility.FULL, self.label_visibility_class_filter);
                 }
             });
             if (config.tools.labelClassFilter) {
@@ -393,7 +402,7 @@ var labelling_tool;
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_vis_filter_class(label_filter_class);
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
                         }
@@ -411,7 +420,7 @@ var labelling_tool;
                                 self._label_class_filter_select.val(config.tools.labelClassFilterInitial);
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
-                            self.set_label_vis_filter_class(label_filter_class);
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
                         }, 0);
                     }
                 }
@@ -422,7 +431,7 @@ var labelling_tool;
                         if (label_filter_class === '__unclassified') {
                             label_filter_class = null;
                         }
-                        self.set_label_vis_filter_class(label_filter_class);
+                        self.set_label_visibility(self.label_visibility, label_filter_class);
                         if (label_filter_class === '__all') {
                             self._label_class_filter_notification.attr('style', 'color: #008000').text('All labels visible');
                         }
@@ -440,31 +449,9 @@ var labelling_tool;
                                 self._label_class_filter_popup.setChoice(label_filter_class);
                             }
                             self._label_class_filter_notification.attr('style', 'color: #800000').text('Some labels hidden');
-                            self.set_label_vis_filter_class(label_filter_class);
+                            self.set_label_visibility(self.label_visibility, label_filter_class);
                         }, 0);
                     }
-                }
-            }
-            // Custom annotation visibility filters
-            self._anno_vis_filters = [];
-            for (var _a = 0, anno_controls_json_1 = anno_controls_json; _a < anno_controls_json_1.length; _a++) {
-                var anno_ctrl = anno_controls_json_1[_a];
-                var vis_ctl = anno_ctrl;
-                if (vis_ctl.visibility_label_text !== undefined && vis_ctl.visibility_label_text !== null) {
-                    // This can affect visibility
-                    var on_change = function (identifier, value) {
-                        if (value === '__all') {
-                            delete self.label_visibility_anno_filter[identifier];
-                        }
-                        else if (value === '__no_value') {
-                            self.label_visibility_anno_filter[identifier] = null;
-                        }
-                        else {
-                            self.label_visibility_anno_filter[identifier] = value;
-                        }
-                        self.set_label_vis_filter_anno_data(self.label_visibility_anno_filter);
-                    };
-                    self._anno_vis_filters.push(new labelling_tool.AnnotationVisFilter(vis_ctl, on_change));
                 }
             }
             //
@@ -528,9 +515,6 @@ var labelling_tool;
                         self.root_view.set_selection_label_class(label_class_name);
                     });
                 }
-            }
-            else {
-                this._label_class_selector_select = null;
             }
             var anno_ctrl_on_change = function (identifier, value) {
                 self.root_view.set_selection_anno_data_value(identifier, value);
@@ -615,7 +599,7 @@ var labelling_tool;
                     event.preventDefault();
                 });
             }
-            if (config.tools.legacy.compositeLabel) {
+            if (config.tools.compositeLabel) {
                 var composite_button = $('#draw_composite_button');
                 composite_button.button().click(function (event) {
                     self.root_view.create_composite_label_from_selection();
@@ -814,17 +798,17 @@ var labelling_tool;
             var handled = false;
             if (event.keyCode === 186) {
                 if (this.label_visibility === labelling_tool.LabelVisibility.HIDDEN) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FULL, this.label_visibility_class_filter);
                     this.label_vis_full_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_full_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FAINT) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.HIDDEN, this.label_visibility_class_filter);
                     this.label_vis_hidden_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_hidden_radio.closest('label.btn').addClass('active');
                 }
                 else if (this.label_visibility === labelling_tool.LabelVisibility.FULL) {
-                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT);
+                    this.set_label_visibility(labelling_tool.LabelVisibility.FAINT, this.label_visibility_class_filter);
                     this.label_vis_faint_radio.closest('div.btn-group').find('label.btn').removeClass('active');
                     this.label_vis_faint_radio.closest('label.btn').addClass('active');
                 }
@@ -858,9 +842,7 @@ var labelling_tool;
         };
         DjangoLabeller.prototype._update_image_index_input_by_id = function (image_id) {
             var image_index = this._image_id_to_index(image_id);
-            if (this._image_index_input !== null) {
-                this._image_index_input.val((image_index + 1).toString());
-            }
+            this._image_index_input.val((image_index + 1).toString());
         };
         ;
         DjangoLabeller.prototype._get_current_image_id = function () {
@@ -884,7 +866,7 @@ var labelling_tool;
         DjangoLabeller.prototype.loadImage = function (image) {
             var self = this;
             // Update the image SVG element if the image URL is available
-            if (image.img_url !== null && image.img_url !== '') {
+            if (image.img_url !== null) {
                 var img = self.loadImageUrl(image.img_url);
                 this._image.attr("width", image.width + 'px');
                 this._image.attr("height", image.height + 'px');
@@ -902,66 +884,36 @@ var labelling_tool;
                 timeElapsed: 0.0,
                 state: 'editable',
                 labels: [],
-                session_id: labelling_tool.ObjectIDTable.uuidv4(),
+                session_id: labelling_tool.ObjectIDTable.uuidv4()
             });
             this._resetStopwatch();
             for (var task_name in self._task_checkboxes) {
                 var task_check = self._task_checkboxes[task_name];
                 task_check.prop('checked', false);
             }
-            if (this._image_index_input !== null) {
-                this._image_index_input.val("");
-            }
+            this._image_index_input.val("");
             this.set_current_tool(null);
             this._requestLabelsCallback(image.image_id);
             this._image_loaded = false;
             this._labels_loaded = false;
             this._show_loading_notification();
         };
-        DjangoLabeller.prototype.loadLabels = function (label_header) {
+        DjangoLabeller.prototype.loadLabels = function (label_header, image) {
             var self = this;
-            // Update the image SVG element
-            this.root_view.set_model(label_header);
-            this._resetStopwatch();
-            this._update_image_index_input_by_id(this.root_view.model.image_id);
-            if (this.root_view.model.state === 'locked') {
-                this.lockLabels();
-            }
-            else {
-                this.unlockLabels();
-            }
-            for (var _i = 0, _a = self.tasks; _i < _a.length; _i++) {
-                var task = _a[_i];
-                var is_complete = false;
-                for (var _b = 0, _c = this.root_view.model.completed_tasks; _b < _c.length; _b++) {
-                    var task_name = _c[_b];
-                    if (task_name === task.name) {
-                        is_complete = true;
-                        break;
-                    }
+            if (!this._image_initialised) {
+                if (image !== null && image !== undefined) {
+                    var img = self.loadImageUrl(image.img_url);
+                    this._image.attr("width", image.width + 'px');
+                    this._image.attr("height", image.height + 'px');
+                    this._image.attr('xlink:href', img.src);
+                    this._image_width = image.width;
+                    this._image_height = image.height;
+                    this._image_initialised = true;
                 }
-                self._task_checkboxes[task.name].prop('checked', is_complete);
-            }
-            this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
-            this._labels_loaded = true;
-            this._hide_loading_notification_if_ready();
-        };
-        ;
-        DjangoLabeller.prototype.loadImageAndLabels = function (image, label_header) {
-            var self = this;
-            this._image_loaded = false;
-            // Update the image SVG element if the image URL is available
-            if (image.img_url !== null && image.img_url !== '') {
-                var img = self.loadImageUrl(image.img_url);
-                this._image.attr("width", image.width + 'px');
-                this._image.attr("height", image.height + 'px');
-                this._image.attr('xlink:href', img.src);
-                this._image_width = image.width;
-                this._image_height = image.height;
-                this._image_initialised = true;
-            }
-            else {
-                this._image_initialised = false;
+                else {
+                    console.log("Labelling tool: Image URL was unavailable to loadImage and has not been " +
+                        "provided by loadLabels");
+                }
             }
             // Update the image SVG element
             this.root_view.set_model(label_header);
@@ -986,7 +938,6 @@ var labelling_tool;
                 self._task_checkboxes[task.name].prop('checked', is_complete);
             }
             this.set_current_tool(new labelling_tool.SelectEntityTool(this.root_view));
-            this._image_loaded = true;
             this._labels_loaded = true;
             this._hide_loading_notification_if_ready();
         };
@@ -1041,18 +992,14 @@ var labelling_tool;
             this._loading_notification_text.text("Error loading " + src);
         };
         DjangoLabeller.prototype._show_loading_notification = function () {
-            if (!this._svg_q.hasClass('anno_hidden')) {
-                this._svg_q.addClass('anno_hidden');
-            }
+            this._svg_q.addClass('anno_hidden');
             this._loading_notification_q.removeClass('anno_hidden');
             this._loading_notification_text.text("Loading...");
         };
         DjangoLabeller.prototype._hide_loading_notification_if_ready = function () {
             if (this._image_loaded && this._labels_loaded) {
                 this._svg_q.removeClass('anno_hidden');
-                if (!this._loading_notification_q.hasClass('anno_hidden')) {
-                    this._loading_notification_q.addClass('anno_hidden');
-                }
+                this._loading_notification_q.addClass('anno_hidden');
             }
         };
         DjangoLabeller.prototype.goToImageById = function (image_id) {
@@ -1146,13 +1093,12 @@ var labelling_tool;
         DjangoLabeller.prototype.colour_for_label_class = function (label_class_name) {
             var label_class = this.class_name_to_class[label_class_name];
             if (label_class !== undefined) {
-                var colour = label_class.colours[this._current_colour_scheme];
-                if (colour !== undefined) {
-                    return colour;
-                }
+                return label_class.colours[this._current_colour_scheme];
             }
-            // Default
-            return labelling_tool.Colour4.BLACK;
+            else {
+                // Default
+                return labelling_tool.Colour4.BLACK;
+            }
         };
         ;
         DjangoLabeller.prototype._update_label_class_menu = function (label_class) {
@@ -1162,7 +1108,7 @@ var labelling_tool;
             if (this._label_class_selector_popup !== null) {
                 this._label_class_selector_popup.setChoice(label_class);
             }
-            else if (this._label_class_selector_select !== null) {
+            else {
                 this._label_class_selector_select.val(label_class);
             }
         };
@@ -1171,13 +1117,13 @@ var labelling_tool;
             if (selection.length === 1) {
                 this._update_label_class_menu(selection[0].model.label_class);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data, true);
+                    this._anno_controls[i].update_from_anno_data(selection[0].model.anno_data);
                 }
             }
             else {
                 this._update_label_class_menu(null);
                 for (var i = 0; i < this._anno_controls.length; i++) {
-                    this._anno_controls[i].update_from_anno_data(null, false);
+                    this._anno_controls[i].update_from_anno_data(null);
                 }
             }
         };
@@ -1196,40 +1142,19 @@ var labelling_tool;
         /*
         Set label visibility
          */
-        DjangoLabeller.prototype.set_label_visibility = function (visibility) {
+        DjangoLabeller.prototype.set_label_visibility = function (visibility, filter_class) {
             this.label_visibility = visibility;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
-        };
-        DjangoLabeller.prototype.set_label_vis_filter_class = function (filter_class) {
             this.label_visibility_class_filter = filter_class;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
+            this.root_view.set_label_visibility(visibility, filter_class);
         };
-        DjangoLabeller.prototype.set_label_vis_filter_anno_data = function (filter_anno_data) {
-            this.label_visibility_anno_filter = filter_anno_data;
-            this.root_view.set_label_visibility(this.label_visibility, this.label_visibility_class_filter, this.label_visibility_anno_filter);
-        };
-        DjangoLabeller.prototype.get_label_visibility = function (label_class, anno_data) {
+        DjangoLabeller.prototype.get_label_visibility = function (label_class) {
+            var vis = this.label_visibility;
             if (this.label_visibility_class_filter !== '__all') {
                 if (label_class !== this.label_visibility_class_filter) {
-                    return labelling_tool.LabelVisibility.HIDDEN;
+                    vis = labelling_tool.LabelVisibility.HIDDEN;
                 }
             }
-            for (var key in this.label_visibility_anno_filter) {
-                var filter_val = this.label_visibility_anno_filter[key];
-                if (filter_val === null) {
-                    // The value is null, this indicates that the anno data should *not* be set
-                    if (anno_data.hasOwnProperty(key)) {
-                        return labelling_tool.LabelVisibility.HIDDEN;
-                    }
-                }
-                else {
-                    if (!anno_data.hasOwnProperty(key) ||
-                        (anno_data.hasOwnProperty(key) && anno_data[key].toString() !== filter_val)) {
-                        return labelling_tool.LabelVisibility.HIDDEN;
-                    }
-                }
-            }
-            return this.label_visibility;
+            return vis;
         };
         /*
         Set the current tool; switch the old one out and a new one in
@@ -1319,4 +1244,3 @@ var labelling_tool;
     }());
     labelling_tool.DjangoLabeller = DjangoLabeller;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=main_labeller.js.map

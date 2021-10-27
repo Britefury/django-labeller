@@ -167,11 +167,10 @@ var labelling_tool;
         DextrState.prototype.attach = function () {
             _super.prototype.attach.call(this);
             this._group = this.root_view.world.append("g");
-            this._path = this._group.append("path")
-                .attr("class", "anno_label")
-                .style("stroke-width", "1.5")
-                .style("stroke", "rgba(255,128,0,1.0)")
-                .style("fill", "transparent");
+            this._path = this._group.append("path");
+            this._path.style("stroke-width", "1.5");
+            this._path.style("stroke", "rgba(255,128,0,1.0)");
+            this._path.style("fill", "transparent");
         };
         ;
         DextrState.prototype.detach = function () {
@@ -355,4 +354,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DextrTool = DextrTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=dextr_label.js.map

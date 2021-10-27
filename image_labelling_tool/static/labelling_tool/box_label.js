@@ -63,7 +63,6 @@ var labelling_tool;
         BoxLabelEntity.prototype.attach = function () {
             _super.prototype.attach.call(this);
             this._rect = this.root_view.world.append("rect")
-                .attr("class", "anno_label")
                 .attr("x", 0).attr("y", 0)
                 .attr("width", 0).attr("height", 0);
             this.update();
@@ -254,4 +253,3 @@ var labelling_tool;
     }(labelling_tool.AbstractTool));
     labelling_tool.DrawBoxTool = DrawBoxTool;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=box_label.js.map

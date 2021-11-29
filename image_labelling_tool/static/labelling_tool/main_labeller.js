@@ -319,7 +319,6 @@ var labelling_tool;
             if (config.settings.fullScreenButton) {
                 // Full screen button
                 var fullscreen_button = $('#btn_fullscreen');
-
                 fullscreen_button.click(function (event) {
                     if (document.fullscreenElement) {
                         // In full screen mode

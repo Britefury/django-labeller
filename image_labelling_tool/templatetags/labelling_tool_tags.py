@@ -27,7 +27,7 @@ def _update_config(dest, src):
 @register.inclusion_tag('inline/image_labeller.html', name='labelling_tool')
 def labelling_tool(image_descriptors, labelling_schema, initial_image_index,
                    labelling_tool_url, tasks=None, anno_controls=None, enable_locking=False, dextr_available=False, dextr_polling_interval=None,
-                   config=None):
+                   config=None, external_labels_available=False):
     if config is None:
         config = {}
     if dextr_polling_interval is not None:
@@ -63,4 +63,5 @@ def labelling_tool(image_descriptors, labelling_schema, initial_image_index,
         'dextr_available': dextr_available,
         'dextr_polling_interval': dextr_polling_interval,
         'labelling_tool_config': config,
+        'external_labels_available': external_labels_available,
     }

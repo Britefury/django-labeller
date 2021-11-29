@@ -492,6 +492,24 @@ module labelling_tool {
                 });
             }
 
+            var api_button = $('#btn_api');
+
+            api_button.click(function (event) {
+                $.ajax({
+                    type: 'GET',
+                    url: '/get_api_labels/' + self._get_current_image_id(),
+                    dataType: 'text',
+                    success: function(response) {
+                        console.log(response);
+                        self.loadImage(self._images[self._image_id_to_index(self._get_current_image_id())]);
+                    },
+                    error: function(response) {
+                        console.log(response);
+                    }
+                });
+                event.preventDefault();
+            });
+
 
 
            /*

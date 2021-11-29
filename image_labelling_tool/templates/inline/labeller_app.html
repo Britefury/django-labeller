@@ -24,9 +24,15 @@
             oi-question-mark"></span> Instructions</button>
 
             <div class="labeller_menu_sep"></div>
-
+            
             {% if not labelling_tool_config.settings.fullscreenButton == False %}
-                <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+            <button class="btn btn-sm btn-info" id="btn_fullscreen"><span class="oi oi-fullscreen-enter"></span> Fullscreen</button>
+            {% endif %}
+
+            {% if external_labels_available %}
+            <div class="labeller_menu_sep"></div>
+
+            <button class="btn btn-sm btn-info" id="btn_api"><span class="oi oi-data-transfer-download"></span> Get Annotations</button>
             {% endif %}
     </nav>
 

@@ -21,7 +21,7 @@
 
     {% url 'example_labeller:labelling_tool_api' as ltapi_url %}
 
-    {% labelling_tool image_descriptors labelling_schema initial_image_index ltapi_url tasks=tasks anno_controls=anno_controls enable_locking=enable_locking dextr_available=dextr_available dextr_polling_interval=dextr_polling_interval config=labelling_tool_config %}
+    {% labelling_tool image_descriptors labelling_schema initial_image_index ltapi_url tasks=tasks anno_controls=anno_controls enable_locking=enable_locking dextr_available=dextr_available dextr_polling_interval=dextr_polling_interval config=labelling_tool_config external_labels_available=external_labels_available %}
 
 
     </body>

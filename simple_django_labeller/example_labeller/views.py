@@ -272,12 +272,11 @@ from pprint import pprint
 def get_api_labels(request, image_id):
     image = get_object_or_404(models.ImageWithLabels, id=int(image_id))
     
-    url = 'http://127.0.0.1:3000/get_labels'
     files = {
         'file': (str(image.image), image.image),
     }
 
-    response = requests.post(url, files=files)
+    response = requests.post(settings.LABELLING_TOOL_EXTERNAL_LABEL_API_URL, files=files)
     if response.ok:
         image_labels = json.loads(image.labels.labels_json_str)
         image_labels += json.loads(response.text)

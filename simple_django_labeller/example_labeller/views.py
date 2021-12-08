@@ -267,20 +267,17 @@ class SchemaEditorAPI (schema_editor_views.SchemaEditorView):
     def get_schema(self, request, *args, **kwargs):
         return lt_models.LabellingSchema.objects.get(name='default')
 
-from pprint import pprint
 
 def get_api_labels(request, image_id):
     image = get_object_or_404(models.ImageWithLabels, id=int(image_id))
     
-    files = {
-        'file': (str(image.image), image.image),
-    }
+    files = {'file': (str(image.image), image.image)}
 
     response = requests.post(settings.LABELLING_TOOL_EXTERNAL_LABEL_API_URL, files=files)
     if response.ok:
-        image_labels = json.loads(image.labels.labels_json_str)
-        image_labels += json.loads(response.text)
-        image.labels.labels_json_str = json.dumps(image_labels)
+        labels = json.loads(image.labels.labels_json_str)
+        labels += json.loads(response.text)
+        image.labels.labels_json_str = json.dumps(labels)
         image.labels.save()
 
     return HttpResponse('success', status=200)

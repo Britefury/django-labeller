@@ -201,6 +201,32 @@ Note that Celery v4 and above are not strictly compatible with Windows, but it c
 > celery -A example_labeller_app worker --pool=solo -l info
 ```
 
+## Using an external API to label images
+
+Enable the external labelling api within `simple_django_labeller/example_labeller_app/settings.py` change the line
+
+```py3
+LABELLING_TOOL_EXTERNAL_LABEL_API = False
+```
+
+so that `LABELLING_TOOL_EXTERNAL_LABEL_API` is set to `True`.
+
+you can change the `LABELLING_TOOL_EXTERNAL_LABEL_API_URL` option to specify the api endpoint that will return the labels from an image.
+the default is `'http://127.0.0.1:3000/get_labels'` which references the the test api found at `simple_django_labeller/test_api.py` which is a simple FastAPI used to showcase how the api can be used.
+
+To run the API, first install [fastapi](https://fastapi.tiangolo.com/) and [uvicorn](https://www.uvicorn.org/):
+
+```shell script
+> pip install fastapi
+> pip install "uvicorn[standard]"
+```
+
+Then run the API:
+
+```shell script
+> uvicorn simple_django_labeller.test_api:app --reload --port 3000
+```
+
 
 ## API and label access
 

@@ -201,7 +201,7 @@ Note that Celery v4 and above are not strictly compatible with Windows, but it c
 > celery -A example_labeller_app worker --pool=solo -l info
 ```
 
-## Using an external API to label images
+#### Using an external API to label images
 
 Enable the external labelling api within `simple_django_labeller/example_labeller_app/settings.py` change the line
 

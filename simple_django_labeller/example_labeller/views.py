@@ -1,4 +1,7 @@
 import os, datetime, json, tempfile, zipfile
+import requests
+
+from django.http.response import HttpResponse
 import celery.result
 
 from PIL import Image
@@ -179,6 +182,7 @@ def tool(request):
         'enable_locking': settings.LABELLING_TOOL_ENABLE_LOCKING,
         'dextr_available': settings.LABELLING_TOOL_DEXTR_AVAILABLE,
         'dextr_polling_interval': settings.LABELLING_TOOL_DEXTR_POLLING_INTERVAL,
+        'external_labels_available': settings.LABELLING_TOOL_EXTERNAL_LABEL_API,
     }
     return render(request, 'tool.html', context)
 
@@ -262,3 +266,18 @@ def schema_editor(request):
 class SchemaEditorAPI (schema_editor_views.SchemaEditorView):
     def get_schema(self, request, *args, **kwargs):
         return lt_models.LabellingSchema.objects.get(name='default')
+
+
+def get_api_labels(request, image_id):
+    image = get_object_or_404(models.ImageWithLabels, id=int(image_id))
+    
+    files = {'file': (str(image.image), image.image)}
+
+    response = requests.post(settings.LABELLING_TOOL_EXTERNAL_LABEL_API_URL, files=files)
+    if response.ok:
+        labels = json.loads(image.labels.labels_json_str)
+        labels += json.loads(response.text)
+        image.labels.labels_json_str = json.dumps(labels)
+        image.labels.save()
+
+    return HttpResponse('success', status=200)

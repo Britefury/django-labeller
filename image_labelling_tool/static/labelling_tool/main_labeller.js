@@ -253,8 +253,9 @@ var labelling_tool;
             //
             // IMAGE SELECTOR
             //
+            this._increment_image_index = null;
             if (config.tools.imageSelector) {
-                var _increment_image_index = function (offset) {
+                this._increment_image_index = function (offset) {
                     var image_id = self._get_current_image_id();
                     if (image_id !== '') {
                         var index = self._image_id_to_index(image_id);
@@ -292,7 +293,7 @@ var labelling_tool;
                     text: false,
                     icons: { primary: "ui-icon-seek-prev" }
                 }).click(function (event) {
-                    _increment_image_index(-1);
+                    self._increment_image_index(-1);
                     event.preventDefault();
                 });
                 var next_image_button = $('#btn_next_image');
@@ -300,7 +301,8 @@ var labelling_tool;
                     text: false,
                     icons: { primary: "ui-icon-seek-next" }
                 }).click(function (event) {
-                    _increment_image_index(1);
+                    // It's erroring here:
+                    self._increment_image_index(1);
                     event.preventDefault();
                 });
                 if (this._getUnlockedImageIDCallback !== null && this._getUnlockedImageIDCallback !== undefined) {
@@ -1313,13 +1315,34 @@ var labelling_tool;
         };
         ;
         DjangoLabeller.prototype._shutdown_key_handlers = function () {
+                console.log("shutit");
             DjangoLabeller._global_key_handler = null;
         };
         ;
         DjangoLabeller.prototype._overall_on_key_down = function (event) {
             if (this._mouse_within) {
                 var handled = false;
-                if (this._current_tool !== null) {
+                switch (event.keyCode) {
+                    case 54: // 6
+                        if (this._increment_image_index !== null) {
+                            this._increment_image_index(1);
+                        }
+                        //event.preventDefault();
+                    case 71: // g
+                        var current = this.root_view.get_selected_entity();
+                        if (current instanceof labelling_tool.PolygonalLabelEntity) {
+                            this.set_current_tool(new labelling_tool.EditPolyTool(this.root_view, current));
+                        } else {
+                            this.set_current_tool(new labelling_tool.EditPolyTool(this.root_view, null));
+                        }
+                        //event.preventDefault();
+                        handled = true;
+                        break;
+                    default:
+                        console.log('_overall_on_key_down (other key hit: ' + event.keyCode + ')');
+                        break;
+                }
+                if (!handled && this._current_tool !== null) {
                     handled = this._current_tool.on_key_down(event);
                 }
                 if (!handled) {

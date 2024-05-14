@@ -178,22 +178,31 @@
 
             <div class="collapse show tool_bar_group" id="tool_group_select">
 
-                <div class="tool_bar_content">
-                    {% if not labelling_tool_config.tools.deleteLabel == False %}
-                        <button class="btn btn-sm btn-danger w-25 float-right" type="button" id="delete_label_button" data-toggle="tooltip"
-                                data-placement="top" title="Delete selected labels (groups will be opened; the group will
-                                be deleted but its members will remain)">
-                            <span class="oi oi-trash"></span></button>
-                    {% endif %}
-
-                    <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
-                            data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
-                            selection">Pick</button>
-                    {% if not labelling_tool_config.tools.brushSelect == False %}
-                        <button class="btn btn-sm btn-info w-25 mb-1" type="button" id="select_brush_button" data-toggle="tooltip"
-                            data-placement="top" title="Select labels by sweeping a brush over them,
-                            change brush size with &lt;shift&gt;+scroll">Brush</button>
-                    {% endif %}
+                <div class=" row w-100 tool_bar_content">
+                    <div class="col d-flex flex-column justify-content-start align-items-start">
+                        <button class="btn btn-sm btn-info w-50 mb-1" type="button" id="select_pick_button" data-toggle="tooltip"
+                                data-placement="top" title="Pick labels one at a time, hold &lt;shift&gt; for multiple
+                                selection">Pick</button>
+                        {% if not labelling_tool_config.tools.brushSelect == False %}
+                        <button class="btn btn-sm btn-info w-50 mb-1" type="button" id="select_brush_button" data-toggle="tooltip"
+                                data-placement="top" title="Select labels by sweeping a brush over them,
+                                change brush size with &lt;shift&gt;+scroll">Brush</button>
+                        {% endif %}
+                    </div>
+                    <div class="col d-flex flex-column justify-content-end align-items-end">
+                        {% if not labelling_tool_config.tools.deleteLabel == False %}
+                            <button class="btn btn-sm btn-warning w-50 mb-1" type="button" id="delete_label_button" data-toggle="tooltip"
+                                    data-placement="top" title="Delete selected labels (groups will be opened; the group will
+                                    be deleted but its members will remain)">
+                                <span class="oi oi-trash"></span></button>
+                        {% endif %}
+                        {% if not labelling_tool_config.tools.deleteLabel == False %}
+                            <button class="btn btn-sm btn-danger w-50 mb-1" type="button" id="unsafe_delete_label_button" data-toggle="tooltip"
+                                    data-placement="top" title="Delete selected labels permanently (groups will be opened; the group will
+                                        be deleted but its members will remain)">
+                                <span class="oi oi-trash"></span></button>
+                        {% endif %}
+                    </div>
                 </div>
 
                 {% if not labelling_tool_config.tools.labelClassSelector == False %}

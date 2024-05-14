@@ -245,6 +245,8 @@ var labelling_tool;
             this._lockableControls = $('.anno_lockable');
             // Toggle ability to right click (Keybind: L)
             this._lockRightClick = false;
+            // Allow for permanent unsafe delete (delete without modal popup)
+            this._allowPermanentDelete = false;
             /*
              *
              *
@@ -522,6 +524,11 @@ var labelling_tool;
                     confirm_button.button().click(function (event) {
                         self.root_view.delete_selection(canDelete);
                     });
+                });
+
+                var unsafe_delete_label_button = $('#unsafe_delete_label_button');
+                unsafe_delete_label_button.click(function (event) {
+                    self.root_view.delete_selection(canDelete);
                 });
             }
             if (config.tools.labelClassSelector) {
@@ -850,6 +857,13 @@ var labelling_tool;
                 this._lockRightClick = !this._lockRightClick;
                 toggleLockIcon();
 
+                handled = true;
+            }
+
+            // DEL to Unsafe Delete
+            if (event.keyCode === 46) {
+                var unsafe_delete_label_button = $('#unsafe_delete_label_button');
+                if (unsafe_delete_label_button) unsafe_delete_label_button.click();
                 handled = true;
             }
 

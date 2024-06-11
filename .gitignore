@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # OSX
 **.DS_Store
 
@@ -150,3 +151,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+# Default ignored files
+shelf/
+workspace.xml
+# Editor-based HTTP Client requests
+httpRequests/
+# Datasource local storage ignored files
+dataSources/
+dataSources.local.xml
+# Other ignored files
+django_labeller.egg-info/
+image_labelling_tool/__pycache__/

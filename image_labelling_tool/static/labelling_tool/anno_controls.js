@@ -32,6 +32,8 @@ var __extends = (this && this.__extends) || (function () {
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -221,4 +223,3 @@ var labelling_tool;
     }());
     labelling_tool.AnnotationVisFilter = AnnotationVisFilter;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=anno_controls.js.map

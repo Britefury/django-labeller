@@ -1369,4 +1369,3 @@ var labelling_tool;
     }());
     labelling_tool.DjangoLabeller = DjangoLabeller;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=main_labeller.js.map

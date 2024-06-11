@@ -238,4 +238,3 @@ var labelling_tool;
     }
     labelling_tool.model_map = model_map;
 })(labelling_tool || (labelling_tool = {}));
-//# sourceMappingURL=abstract_label.js.map

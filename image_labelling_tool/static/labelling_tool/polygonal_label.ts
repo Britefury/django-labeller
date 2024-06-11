@@ -717,9 +717,9 @@ module labelling_tool {
             this._last_vertex_marker = this._view.world.append("circle");
             this._last_vertex_marker.attr("r", "3.0");
             this._last_vertex_marker.attr("visibility", "hidden");
-            this._last_vertex_marker.style("fill", "rgba(128,0,192,0.1)");
-            this._last_vertex_marker.style("stroke-width", "1.5");
-            this._last_vertex_marker.style("stroke", "rgba(0,128,255,1.0)");
+            this._last_vertex_marker.style("fill", "rgba(0,0,0,0)");
+            this._last_vertex_marker.style("stroke-width", "0");
+            this._last_vertex_marker.style("stroke", "rgba(0,0,0,0)");
             this._last_vertex_marker_visible = false;
         };
 

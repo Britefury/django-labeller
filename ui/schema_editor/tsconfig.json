@@ -1,17 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ES5",
-    "module": "none",
-    "outFile": "../../image_labelling_tool/static/schema_editor/schema_editor.bundle.js",
+    "target": "ES2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "noImplicitAny": false,
     "removeComments": false,
     "preserveConstEnums": true,
-    "sourceMap": false,
-    "noResolve": true
+    "sourceMap": true,
+    "noEmit": true
   },
   "files": [
     "../jquery.d.ts",
-    "../labelling_tool/object_id_table.ts",
     "schema_editor.ts"
   ]
 }

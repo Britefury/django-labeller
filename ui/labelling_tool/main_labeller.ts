@@ -25,30 +25,25 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="../d3.d.ts" />
-/// <reference path="../jquery.d.ts" />
-/// <reference path="../polyk.d.ts" />
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./object_id_table.ts" />
-/// <reference path="./schema.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./abstract_tool.ts" />
-/// <reference path="./select_tools.ts" />
-/// <reference path="./point_label.ts" />
-/// <reference path="./box_label.ts" />
-/// <reference path="./oriented_ellipse_label.ts" />
-/// <reference path="./polygonal_label.ts" />
-/// <reference path="./dextr_label.ts" />
-/// <reference path="./composite_label.ts" />
-/// <reference path="./group_label.ts" />
-/// <reference path="./popup_menu.ts" />
-/// <reference path="./anno_controls.ts" />
+import { Vector2, Colour4, ensure_config_option_exists } from './math_primitives';
+import { ObjectIDTable } from './object_id_table';
+import { TasksJSON, LabellingSchemaJSON, AbstractLabelClass, LabelClass, label_classes_from_json } from './schema';
+import { AbstractLabelEntity, AbstractLabelModel, LabelVisibility, LabelEntityEventListener } from './abstract_label';
+import { AbstractTool } from './abstract_tool';
+import { SelectEntityTool, BrushSelectEntityTool } from './select_tools';
+import { PointLabelEntity, DrawPointTool } from './point_label';
+import { BoxLabelEntity, DrawBoxTool } from './box_label';
+import { DrawOrientedEllipseTool } from './oriented_ellipse_label';
+import { PolygonalLabelEntity, EditPolyTool } from './polygonal_label';
+import { DextrTool, DextrRequestState, type DextrRequest } from './dextr_label';
+import { PopupMenu } from './popup_menu';
+import { AnnotationControl, AnnotationVisFilter, type AnnoControlJSON, type AnnoControlVisJSON } from './anno_controls';
+import { RootLabelView, type RootLabelViewListener } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Image model
      */
-    export interface ImageModel {
+export interface ImageModel {
         image_id: string,
         img_url: string,
         width: number,
@@ -148,12 +143,12 @@ module labelling_tool {
 
         private _colour_scheme_selector_menu: JQuery;
         private _label_class_selector_select: JQuery = null;
-        private _label_class_selector_popup: popup_menu.PopupMenu = null;
+        private _label_class_selector_popup: PopupMenu = null;
         private label_vis_hidden_radio: JQuery;
         private label_vis_faint_radio: JQuery;
         private label_vis_full_radio: JQuery;
         private _label_class_filter_select: JQuery = null;
-        private _label_class_filter_popup: popup_menu.PopupMenu = null;
+        private _label_class_filter_popup: PopupMenu = null;
         private _label_class_filter_notification: JQuery;
         private _anno_vis_filters: AnnotationVisFilter[];
         private _anno_controls: AnnotationControl[];
@@ -600,7 +595,7 @@ module labelling_tool {
                     }
                 }
                 else if (filter_btn.length > 0) {
-                    this._label_class_filter_popup = new popup_menu.PopupMenu(
+                    this._label_class_filter_popup = new PopupMenu(
                         filter_btn,
                         $('#label_class_filter_menu_contents'),
                         {placement: 'bottom'});
@@ -724,7 +719,7 @@ module labelling_tool {
                     });
                 }
                 else if (cls_sel_menu_btn.length > 0 ){
-                    this._label_class_selector_popup = new popup_menu.PopupMenu(
+                    this._label_class_selector_popup = new PopupMenu(
                         cls_sel_menu_btn,
                         $('#label_class_selector_menu_contents'),
                         {placement: 'bottom'});
@@ -1647,6 +1642,3 @@ module labelling_tool {
             }
         }
     }
-}
-
-

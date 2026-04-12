@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p ui/labelling_tool/tsconfig.json && tsc -p ui/schema_editor/tsconfig.json",
-    "build:labeller": "tsc -p ui/labelling_tool/tsconfig.json",
-    "build:schema": "tsc -p ui/schema_editor/tsconfig.json",
-    "watch": "concurrently \"tsc -p ui/labelling_tool/tsconfig.json --watch\" \"tsc -p ui/schema_editor/tsconfig.json --watch\"",
-    "watch:labeller": "tsc -p ui/labelling_tool/tsconfig.json --watch",
-    "watch:schema": "tsc -p ui/schema_editor/tsconfig.json --watch"
+    "build": "tsc -p ui/labelling_tool/tsconfig.json --noEmit && tsc -p ui/schema_editor/tsconfig.json --noEmit && node build.mjs",
+    "build:labeller": "node build.mjs --labeller",
+    "build:schema": "node build.mjs --schema",
+    "watch": "node build.mjs --watch",
+    "watch:labeller": "node build.mjs --watch --labeller",
+    "watch:schema": "node build.mjs --watch --schema",
+    "typecheck": "tsc -p ui/labelling_tool/tsconfig.json --noEmit && tsc -p ui/schema_editor/tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.8.0"
   }
 }

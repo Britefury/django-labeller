@@ -25,14 +25,14 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
+import { Vector2, AABox, Colour4, mean_of_points, compute_sqr_dist } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel, LabelVisibility, register_entity_factory } from './abstract_label';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Composite label model
      */
-    export interface CompositeLabelModel extends AbstractLabelModel {
+export interface CompositeLabelModel extends AbstractLabelModel {
         components: number[];
     }
 
@@ -248,7 +248,6 @@ module labelling_tool {
     }
 
 
-    register_entity_factory('composite', (root_view: RootLabelView, model: AbstractLabelModel) => {
-        return new CompositeLabelEntity(root_view, model as CompositeLabelModel);
-    });
-}
+register_entity_factory('composite', (root_view: RootLabelView, model: AbstractLabelModel) => {
+    return new CompositeLabelEntity(root_view, model as CompositeLabelModel);
+});

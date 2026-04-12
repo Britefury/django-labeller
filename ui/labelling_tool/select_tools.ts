@@ -25,15 +25,15 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./abstract_tool.ts" />
+import { Vector2 } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel } from './abstract_label';
+import { AbstractTool } from './abstract_tool';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Select entity tool
      */
-    export class SelectEntityTool extends AbstractTool {
+export class SelectEntityTool extends AbstractTool {
         _entities_under_pointer: AbstractLabelEntity<AbstractLabelModel>[];
         _current_entity: AbstractLabelEntity<AbstractLabelModel>;
         _current_entity_index: number;
@@ -306,4 +306,3 @@ module labelling_tool {
             this._brush_circle.attr("visibility", "hidden");
         };
     }
-}

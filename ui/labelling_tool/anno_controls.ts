@@ -25,14 +25,12 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="../jquery.d.ts" />
-/// <reference path="./popup_menu.ts" />
+import { PopupMenu } from './popup_menu';
 
-module labelling_tool {
-    /*
+/*
     Annotation controls
      */
-    export interface AnnoControlChoiceJSON {
+export interface AnnoControlChoiceJSON {
         value: string,
         label_text: string,
         tooltip: string
@@ -205,7 +203,7 @@ module labelling_tool {
 
     export class AnnotationPopupMenu extends AnnotationControl {
         ctrl_json: PopupMenuControlJSON;
-        menu: popup_menu.PopupMenu;
+        menu: PopupMenu;
         menu_button: JQuery;
 
         constructor(ctrl_json: PopupMenuControlJSON, on_change: AnnoCtrlOnChange) {
@@ -217,7 +215,7 @@ module labelling_tool {
 
             self.menu_button = $('#anno_ctrl_' + this.identifier);
 
-            this.menu = new popup_menu.PopupMenu(self.menu_button,
+            this.menu = new PopupMenu(self.menu_button,
                         $('#anno_ctrl_contents_' + this.identifier),
                         {placement: 'bottom'})
 
@@ -293,7 +291,3 @@ module labelling_tool {
             });
         }
     }
-
-
-
-}

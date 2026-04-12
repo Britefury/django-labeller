@@ -25,14 +25,14 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
+import { Vector2 } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel } from './abstract_label';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Abstract tool
      */
-    export class AbstractTool{
+export class AbstractTool{
         _view: RootLabelView;
 
         constructor(view: RootLabelView) {
@@ -227,4 +227,3 @@ module labelling_tool {
             }
         }
     }
-}

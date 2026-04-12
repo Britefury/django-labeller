@@ -25,13 +25,12 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
+import { Colour4 } from './math_primitives';
 
-module labelling_tool {
-    /*
+/*
     Label class
      */
-    export interface LabelClassJSON {
+export interface LabelClassJSON {
         name: string;
         human_name: string;
         colour: number[];
@@ -143,4 +142,3 @@ module labelling_tool {
 
         return result;
     }
-}

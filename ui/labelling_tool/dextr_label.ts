@@ -25,15 +25,14 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./abstract_tool.ts" />
-/// <reference path="./select_tools.ts" />
-/// <reference path="./polygonal_label.ts" />
-/// <reference path="./root_label_view.ts" />
+import { Vector2 } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel, PlaceHolderEntity } from './abstract_label';
+import { AbstractTool } from './abstract_tool';
+import { SelectEntityTool } from './select_tools';
+import { new_PolygonalLabelModel } from './polygonal_label';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    export interface DextrRequest {
+export interface DextrRequest {
         image_id: string;
         dextr_id: number;
         dextr_points: Vector2[];
@@ -390,4 +389,3 @@ module labelling_tool {
             this.update_highlight(pos);
         };
     }
-}

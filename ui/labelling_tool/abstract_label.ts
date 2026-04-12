@@ -25,15 +25,13 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="../d3.d.ts" />
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./root_label_view.ts" />
+import { Vector2, AABox, Colour4 } from './math_primitives';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Abstract label model
      */
-    export interface AbstractLabelModel {
+export interface AbstractLabelModel {
         label_type: string;
         label_class: string;
         source: string;
@@ -305,12 +303,11 @@ module labelling_tool {
     Construct entity for given label model.
     Uses the map above to choose the appropriate constructor
      */
-    export function model_map(label_model: AbstractLabelModel,
-                              map_fn: (model:AbstractLabelModel) => any) {
-        map_fn(label_model);
-        var walk_fn = label_type_to_walk_fn[label_model.label_type];
-        if (walk_fn !== undefined) {
-            return walk_fn(label_model, map_fn);
-        }
+export function model_map(label_model: AbstractLabelModel,
+                          map_fn: (model:AbstractLabelModel) => any) {
+    map_fn(label_model);
+    var walk_fn = label_type_to_walk_fn[label_model.label_type];
+    if (walk_fn !== undefined) {
+        return walk_fn(label_model, map_fn);
     }
 }

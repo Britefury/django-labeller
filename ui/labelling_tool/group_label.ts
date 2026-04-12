@@ -25,14 +25,14 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
+import { Vector2, AABox, AABox_from_aaboxes } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel, ContainerEntity, LabelEntityEventListener, register_entity_factory, register_walk_fn, model_map } from './abstract_label';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Group label model
      */
-    interface GroupLabelModel extends AbstractLabelModel {
+interface GroupLabelModel extends AbstractLabelModel {
         component_models: AbstractLabelModel[];
     }
 
@@ -290,11 +290,10 @@ module labelling_tool {
         return new GroupLabelEntity(root_view, model as GroupLabelModel);
     });
 
-    register_walk_fn('group', (model: AbstractLabelModel,
-                                                   map_fn: (model:AbstractLabelModel) => any) => {
-        var group_model: GroupLabelModel = model as GroupLabelModel;
-        for (var i = 0; i < group_model.component_models.length; i++) {
-            model_map(group_model.component_models[i], map_fn);
-        }
-    });
-}
+register_walk_fn('group', (model: AbstractLabelModel,
+                           map_fn: (model:AbstractLabelModel) => any) => {
+    var group_model: GroupLabelModel = model as GroupLabelModel;
+    for (var i = 0; i < group_model.component_models.length; i++) {
+        model_map(group_model.component_models[i], map_fn);
+    }
+});

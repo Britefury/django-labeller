@@ -25,15 +25,13 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./object_id_table.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./composite_label.ts" />
-/// <reference path="./group_label.ts" />
-/// <reference path="./main_labeller.ts" />
+import { ObjectIDTable } from './object_id_table';
+import { AbstractLabelEntity, AbstractLabelModel, ContainerEntity, PlaceHolderEntity, LabelEntityEventListener, LabelVisibility, new_entity_for_model, model_map } from './abstract_label';
+import { CompositeLabelEntity, CompositeLabelModel, new_CompositeLabelModel } from './composite_label';
+import { GroupLabelEntity, new_GroupLabelModel } from './group_label';
+import { get_label_header_labels, replace_label_header_labels, type DjangoLabeller, type LabelHeaderModel } from './main_labeller';
 
-module labelling_tool {
-    export interface RootLabelViewListener {
+export interface RootLabelViewListener {
         // Selection changed; update class selector dropdown
         on_selection_changed: (root_view: RootLabelView) => void;
         // Root list changed; queue push
@@ -580,4 +578,3 @@ module labelling_tool {
             this.root_listener.root_list_changed(this);
         };
     }
-}

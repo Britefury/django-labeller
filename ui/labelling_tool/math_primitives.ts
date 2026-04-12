@@ -25,8 +25,7 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-module labelling_tool {
-    export function ensure_config_option_exists(x: any, flag_name: string, default_value: any) {
+export function ensure_config_option_exists(x: any, flag_name: string, default_value: any) {
         var v = x[flag_name];
         if (v === undefined) {
             x[flag_name] = default_value;
@@ -213,4 +212,3 @@ module labelling_tool {
             return new AABox({x: 1, y: 1}, {x: -1, y: -1});
         }
     }
-}

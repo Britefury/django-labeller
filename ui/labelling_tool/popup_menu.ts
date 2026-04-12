@@ -25,12 +25,9 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="../jquery.d.ts" />
-
 declare var Popper:any;
 
-module popup_menu {
-    export class PopupMenu {
+export class PopupMenu {
         target: JQuery;
         contents: JQuery;
         buttons: JQuery;
@@ -146,4 +143,3 @@ module popup_menu {
             }
         }
     }
-}

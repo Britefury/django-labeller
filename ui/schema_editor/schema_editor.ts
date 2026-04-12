@@ -24,14 +24,12 @@ THE SOFTWARE.
 Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
-/// <reference path="../jquery.d.ts" />
-/// <reference path="../labelling_tool/object_id_table.ts" />
+import { ObjectIDTable } from '../labelling_tool/object_id_table';
 
 declare var Vue: any;
 declare var vuedraggable: any;
 
-module schema_editor {
-    type ResponseCallback = (any) => void;
+type ResponseCallback = (any) => void;
 
     interface MessageWithCallback {
         message: any;
@@ -159,7 +157,7 @@ module schema_editor {
                     on_create_new: function() {
                         if (this.new_form_data.name !== '') {
                             var scheme = {
-                                id: labelling_tool.ObjectIDTable.uuidv4(),
+                                id: ObjectIDTable.uuidv4(),
                                 name: this.new_form_data.name,
                                 human_name: this.new_form_data.human_name
                             };
@@ -237,7 +235,7 @@ module schema_editor {
                     on_create_new: function() {
                         if (this.new_form_data.name !== '') {
                             var new_group = {
-                                id: labelling_tool.ObjectIDTable.uuidv4(),
+                                id: ObjectIDTable.uuidv4(),
                                 group_name: this.new_form_data.group_name,
                                 group_classes: [],
                             };
@@ -289,7 +287,7 @@ module schema_editor {
                             }
                             colours['default'] = [128, 128, 128];
                             var lcls = {
-                                id: labelling_tool.ObjectIDTable.uuidv4(),
+                                id: ObjectIDTable.uuidv4(),
                                 name: this.new_lcls_form_data.name,
                                 human_name: this.new_lcls_form_data.human_name,
                                 colours: colours
@@ -508,7 +506,7 @@ module schema_editor {
             }
 
             let message_block: MessageBlock = {
-                id: labelling_tool.ObjectIDTable.uuidv4(),
+                id: ObjectIDTable.uuidv4(),
                 messages: messages
             };
 
@@ -755,6 +753,4 @@ module schema_editor {
           ] : null;
         }
     }
-
-}
 

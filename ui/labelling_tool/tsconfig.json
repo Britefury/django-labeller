@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES5",
-    "module": "none",
-    "outFile": "../../image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js",
+    "target": "ES2020",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "noImplicitAny": false,
     "removeComments": false,
     "preserveConstEnums": true,
-    "sourceMap": false,
-    "noResolve": true
+    "sourceMap": true,
+    "noEmit": true
   },
   "files": [
     "../d3.d.ts",
@@ -29,6 +29,7 @@
     "main_labeller.ts",
     "root_label_view.ts",
     "popup_menu.ts",
-    "anno_controls.ts"
+    "anno_controls.ts",
+    "index.ts"
   ]
 }

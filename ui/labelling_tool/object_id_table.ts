@@ -25,11 +25,10 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-module labelling_tool {
-   /*
+/*
     Object ID table
      */
-    export class ObjectIDTable {
+export class ObjectIDTable {
         _id_prefix: string;
         _id_conversion_prefix: string;
         _idx_counter: number;
@@ -118,4 +117,3 @@ module labelling_tool {
             }
         }
     }
-}

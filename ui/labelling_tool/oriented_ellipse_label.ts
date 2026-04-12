@@ -25,17 +25,16 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./abstract_tool.ts" />
-/// <reference path="./select_tools.ts" />
-/// <reference path="./root_label_view.ts" />
+import { Vector2, AABox, Colour4, compute_sqr_dist, sub_Vector2, mul_Vector2, add_Vector2, compute_sqr_length, dot_Vector2 } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel, LabelVisibility, register_entity_factory } from './abstract_label';
+import { AbstractTool } from './abstract_tool';
+import { SelectEntityTool } from './select_tools';
+import type { RootLabelView } from './root_label_view';
 
-module labelling_tool {
-    /*
+/*
     Box label model
      */
-    interface OrientedEllipseLabelModel extends AbstractLabelModel {
+interface OrientedEllipseLabelModel extends AbstractLabelModel {
         // Note that orientation rotates clockwise from positive X-axis (right) to the positive Y-axis (down)
         // If the orientation is 0, then radius1 and radius2 correspond to the radii in the X and Y axes respectively
         centre: Vector2;
@@ -419,4 +418,3 @@ module labelling_tool {
             }
         };
     }
-}

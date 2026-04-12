@@ -25,17 +25,15 @@ Developed by Geoffrey French in collaboration with Dr. M. Fisher and
 Dr. M. Mackiewicz.
  */
 
-/// <reference path="../polyk.d.ts" />
-/// <reference path="./math_primitives.ts" />
-/// <reference path="./abstract_label.ts" />
-/// <reference path="./abstract_tool.ts" />
-/// <reference path="./select_tools.ts" />
-/// <reference path="./root_label_view.ts" />
+import { Vector2, AABox, Colour4, mean_of_points, AABox_from_points, AABox_from_aaboxes, add_Vector2, sub_Vector2, dot_Vector2 } from './math_primitives';
+import { AbstractLabelEntity, AbstractLabelModel, LabelVisibility, register_entity_factory } from './abstract_label';
+import { AbstractTool, ProxyTool } from './abstract_tool';
+import { SelectEntityTool } from './select_tools';
+import type { RootLabelView } from './root_label_view';
 
 declare var PolyBool:any;
 
-module labelling_tool {
-    /*
+/*
     Polygonal label model
      */
     interface PolygonalLabelModel extends AbstractLabelModel {
@@ -518,7 +516,7 @@ module labelling_tool {
         };
 
 
-        notify_entity_deleted(entity: labelling_tool.AbstractLabelEntity<labelling_tool.AbstractLabelModel>) {
+        notify_entity_deleted(entity: AbstractLabelEntity<AbstractLabelModel>) {
             this.draw_poly_tool.notify_entity_deleted(entity);
             this.draw_brush_tool.notify_entity_deleted(entity);
             if (entity === this.entity) {
@@ -778,7 +776,7 @@ module labelling_tool {
         };
 
 
-        notify_entity_deleted(entity: labelling_tool.AbstractLabelEntity<labelling_tool.AbstractLabelModel>) {
+        notify_entity_deleted(entity: AbstractLabelEntity<AbstractLabelModel>) {
             if (entity === this.entity) {
                 this.entity = null;
                 this.vertices = [];
@@ -993,7 +991,7 @@ module labelling_tool {
         };
 
 
-        notify_entity_deleted(entity: labelling_tool.AbstractLabelEntity<labelling_tool.AbstractLabelModel>) {
+        notify_entity_deleted(entity: AbstractLabelEntity<AbstractLabelModel>) {
             if (entity === this.entity) {
                 this.entity = null;
                 this.regions = [];
@@ -1031,4 +1029,3 @@ module labelling_tool {
         }
     }
 
-}

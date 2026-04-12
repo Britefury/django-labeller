@@ -1,0 +1,19 @@
+# npm
+node_modules/
+
+# TypeScript build outputs
+image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js
+image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js.map
+image_labelling_tool/static/schema_editor/schema_editor.bundle.js
+image_labelling_tool/static/schema_editor/schema_editor.bundle.js.map
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+*.iml

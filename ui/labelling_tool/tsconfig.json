@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "none",
+    "outFile": "../../image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js",
+    "noImplicitAny": false,
+    "removeComments": false,
+    "preserveConstEnums": true,
+    "sourceMap": false,
+    "noResolve": true
+  },
+  "files": [
+    "../d3.d.ts",
+    "../jquery.d.ts",
+    "../polyk.d.ts",
+    "math_primitives.ts",
+    "object_id_table.ts",
+    "schema.ts",
+    "abstract_label.ts",
+    "abstract_tool.ts",
+    "select_tools.ts",
+    "point_label.ts",
+    "box_label.ts",
+    "oriented_ellipse_label.ts",
+    "composite_label.ts",
+    "polygonal_label.ts",
+    "dextr_label.ts",
+    "group_label.ts",
+    "main_labeller.ts",
+    "root_label_view.ts",
+    "popup_menu.ts",
+    "anno_controls.ts"
+  ]
+}

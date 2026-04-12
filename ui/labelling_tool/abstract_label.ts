@@ -29,280 +29,274 @@ import { Vector2, AABox, Colour4 } from './math_primitives';
 import type { RootLabelView } from './root_label_view';
 
 /*
-    Abstract label model
-     */
+Abstract label model
+    */
 export interface AbstractLabelModel {
-        label_type: string;
-        label_class: string;
-        source: string;
-        anno_data: any;
+    label_type: string;
+    label_class: string;
+    source: string;
+    anno_data: any;
+}
+
+
+
+/*
+Label visibility
+    */
+export enum LabelVisibility {
+    HIDDEN,
+    FAINT,
+    FULL
+}
+
+
+export interface LabelEntityEventListener {
+    on_mouse_in: (entity: any) => void;
+    on_mouse_out: (entity: any) => void;
+}
+
+
+/*
+Abstract label entity
+    */
+export abstract class AbstractLabelEntity<ModelType extends AbstractLabelModel> {
+    private static entity_id_counter: number = 0;
+    model: ModelType;
+    protected root_view: RootLabelView;
+    private entity_id: number;
+    _attached: boolean;
+    _hover: boolean;
+    _selected: boolean;
+    _event_listeners: LabelEntityEventListener[];
+    parent_entity: ContainerEntity | null;
+
+
+
+    constructor(view: RootLabelView, model: ModelType) {
+        this.root_view = view;
+        this.model = model;
+        this._attached = this._hover = this._selected = false;
+        this._event_listeners = [];
+        this.parent_entity = null;
+        this.entity_id = AbstractLabelEntity.entity_id_counter++;
+
     }
 
 
-
-    /*
-    Label visibility
-     */
-    export enum LabelVisibility {
-        HIDDEN,
-        FAINT,
-        FULL
+    add_event_listener(listener: LabelEntityEventListener) {
+        this._event_listeners.push(listener)
     }
 
-
-    export interface LabelEntityEventListener {
-        on_mouse_in: (entity: any) => void;
-        on_mouse_out: (entity: any) => void;
+    remove_event_listener(listener: LabelEntityEventListener) {
+        var i = this._event_listeners.indexOf(listener);
+        if (i !== -1) {
+            this._event_listeners.splice(i, 1);
+        }
     }
 
+    set_parent(parent: ContainerEntity | null) {
+        this.parent_entity = parent;
+    }
 
-    /*
-    Abstract label entity
-     */
-    export class AbstractLabelEntity<ModelType extends AbstractLabelModel> {
-        private static entity_id_counter: number = 0;
-        model: ModelType;
-        protected root_view: RootLabelView;
-        private entity_id: number;
-        _attached: boolean;
-        _hover: boolean;
-        _selected: boolean;
-        _event_listeners: LabelEntityEventListener[];
-        parent_entity: ContainerEntity;
+    get_entity_id(): number {
+        return this.entity_id;
+    }
 
+    attach() {
+        this.root_view._register_entity(this);
+        this._attached = true;
+    }
 
+    detach() {
+        this._attached = false;
+        this.root_view._unregister_entity(this);
+    }
 
-        constructor(view: RootLabelView, model: ModelType) {
-            this.root_view = view;
-            this.model = model;
-            this._attached = this._hover = this._selected = false;
-            this._event_listeners = [];
-            this.parent_entity = null;
-            this.entity_id = AbstractLabelEntity.entity_id_counter++;
-
+    destroy() {
+        if (this.parent_entity !== null) {
+            this.parent_entity.remove_child(this);
         }
+        this.root_view.shutdown_entity(this);
+    }
 
+    update() {
+    }
 
-        add_event_listener(listener: LabelEntityEventListener) {
-            this._event_listeners.push(listener)
+    commit() {
+    }
+
+    hover(state: boolean) {
+        this._hover = state;
+        this._update_style();
+    }
+
+    select(state: boolean) {
+        this._selected = state;
+        this._update_style();
+    }
+
+    notify_hide_labels_change() {
+        this._update_style();
+    }
+
+    notify_colour_scheme_changed() {
+        this._update_style();
+    }
+
+    get_label_type_name(): string {
+        return this.model.label_type;
+    }
+
+    get_label_class(): string {
+        return this.model.label_class;
+    }
+
+    set_label_class(label_class: string) {
+        this.model.label_class = label_class;
+        this._update_style();
+        this.commit();
+    }
+
+    set_anno_data_value(anno_identifier: string, value: any) {
+        if (this.model.anno_data === undefined) {
+            this.model.anno_data = {};
         }
+        this.model.anno_data[anno_identifier] = value;
+        this._update_style();
+        this.commit();
+    }
 
-        remove_event_listener(listener: LabelEntityEventListener) {
-            var i = this._event_listeners.indexOf(listener);
-            if (i !== -1) {
-                this._event_listeners.splice(i, 1);
-            }
-        }
+    get_visibility(): LabelVisibility {
+        return this.root_view.view.get_label_visibility(this.get_label_class(), this.model.anno_data);
+    }
 
-        set_parent(parent: ContainerEntity) {
-            this.parent_entity = parent;
-        }
+    _update_style() {
+    };
 
-        get_entity_id(): number {
-            return this.entity_id;
-        }
-
-        attach() {
-            this.root_view._register_entity(this);
-            this._attached = true;
-        }
-
-        detach() {
-            this._attached = false;
-            this.root_view._unregister_entity(this);
-        }
-
-        destroy() {
-            if (this.parent_entity !== null) {
-                this.parent_entity.remove_child(this);
-            }
-            this.root_view.shutdown_entity(this);
-        }
-
-        update() {
-        }
-
-        commit() {
-        }
-
-        hover(state: boolean) {
-            this._hover = state;
-            this._update_style();
-        }
-
-        select(state: boolean) {
-            this._selected = state;
-            this._update_style();
-        }
-
-        notify_hide_labels_change() {
-            this._update_style();
-        }
-
-        notify_colour_scheme_changed() {
-            this._update_style();
-        }
-
-        get_label_type_name(): string {
-            return this.model.label_type;
-        }
-
-        get_label_class(): string {
-            return this.model.label_class;
-        }
-
-        set_label_class(label_class: string) {
-            this.model.label_class = label_class;
-            this._update_style();
-            this.commit();
-        }
-
-        set_anno_data_value(anno_identifier: string, value: any) {
-            if (this.model.anno_data === undefined) {
-                this.model.anno_data = {};
-            }
-            this.model.anno_data[anno_identifier] = value;
-            this._update_style();
-            this.commit();
-        }
-
-        get_visibility(): LabelVisibility {
-            return this.root_view.view.get_label_visibility(this.get_label_class(), this.model.anno_data);
-        }
-
-        _update_style() {
-        };
-
-        _outline_colour(): Colour4 {
-            if (this._selected) {
-                if (this._hover) {
-                    return new Colour4(255, 0, 128, 1.0);
-                }
-                else {
-                    return new Colour4(255, 0, 0, 1.0);
-                }
+    _outline_colour(): Colour4 {
+        if (this._selected) {
+            if (this._hover) {
+                return new Colour4(255, 0, 128, 1.0);
             }
             else {
-                if (this._hover) {
-                    return new Colour4(0, 255, 128, 1.0);
-                }
-                else {
-                    return new Colour4(255, 255, 0, 1.0);
-                }
+                return new Colour4(255, 0, 0, 1.0);
             }
-        }
-
-        compute_centroid(): Vector2 {
-            return null;
-        }
-
-        compute_bounding_box(): AABox {
-            return null;
-        };
-
-        contains_pointer_position(point: Vector2): boolean {
-            return false;
-        }
-
-        distance_to_point(point: Vector2): number {
-            return null;
-        };
-
-        notify_model_destroyed(model_id: number) {
-        };
-    }
-
-
-    /*
-    Container entity
-     */
-    export interface ContainerEntity {
-        add_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
-        remove_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
-    }
-
-    /*
-    Place holder entity
-
-    Used to represent an entity that waits for some response for the server before being
-    replaced by e.g. a label generated automatically on the server
-     */
-    export class PlaceHolderEntity {
-        protected root_view: RootLabelView;
-        protected _attached: boolean;
-
-        constructor(view: RootLabelView) {
-            this.root_view = view;
-            this._attached = false;
-
-        }
-
-        attach() {
-            if (!this._attached) {
-                this.root_view._register_placeholder(this);
-                this._attached = true;
-            }
-        }
-
-        detach() {
-            if (this._attached) {
-                this._attached = false;
-                this.root_view._unregister_placeholder(this);
-            }
-        }
-
-        is_attached(): boolean {
-            return this._attached;
-        }
-    }
-
-
-
-
-    /*
-    Map label type to:
-    - entity constructor
-    - walk function
-     */
-    var label_type_to_entity_factory: any = {};
-    var label_type_to_walk_fn: any = {};
-
-
-    /*
-    Register label entity factory
-     */
-    export function register_entity_factory(label_type_name: string,
-                                            factory: (root_view:RootLabelView, model:AbstractLabelModel) => any) {
-        label_type_to_entity_factory[label_type_name] = factory;
-    }
-
-    /*
-    Register label walk function
-     */
-    export function register_walk_fn(label_type_name: string,
-                                     walk_fn: (model:AbstractLabelModel,
-                                               map_fn: (model:AbstractLabelModel) => any) => any) {
-        label_type_to_walk_fn[label_type_name] = walk_fn;
-    }
-
-    /*
-    Construct entity for given label model.
-    Uses the map above to choose the appropriate constructor
-     */
-    export function new_entity_for_model(root_view: RootLabelView, label_model: AbstractLabelModel) {
-        var factory = label_type_to_entity_factory[label_model.label_type];
-        if (factory !== undefined) {
-            return factory(root_view, label_model);
         }
         else {
-            return null;
+            if (this._hover) {
+                return new Colour4(0, 255, 128, 1.0);
+            }
+            else {
+                return new Colour4(255, 255, 0, 1.0);
+            }
         }
     }
 
-    /*
-    Construct entity for given label model.
-    Uses the map above to choose the appropriate constructor
-     */
+    abstract compute_centroid(): Vector2;
+
+    abstract compute_bounding_box(): AABox;
+
+    contains_pointer_position(point: Vector2): boolean {
+        return false;
+    }
+
+    abstract distance_to_point(point: Vector2): number;
+
+    notify_model_destroyed(model_id: number) {
+    };
+}
+
+
+/*
+Container entity
+    */
+export interface ContainerEntity {
+    add_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
+    remove_child(child: AbstractLabelEntity<AbstractLabelModel>): void;
+}
+
+/*
+Place holder entity
+
+Used to represent an entity that waits for some response for the server before being
+replaced by e.g. a label generated automatically on the server
+    */
+export class PlaceHolderEntity {
+    protected root_view: RootLabelView;
+    protected _attached: boolean;
+
+    constructor(view: RootLabelView) {
+        this.root_view = view;
+        this._attached = false;
+
+    }
+
+    attach() {
+        if (!this._attached) {
+            this.root_view._register_placeholder(this);
+            this._attached = true;
+        }
+    }
+
+    detach() {
+        if (this._attached) {
+            this._attached = false;
+            this.root_view._unregister_placeholder(this);
+        }
+    }
+
+    is_attached(): boolean {
+        return this._attached;
+    }
+}
+
+
+
+
+/*
+Map label type to:
+- entity constructor
+- walk function
+    */
+var label_type_to_entity_factory: any = {};
+var label_type_to_walk_fn: any = {};
+
+
+/*
+Register label entity factory
+    */
+export function register_entity_factory(label_type_name: string,
+                                        factory: (root_view:RootLabelView, model:AbstractLabelModel) => any) {
+    label_type_to_entity_factory[label_type_name] = factory;
+}
+
+/*
+Register label walk function
+    */
+export function register_walk_fn(label_type_name: string,
+                                    walk_fn: (model:AbstractLabelModel,
+                                            map_fn: (model:AbstractLabelModel) => any) => any) {
+    label_type_to_walk_fn[label_type_name] = walk_fn;
+}
+
+/*
+Construct entity for given label model.
+Uses the map above to choose the appropriate constructor
+    */
+export function new_entity_for_model(root_view: RootLabelView, label_model: AbstractLabelModel) {
+    var factory = label_type_to_entity_factory[label_model.label_type];
+    if (factory !== undefined) {
+        return factory(root_view, label_model);
+    }
+    else {
+        return null;
+    }
+}
+
+/*
+Construct entity for given label model.
+Uses the map above to choose the appropriate constructor
+*/
 export function model_map(label_model: AbstractLabelModel,
                           map_fn: (model:AbstractLabelModel) => any) {
     map_fn(label_model);

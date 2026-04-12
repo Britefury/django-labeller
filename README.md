@@ -234,6 +234,17 @@ Please see the Jupyter notebook `Image labeller notebook.ipynb` for API usage. I
 labels and render them into class maps, instance maps, or image stacks.
 
 
+## Development
+
+Build the front-end javascript files as follows:
+
+```shell script
+> npm run build
+```
+
+
+
+
 ## Changes
 
 Please see the [change log](./CHANGES.md) for recent changes.

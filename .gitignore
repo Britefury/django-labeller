@@ -17,3 +17,7 @@ build/
 # IDE
 .idea/
 *.iml
+
+# uv
+.venv/
+uv.lock

@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-labeller"
+version = "0.3.2"
+description = "An image labelling tool for creating segmentation data sets, for Django, Flask and Qt."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Geoff French" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.6",
+    "Topic :: Software Development :: User Interfaces",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.9",
+    "Pillow>=2.7",
+    "scikit-image>=0.10",
+    "click",
+    "flask>=0.10",
+    "deprecated",
+]
+
+[project.optional-dependencies]
+django = ["django", "celery"]
+dextr = ["dextr"]
+qt5 = ["PyQt5"]
+testing = []
+
+[project.urls]
+Homepage = "https://github.com/Britefury/django-labeller"
+
+[tool.hatch.build]
+# artifacts overrides VCS ignore rules — gitignored build outputs are
+# included in the wheel after the build hook generates them via npm.
+artifacts = [
+    "image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js",
+    "image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js.map",
+    "image_labelling_tool/static/schema_editor/schema_editor.bundle.js",
+    "image_labelling_tool/static/schema_editor/schema_editor.bundle.js.map",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "image_labelling_tool",
+    "image_labelling_tool_qt",
+    "simple_django_labeller",
+]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/image_labelling_tool",
+    "/image_labelling_tool_qt",
+    "/simple_django_labeller",
+    "/ui",
+    "/README.md",
+    "/LICENSE.txt",
+    "/CHANGES.md",
+    "/package.json",
+    "/package-lock.json",
+    "/hatch_build.py",
+]

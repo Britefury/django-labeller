@@ -9,8 +9,7 @@ const schema_only = args.includes('--schema');
 const labeller_config = {
     entryPoints: ['ui/labelling_tool/index.ts'],
     bundle: true,
-    format: 'iife',
-    globalName: 'labelling_tool',
+    format: 'esm',
     target: 'es2020',
     outfile: 'image_labelling_tool/static/labelling_tool/labelling_tool.bundle.js',
     sourcemap: true,
@@ -19,8 +18,7 @@ const labeller_config = {
 const schema_config = {
     entryPoints: ['ui/schema_editor/schema_editor.ts'],
     bundle: true,
-    format: 'iife',
-    globalName: 'schema_editor',
+    format: 'esm',
     target: 'es2020',
     outfile: 'image_labelling_tool/static/schema_editor/schema_editor.bundle.js',
     sourcemap: true,

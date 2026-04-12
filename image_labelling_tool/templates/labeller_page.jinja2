@@ -23,7 +23,9 @@
 
     {% include "inline/labeller_app.html" %}
 
-    <script>
+    <script type="module">
+        import { DjangoLabeller } from '/static/labelling_tool/labelling_tool.bundle.js';
+
         // get image descriptor callback function
         {% if use_websockets %}
             var socket = io.connect('http://' + document.domain + ':' + location.port);
@@ -122,7 +124,7 @@
 
         // Create the labelling tool
         // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
-            var tool = new labelling_tool.DjangoLabeller(
+            var tool = new DjangoLabeller(
                 {{ labelling_schema | tojson | safe }},
                 {{ tasks | tojson | safe }},
                 {{ anno_controls | tojson | safe }},

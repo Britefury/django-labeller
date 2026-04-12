@@ -2,133 +2,129 @@
 
 {% include 'inline/labeller_app.html' %}
 
-<script>
-    (function () {
-        $(document).ready(function() {
+<script type="module">
+    import { DjangoLabeller } from '/static/labelling_tool/labelling_tool.bundle.js';
 
-            // The Django based web API uses a class-based view at a single URL for all interaction with
-            // the client side tool.
-            // Here we define the callbacks that connect the `LabellingTool` instance with the
-            // server side API.
-            var get_labels = function(image_id) {
-                $.ajax({
-                    type: 'GET',
-                    url: '{{ labelling_tool_url }}' + '?labels_for_image_id=' + image_id,
-                    success: function(response) {
-                        if (response.error === undefined) {
-                            tool.loadLabels(response, null);
-                        }
-                    },
-                    dataType: 'json'
-                });
-            };
-
-            {% if enable_locking %}
-                var get_unlocked_image_id = function(image_ids) {
-                    var request = {
-                        'image_ids': image_ids
-                    };
-                    var request_str = JSON.stringify(request);
-
-                    // Create the POST data
-                    var post_data = {
-                        get_unlocked_image_id: request_str
-                    };
-
-                    $.ajax({
-                        type: 'POST',
-                        url: '{{ labelling_tool_url }}',
-                        data: post_data,
-                        success: function(response) {
-                            if (response.error === undefined) {
-                                if (response.image_id !== null) {
-                                    tool.goToImageById(response.image_id);
-                                }
-                            }
-                        },
-                        dataType: 'json'
-                    });
-                };
-            {% else %}
-                var get_unlocked_image_id = null;
-            {% endif %}
-
-            var update_labels = function(label_header) {
-                var labels_json_str = JSON.stringify(label_header);
-
-                // Create the POST data
-                var post_data = {
-                    labels: labels_json_str
-                };
-
-                $.ajax({
-                    type: 'POST',
-                    url: '{{ labelling_tool_url }}',
-                    data: post_data,
-                    success: function(msg) {
-                        tool.notifyLabelUpdateResponse(msg);
-                    },
-                    dataType: 'json'
-                });
-            };
-
-            {% if dextr_available %}
-                // set labels callback function
-                var dextr_request = function(dextr_request) {
-                    // Create the POST data
-                    var post_data = {
-                        dextr: JSON.stringify(dextr_request)
-                    };
-
-                    $.ajax({
-                        type: 'POST',
-                        url: '{{ labelling_tool_url }}',
-                        data: post_data,
-                        success: function(msg) {
-                            if (msg.labels !== undefined) {
-                                tool.dextrSuccess(msg.labels);
-                            }
-                        },
-                        dataType: 'json'
-                    });
-                };
-            {% else %}
-                var dextr_request = null;
-            {% endif %}
-
-            var tool = new labelling_tool.DjangoLabeller(
-                {{ labelling_schema | as_json | safe }},
-                {{ tasks | as_json | safe }},
-                {{ anno_controls | as_json | safe }},
-                {{ image_descriptors | as_json | safe }},
-                {{ initial_image_index | safe }},
-                get_labels,
-                update_labels,
-                get_unlocked_image_id,
-                dextr_request,
-                {{ dextr_polling_interval | safe }},
-                {{ labelling_tool_config | as_json | safe }}
-            );
-        });
-
-
-        // CSRF Token setup
-        var csrftoken = Cookies.get('csrftoken');
-{#        var csrftoken = '{{ csrf_token }}';#}
-        if (csrftoken != null) {
-            // Adapted from Django DOCS
-            function csrfSafeMethod(method) {
-                // these HTTP methods do not require CSRF protection
-                return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
-            }
-
-            $.ajaxSetup({
-                beforeSend: function(xhr, settings) {
-                    if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
-                        xhr.setRequestHeader("X-CSRFToken", csrftoken);
-                    }
-                }
-            });
+    // CSRF Token setup
+    var csrftoken = Cookies.get('csrftoken');
+{#    var csrftoken = '{{ csrf_token }}';#}
+    if (csrftoken != null) {
+        // Adapted from Django DOCS
+        function csrfSafeMethod(method) {
+            // these HTTP methods do not require CSRF protection
+            return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
         }
-    })();
+
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+    }
+
+    // The Django based web API uses a class-based view at a single URL for all interaction with
+    // the client side tool.
+    // Here we define the callbacks that connect the `LabellingTool` instance with the
+    // server side API.
+    var get_labels = function(image_id) {
+        $.ajax({
+            type: 'GET',
+            url: '{{ labelling_tool_url }}' + '?labels_for_image_id=' + image_id,
+            success: function(response) {
+                if (response.error === undefined) {
+                    tool.loadLabels(response, null);
+                }
+            },
+            dataType: 'json'
+        });
+    };
+
+    {% if enable_locking %}
+        var get_unlocked_image_id = function(image_ids) {
+            var request = {
+                'image_ids': image_ids
+            };
+            var request_str = JSON.stringify(request);
+
+            // Create the POST data
+            var post_data = {
+                get_unlocked_image_id: request_str
+            };
+
+            $.ajax({
+                type: 'POST',
+                url: '{{ labelling_tool_url }}',
+                data: post_data,
+                success: function(response) {
+                    if (response.error === undefined) {
+                        if (response.image_id !== null) {
+                            tool.goToImageById(response.image_id);
+                        }
+                    }
+                },
+                dataType: 'json'
+            });
+        };
+    {% else %}
+        var get_unlocked_image_id = null;
+    {% endif %}
+
+    var update_labels = function(label_header) {
+        var labels_json_str = JSON.stringify(label_header);
+
+        // Create the POST data
+        var post_data = {
+            labels: labels_json_str
+        };
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ labelling_tool_url }}',
+            data: post_data,
+            success: function(msg) {
+                tool.notifyLabelUpdateResponse(msg);
+            },
+            dataType: 'json'
+        });
+    };
+
+    {% if dextr_available %}
+        // set labels callback function
+        var dextr_request = function(dextr_request) {
+            // Create the POST data
+            var post_data = {
+                dextr: JSON.stringify(dextr_request)
+            };
+
+            $.ajax({
+                type: 'POST',
+                url: '{{ labelling_tool_url }}',
+                data: post_data,
+                success: function(msg) {
+                    if (msg.labels !== undefined) {
+                        tool.dextrSuccess(msg.labels);
+                    }
+                },
+                dataType: 'json'
+            });
+        };
+    {% else %}
+        var dextr_request = null;
+    {% endif %}
+
+    var tool = new DjangoLabeller(
+        {{ labelling_schema | as_json | safe }},
+        {{ tasks | as_json | safe }},
+        {{ anno_controls | as_json | safe }},
+        {{ image_descriptors | as_json | safe }},
+        {{ initial_image_index | safe }},
+        get_labels,
+        update_labels,
+        get_unlocked_image_id,
+        dextr_request,
+        {{ dextr_polling_interval | safe }},
+        {{ labelling_tool_config | as_json | safe }}
+    );
 </script>

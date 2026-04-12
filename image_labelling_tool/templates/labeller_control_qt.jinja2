@@ -15,7 +15,9 @@
 
     {% include "inline/labeller_app.html" %}
 
-    <script>
+    <script type="module">
+        import { DjangoLabeller } from '/static/labelling_tool/labelling_tool.bundle.js';
+
         new QWebChannel(qt.webChannelTransport, function (channel) {
             var qt_tool = channel.objects.qt_tool;
 
@@ -52,7 +54,7 @@
 
             // Create the labelling tool
             // Give it: label classes, dimensions, image descriptors, initial image ID and the callbacks above
-            var tool = new labelling_tool.DjangoLabeller(
+            var tool = new DjangoLabeller(
                 qt_tool._tool_schema.value,
                 qt_tool._tool_anno_tasks.value,
                 qt_tool._tool_anno_controls.value,
